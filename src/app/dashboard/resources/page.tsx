@@ -103,9 +103,18 @@ export default function ResourcesPage() {
                     )}
                     <TableCell className="hidden lg:table-cell">{file.uploadDate}</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <a href={file.url} download={file.name}><Download className="mr-2 h-4 w-4" /> Descargar</a>
-                      </Button>
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={file.url || '#'} target="_blank" rel="noopener noreferrer">
+                            <Eye className="mr-2 h-4 w-4" /> Visualizar
+                          </a>
+                        </Button>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={file.url || '#'} download={file.name}>
+                            <Download className="mr-2 h-4 w-4" /> Descargar
+                          </a>
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
