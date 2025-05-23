@@ -9,8 +9,8 @@ export default function AuthLayout({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 selection:bg-primary/40 selection:text-white">
       {children}
       <Image
-        src="/alprigrama_watermark.png"
-        alt="Alprigrama S.A.S Watermark"
+        src="/Logo-Manchas-SAS (2).png"
+        alt="Alprigrama S.A.S"
         width={800} // Ancho original de la imagen
         height={742} // Alto original de la imagen
         className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"

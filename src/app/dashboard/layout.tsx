@@ -93,8 +93,8 @@ export default function DashboardLayout({
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8"> {/* Añadido relative aquí */}
             {children}
             <Image
-              src="/alprigrama_watermark.png"
-              alt="Alprigrama S.A.S Watermark"
+              src="/Logo-Manchas-SAS (2).png"
+              alt="Alprigrama S.A.S"
               width={800} // Ancho original de la imagen
               height={742} // Alto original de la imagen
               className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
