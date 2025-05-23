@@ -10,7 +10,6 @@ import {
   Settings,
   GraduationCap,
   BarChart3,
-  UploadCloud,
   FolderArchive,
   MessageSquare,
   LifeBuoy,
@@ -18,7 +17,7 @@ import {
   ChevronRight,
   Shield, 
   User as UserIconLucide, 
-  CalendarDays, // Added CalendarDays
+  CalendarDays,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -38,7 +37,7 @@ import {
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
+import { useSessionRole } from '@/app/dashboard/layout'; 
 
 interface NavItem {
   href?: string; 
@@ -47,10 +46,11 @@ interface NavItem {
   roles?: string[]; 
   children?: NavItem[];
   badge?: string;
+  isDashboardLink?: boolean; // Para identificar el enlace del Panel Principal
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
+  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'], isDashboardLink: true },
   {
     label: 'Gestión',
     icon: Users, 
@@ -92,6 +92,15 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
+  const getRoleSpecificDashboardPath = () => {
+    switch (currentSessionRole) {
+      case 'administrador': return '/dashboard/admin';
+      case 'instructor': return '/dashboard/instructor';
+      case 'estudiante':
+      default: return '/dashboard/student';
+    }
+  };
+
   const filteredNavItems = navItems.filter(item => 
     !item.roles || item.roles.includes(currentSessionRole)
   ).map(item => ({
@@ -105,6 +114,8 @@ export function AppSidebarNav() {
   
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
+      const effectiveHref = item.isDashboardLink ? getRoleSpecificDashboardPath() : item.href;
+
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         
@@ -144,19 +155,19 @@ export function AppSidebarNav() {
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       return (
-        <SidebarMenuItem key={item.href || item.label}>
+        <SidebarMenuItem key={effectiveHref || item.label}>
           <Comp
             asChild
-            isActive={item.href ? pathname === item.href : false}
+            isActive={effectiveHref ? pathname === effectiveHref : false}
             tooltip={item.label}
           >
-            <Link href={item.href || '#'}>
+            <Link href={effectiveHref || '#'}>
               <item.icon className="h-4 w-4" />
               <span>{item.label}</span>
               {item.badge && (
                 <span className={cn(
                   "ml-auto inline-block rounded-full px-2 py-0.5 text-xs",
-                  item.href && pathname === item.href ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
+                  effectiveHref && pathname === effectiveHref ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
                 )}>
                   {item.badge}
                 </span>
@@ -172,7 +183,7 @@ export function AppSidebarNav() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+        <Link href={getRoleSpecificDashboardPath()} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
           <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
         </Link>

@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; // Removed usePathname, role comes from context
+import { useRouter } from 'next/navigation'; 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,35 +14,40 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIconLucide, ShieldCheck, BookOpen, GraduationCap } from 'lucide-react';
+import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap } from 'lucide-react';
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
-import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
+import { useSessionRole } from '@/app/dashboard/layout'; 
 
 export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const { currentSessionRole } = useSessionRole(); // Consume the role from context
+  const { currentSessionRole } = useSessionRole(); 
 
   let profileLinkPath: string;
-  let roleDisplay: string = "Estudiante"; // Default
+  let roleDisplay: string = "Estudiante"; 
+  let dashboardPath: string = "/dashboard/student";
 
   switch (currentSessionRole) {
     case 'administrador':
       roleDisplay = 'Administrador';
-      profileLinkPath = '/dashboard/admin';
+      profileLinkPath = '/dashboard/admin'; // Perfil de admin es su propio dashboard
+      dashboardPath = '/dashboard/admin';
       break;
     case 'instructor':
       roleDisplay = 'Instructor';
-      profileLinkPath = '/dashboard/instructor';
+      profileLinkPath = '/dashboard/instructor'; // Perfil de instructor es su propio dashboard
+      dashboardPath = '/dashboard/instructor';
       break;
     case 'estudiante':
       roleDisplay = 'Estudiante';
-      profileLinkPath = '/dashboard/student';
+      profileLinkPath = '/dashboard/student/profile'; // Estudiante tiene página de perfil dedicada
+      dashboardPath = '/dashboard/student';
       break;
     default:
-      profileLinkPath = '/dashboard/student'; // Fallback
+      profileLinkPath = '/dashboard/student/profile'; // Fallback
+      dashboardPath = '/dashboard/student';
   }
   
   const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
@@ -54,7 +59,7 @@ export function AppHeader() {
   const getRoleIcon = (role: string) => {
     switch (role.toLowerCase()) {
       case 'administrador':
-        return <ShieldCheck className="mr-2 h-4 w-4" />;
+        return <Shield className="mr-2 h-4 w-4" />;
       case 'instructor':
         return <BookOpen className="mr-2 h-4 w-4" />;
       case 'estudiante':
@@ -68,7 +73,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       {isMobile && <SidebarTrigger />}
       {!isMobile && (
-         <Link href="/dashboard" className="hidden items-center gap-2 md:flex">
+         <Link href={dashboardPath} className="hidden items-center gap-2 md:flex">
             <Logo className="h-8 w-auto" href={null} />
          </Link>
       )}
