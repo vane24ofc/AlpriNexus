@@ -8,7 +8,7 @@ interface LogoProps {
 }
 
 export function Logo({ href = "/", className }: LogoProps) {
-  const imageSrc = "/alprinexus-logo.png"; // Make sure to save your logo here
+  const imageSrc = "/width"; // Make sure to save your logo here
   const imageWidth = 413; // Actual width of your new logo image
   const imageHeight = 326; // Actual height of your new logo image
 
