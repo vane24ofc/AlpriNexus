@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -27,12 +28,12 @@ import { Logo } from '@/components/common/logo';
 import { Mail, Lock, User } from 'lucide-react';
 
 const formSchema = z.object({
-  fullName: z.string().min(2, { message: 'Full name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Invalid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  fullName: z.string().min(2, { message: 'El nombre completo debe tener al menos 2 caracteres.' }),
+  email: z.string().email({ message: 'Dirección de correo inválida.' }),
+  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
+  message: "Las contraseñas no coinciden",
   path: ["confirmPassword"], // path of error
 });
 
@@ -59,8 +60,8 @@ export default function RegisterPage() {
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="items-center text-center">
         <Logo className="mb-4 h-10 w-auto" />
-        <CardTitle className="text-3xl font-bold">Create Account</CardTitle>
-        <CardDescription>Join AlpriNexus to start your learning journey.</CardDescription>
+        <CardTitle className="text-3xl font-bold">Crear Cuenta</CardTitle>
+        <CardDescription>Únete a AlpriNexus para comenzar tu viaje de aprendizaje.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -70,11 +71,11 @@ export default function RegisterPage() {
               name="fullName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Full Name</FormLabel>
+                  <FormLabel>Nombre Completo</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="John Doe" {...field} className="pl-10" />
+                      <Input placeholder="Juan Pérez" {...field} className="pl-10" />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -86,11 +87,11 @@ export default function RegisterPage() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Email</FormLabel>
+                  <FormLabel>Correo Electrónico</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                      <Input placeholder="you@example.com" {...field} className="pl-10" />
+                      <Input placeholder="tu@ejemplo.com" {...field} className="pl-10" />
                     </div>
                   </FormControl>
                   <FormMessage />
@@ -102,7 +103,7 @@ export default function RegisterPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
+                  <FormLabel>Contraseña</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -118,7 +119,7 @@ export default function RegisterPage() {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
+                  <FormLabel>Confirmar Contraseña</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -130,16 +131,16 @@ export default function RegisterPage() {
               )}
             />
             <Button type="submit" className="w-full text-lg">
-              Register
+              Registrarse
             </Button>
           </form>
         </Form>
       </CardContent>
       <CardFooter className="flex-col items-center">
         <p className="text-sm text-muted-foreground">
-          Already have an account?{' '}
+          ¿Ya tienes una cuenta?{' '}
           <Link href="/login" className="font-semibold text-primary hover:underline">
-            Login
+            Iniciar Sesión
           </Link>
         </p>
       </CardFooter>

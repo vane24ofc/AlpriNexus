@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -23,7 +24,7 @@ export function AppHeader() {
   const { isMobile } = useSidebar(); // Get sidebar context if needed
 
   // Placeholder user data and logout function
-  const user = { name: 'Demo User', email: 'demo@example.com', role: 'Student', avatar: 'https://placehold.co/100x100.png' };
+  const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: 'Estudiante', avatar: 'https://placehold.co/100x100.png' };
   const handleLogout = () => {
     // Perform logout logic here
     router.push('/login');
@@ -31,11 +32,11 @@ export function AppHeader() {
 
   const getRoleIcon = (role: string) => {
     switch (role.toLowerCase()) {
-      case 'admin':
+      case 'administrador':
         return <ShieldCheck className="mr-2 h-4 w-4" />;
       case 'instructor':
         return <BookOpen className="mr-2 h-4 w-4" />;
-      case 'student':
+      case 'estudiante':
         return <GraduationCap className="mr-2 h-4 w-4" />;
       default:
         return <UserIcon className="mr-2 h-4 w-4" />;
@@ -57,7 +58,7 @@ export function AppHeader() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Search courses, users..."
+              placeholder="Buscar cursos, usuarios..."
               className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-input"
             />
           </div>
@@ -84,16 +85,16 @@ export function AppHeader() {
             <DropdownMenuSeparator />
              <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/student')}> {/* Assuming profile is under student route for demo */}
                 {getRoleIcon(user.role)}
-                <span>{user.role} Profile</span>
+                <span>Perfil de {user.role}</span>
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('#')}>
               <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
+              <span>Configuración</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="cursor-pointer text-red-500 hover:!text-red-500 hover:!bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" onSelect={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
-              <span>Logout</span>
+              <span>Cerrar Sesión</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -1,3 +1,4 @@
+
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, PlusCircle, MessageSquare, BarChart } from "lucide-react";
@@ -5,19 +6,19 @@ import Link from "next/link";
 
 export default function InstructorDashboardPage() {
   const stats = [
-    { title: "My Courses", value: "12", icon: BookOpen, link: "#" },
-    { title: "Total Students", value: "350", icon: Users, link: "#" },
-    { title: "Pending Reviews", value: "8", icon: MessageSquare, link: "#" },
-    { title: "Average Rating", value: "4.7/5", icon: BarChart, link: "#" },
+    { title: "Mis Cursos", value: "12", icon: BookOpen, link: "#" },
+    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" },
+    { title: "Revisiones Pendientes", value: "8", icon: MessageSquare, link: "#" },
+    { title: "Calificación Promedio", value: "4.7/5", icon: BarChart, link: "#" },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Instructor Dashboard</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Panel de Instructor</h1>
         <Button asChild className="bg-primary hover:bg-primary/90">
           <Link href="/dashboard/resources">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create New Course
+            <PlusCircle className="mr-2 h-5 w-5" /> Crear Nuevo Curso
           </Link>
         </Button>
       </div>
@@ -32,7 +33,7 @@ export default function InstructorDashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
               <Button variant="link" size="sm" asChild className="px-0 -ml-1 text-primary">
-                <Link href={stat.link}>View details</Link>
+                <Link href={stat.link}>Ver detalles</Link>
               </Button>
             </CardContent>
           </Card>
@@ -42,30 +43,30 @@ export default function InstructorDashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 shadow-lg">
           <CardHeader>
-            <CardTitle>My Active Courses</CardTitle>
-            <CardDescription>Overview of your currently active courses.</CardDescription>
+            <CardTitle>Mis Cursos Activos</CardTitle>
+            <CardDescription>Resumen de tus cursos actualmente activos.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-4">
               {[
-                { id: "c1", name: "Advanced JavaScript", students: 120, progress: 75, lastUpdate: "2 days ago" },
-                { id: "c2", name: "Data Structures in Python", students: 85, progress: 40, lastUpdate: "5 days ago" },
-                { id: "c3", name: "Machine Learning Fundamentals", students: 145, progress: 60, lastUpdate: "Yesterday" },
+                { id: "c1", name: "JavaScript Avanzado", students: 120, progress: 75, lastUpdate: "hace 2 días" },
+                { id: "c2", name: "Estructuras de Datos en Python", students: 85, progress: 40, lastUpdate: "hace 5 días" },
+                { id: "c3", name: "Fundamentos de Machine Learning", students: 145, progress: 60, lastUpdate: "Ayer" },
               ].map((course) => (
                 <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-semibold text-lg">{course.name}</h3>
-                      <p className="text-sm text-muted-foreground">{course.students} students enrolled</p>
+                      <p className="text-sm text-muted-foreground">{course.students} estudiantes inscritos</p>
                     </div>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href="#">Manage</Link>
+                      <Link href="#">Gestionar</Link>
                     </Button>
                   </div>
                   <div className="mt-2">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progress: {course.progress}%</span>
-                      <span>Last Update: {course.lastUpdate}</span>
+                      <span>Progreso: {course.progress}%</span>
+                      <span>Última Actualización: {course.lastUpdate}</span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2.5">
                       <div className="bg-primary h-2.5 rounded-full" style={{ width: `${course.progress}%` }}></div>
@@ -79,19 +80,19 @@ export default function InstructorDashboardPage() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Recent Student Feedback</CardTitle>
-            <CardDescription>Latest comments and ratings from students.</CardDescription>
+            <CardTitle>Comentarios Recientes de Estudiantes</CardTitle>
+            <CardDescription>Últimos comentarios y calificaciones de los estudiantes.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
               {[
-                { student: "Emily R.", course: "Advanced JS", comment: "Great course, very detailed!", rating: 5, time: "1h ago" },
-                { student: "John B.", course: "Python DSA", comment: "Challenging but rewarding.", rating: 4, time: "3h ago" },
-                { student: "Sarah K.", course: "ML Intro", comment: "Needs more examples in chapter 3.", rating: 3, time: "Yesterday" },
+                { student: "Emily R.", course: "JS Avanzado", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
+                { student: "John B.", course: "Python DSA", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
+                { student: "Sarah K.", course: "Intro ML", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
               ].map((feedback, index) => (
                 <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold">{feedback.student} on <span className="text-primary">{feedback.course}</span></span>
+                    <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
                     <span className="text-xs text-muted-foreground">{feedback.time}</span>
                   </div>
                   <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -40,7 +41,7 @@ export function FileUploader() {
           clearInterval(interval);
           setFiles(prev =>
             prev.map(f =>
-              f.id === uploadedFile.id ? { ...f, progress: 100, status: Math.random() > 0.2 ? 'success' : 'error', error: Math.random() <= 0.2 ? 'Upload failed: Network issue' : undefined } : f
+              f.id === uploadedFile.id ? { ...f, progress: 100, status: Math.random() > 0.2 ? 'success' : 'error', error: Math.random() <= 0.2 ? 'Fallo al subir: Problema de red' : undefined } : f
             )
           );
         } else {
@@ -74,7 +75,7 @@ export function FileUploader() {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']; // Standard abbreviations, often not translated
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
@@ -82,8 +83,8 @@ export function FileUploader() {
   return (
     <Card className="w-full shadow-xl">
       <CardHeader>
-        <CardTitle>Upload Resources</CardTitle>
-        <CardDescription>Drag and drop files or click to browse. Supports images, PDFs, videos, and documents.</CardDescription>
+        <CardTitle>Subir Recursos</CardTitle>
+        <CardDescription>Arrastra y suelta archivos o haz clic para buscar. Admite imágenes, PDF, videos y documentos.</CardDescription>
       </CardHeader>
       <CardContent>
         <div
@@ -94,18 +95,18 @@ export function FileUploader() {
           <input {...getInputProps()} />
           <UploadCloud className={`w-16 h-16 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
           {isDragActive ? (
-            <p className="text-lg font-semibold text-primary">Drop the files here ...</p>
+            <p className="text-lg font-semibold text-primary">Suelta los archivos aquí...</p>
           ) : (
             <>
-              <p className="text-lg font-semibold">Drag & drop files here, or click to select files</p>
-              <p className="text-sm text-muted-foreground">Max file size: 50MB</p>
+              <p className="text-lg font-semibold">Arrastra y suelta archivos aquí, o haz clic para seleccionar archivos</p>
+              <p className="text-sm text-muted-foreground">Tamaño máximo de archivo: 50MB</p>
             </>
           )}
         </div>
 
         {files.length > 0 && (
           <div className="mt-6">
-            <h4 className="text-lg font-semibold mb-3">Uploaded Files ({files.length})</h4>
+            <h4 className="text-lg font-semibold mb-3">Archivos Subidos ({files.length})</h4>
             <ScrollArea className="h-[200px] pr-3">
               <ul className="space-y-3">
                 {files.map(uploadedFile => (
@@ -119,12 +120,12 @@ export function FileUploader() {
                       )}
                       {uploadedFile.status === 'success' && (
                         <Badge variant="default" className="mt-1 bg-accent text-accent-foreground">
-                          <CheckCircle className="w-3 h-3 mr-1" /> Success
+                          <CheckCircle className="w-3 h-3 mr-1" /> Éxito
                         </Badge>
                       )}
                       {uploadedFile.status === 'error' && (
                         <Badge variant="destructive" className="mt-1">
-                          <XCircle className="w-3 h-3 mr-1" /> Error: {uploadedFile.error || 'Upload failed'}
+                          <XCircle className="w-3 h-3 mr-1" /> Error: {uploadedFile.error || 'Fallo al subir'}
                         </Badge>
                       )}
                     </div>
@@ -144,8 +145,8 @@ export function FileUploader() {
         )}
          {files.length > 0 && (
             <div className="mt-6 flex justify-end gap-2">
-                 <Button variant="outline" onClick={() => setFiles([])}>Clear All</Button>
-                 <Button className="bg-primary hover:bg-primary/90">Start Upload ({files.filter(f => f.status === 'uploading' && f.progress < 100).length})</Button>
+                 <Button variant="outline" onClick={() => setFiles([])}>Limpiar Todo</Button>
+                 <Button className="bg-primary hover:bg-primary/90">Iniciar Subida ({files.filter(f => f.status === 'uploading' && f.progress < 100).length})</Button>
             </div>
         )}
       </CardContent>

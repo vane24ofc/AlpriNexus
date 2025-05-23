@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Bell, CheckCircle, AlertTriangle, MessageCircle } from 'lucide-react';
@@ -23,11 +24,11 @@ interface Notification {
 }
 
 const mockNotifications: Notification[] = [
-  { id: '1', type: 'course', title: 'New Course Available!', description: 'Advanced JavaScript course has been added.', timestamp: '2m ago', read: false, link: '/dashboard/student' },
-  { id: '2', type: 'message', title: 'Message from Instructor', description: 'Your assignment has been graded.', timestamp: '1h ago', read: false, link: '#' },
-  { id: '3', type: 'alert', title: 'Maintenance Scheduled', description: 'System maintenance on Sunday at 2 AM.', timestamp: '3h ago', read: true, link: '#' },
-  { id: '4', type: 'update', title: 'Profile Updated', description: 'Your profile information was successfully updated.', timestamp: '1d ago', read: true, link: '/dashboard/student' },
-   { id: '5', type: 'course', title: 'Enrollment Confirmation', description: 'You are now enrolled in "Intro to Python".', timestamp: '2d ago', read: true, link: '/dashboard/student' },
+  { id: '1', type: 'course', title: '¡Nuevo Curso Disponible!', description: 'Se ha añadido el curso de JavaScript Avanzado.', timestamp: 'hace 2m', read: false, link: '/dashboard/student' },
+  { id: '2', type: 'message', title: 'Mensaje del Instructor', description: 'Tu tarea ha sido calificada.', timestamp: 'hace 1h', read: false, link: '#' },
+  { id: '3', type: 'alert', title: 'Mantenimiento Programado', description: 'Mantenimiento del sistema el domingo a las 2 AM.', timestamp: 'hace 3h', read: true, link: '#' },
+  { id: '4', type: 'update', title: 'Perfil Actualizado', description: 'La información de tu perfil se actualizó correctamente.', timestamp: 'hace 1d', read: true, link: '/dashboard/student' },
+  { id: '5', type: 'course', title: 'Confirmación de Inscripción', description: 'Ahora estás inscrito en "Introducción a Python".', timestamp: 'hace 2d', read: true, link: '/dashboard/student' },
 ];
 
 function NotificationItem({ notification }: { notification: Notification }) {
@@ -53,7 +54,7 @@ function NotificationItem({ notification }: { notification: Notification }) {
           <p className="text-xs text-muted-foreground">{notification.timestamp}</p>
         </div>
         <p className={`text-sm ${notification.read ? 'text-muted-foreground/80' : 'text-foreground/90'}`}>{notification.description}</p>
-        {notification.link && <a href={notification.link} className="text-xs text-primary hover:underline">View details</a>}
+        {notification.link && <a href={notification.link} className="text-xs text-primary hover:underline">Ver detalles</a>}
       </div>
     </div>
   );
@@ -72,23 +73,23 @@ export function NotificationIcon() {
               {unreadCount}
             </Badge>
           )}
-          <span className="sr-only">Open notifications</span>
+          <span className="sr-only">Abrir notificaciones</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 md:w-96 p-0" align="end">
         <div className="p-4">
-          <h3 className="text-lg font-medium">Notifications</h3>
+          <h3 className="text-lg font-medium">Notificaciones</h3>
         </div>
         <Separator />
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-2 m-2">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread</TabsTrigger>
+            <TabsTrigger value="all">Todas</TabsTrigger>
+            <TabsTrigger value="unread">No Leídas</TabsTrigger>
           </TabsList>
           <ScrollArea className="h-[300px] md:h-[400px]">
             <TabsContent value="all" className="mt-0">
               {mockNotifications.length === 0 ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">No notifications yet.</p>
+                <p className="p-4 text-center text-sm text-muted-foreground">Aún no hay notificaciones.</p>
               ) : (
                 mockNotifications.map((notification) => (
                   <NotificationItem key={notification.id} notification={notification} />
@@ -97,7 +98,7 @@ export function NotificationIcon() {
             </TabsContent>
             <TabsContent value="unread" className="mt-0">
               {mockNotifications.filter(n => !n.read).length === 0 ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">No unread notifications.</p>
+                <p className="p-4 text-center text-sm text-muted-foreground">No hay notificaciones no leídas.</p>
               ) : (
                 mockNotifications.filter(n => !n.read).map((notification) => (
                   <NotificationItem key={notification.id} notification={notification} />
@@ -109,7 +110,7 @@ export function NotificationIcon() {
         <Separator />
         <div className="p-2 text-center">
           <Button variant="link" size="sm" className="text-primary">
-            Mark all as read
+            Marcar todas como leídas
           </Button>
         </div>
       </PopoverContent>

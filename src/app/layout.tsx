@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
@@ -9,8 +10,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'AlpriNexus - Learning Platform',
-  description: 'A modern learning platform for students, instructors, and administrators.',
+  title: 'AlpriNexus - Plataforma de Aprendizaje',
+  description: 'Una plataforma de aprendizaje moderna para estudiantes, instructores y administradores.',
 };
 
 export default function RootLayout({
@@ -19,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="es" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}
         <Toaster />

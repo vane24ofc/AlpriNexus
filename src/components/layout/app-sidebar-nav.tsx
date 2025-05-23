@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -15,6 +16,8 @@ import {
   LifeBuoy,
   ChevronDown,
   ChevronRight,
+  Shield, // Using Shield for Admin Overview as ShieldCheck is custom
+  User as UserIconLucide, // Renaming to avoid conflict with custom User
 } from 'lucide-react';
 import {
   Sidebar,
@@ -37,54 +40,54 @@ import React, { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
-  href: string;
+  href?: string; // Optional if it's a parent item
   label: string;
   icon: React.ElementType;
-  roles?: string[]; // 'admin', 'instructor', 'student'
+  roles?: string[]; // 'administrador', 'instructor', 'estudiante'
   children?: NavItem[];
   badge?: string;
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'instructor', 'student'] },
+  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
-    label: 'Management',
-    icon: Users,
-    roles: ['admin'],
+    label: 'Gestión',
+    icon: Users, // Changed to a generic icon as ShieldCheck was custom
+    roles: ['administrador'],
     children: [
-      { href: '/dashboard/admin', label: 'Admin Overview', icon: ShieldCheck },
-      { href: '/dashboard/admin/users', label: 'User Management', icon: Users },
-      { href: '/dashboard/admin/courses', label: 'Course Management', icon: BookOpen },
+      { href: '/dashboard/admin', label: 'Resumen de Admin', icon: Shield },
+      { href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
+      { href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
     ],
   },
   {
-    label: 'Instructor Tools',
-    icon: BookOpen, // Re-using BookOpen as a general instructor icon
+    label: 'Herramientas de Instructor',
+    icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { href: '/dashboard/instructor', label: 'My Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/instructor/my-courses', label: 'My Courses', icon: BookOpen },
-      { href: '/dashboard/instructor/students', label: 'My Students', icon: Users },
-      { href: '/dashboard/resources', label: 'Upload Content', icon: UploadCloud, roles: ['instructor', 'admin'] },
+      { href: '/dashboard/instructor', label: 'Mi Panel', icon: LayoutDashboard },
+      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen },
+      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users },
+      { href: '/dashboard/resources', label: 'Subir Contenido', icon: UploadCloud, roles: ['instructor', 'administrador'] },
     ],
   },
   {
-    label: 'Student Portal',
+    label: 'Portal del Estudiante',
     icon: GraduationCap,
-    roles: ['student'],
+    roles: ['estudiante'],
     children: [
-      { href: '/dashboard/student', label: 'My Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/student/my-courses', label: 'Enrolled Courses', icon: BookOpen },
-      { href: '/dashboard/student/progress', label: 'My Progress', icon: BarChart3 },
-      { href: '/dashboard/student/profile', label: 'My Profile', icon: User },
+      { href: '/dashboard/student', label: 'Mi Panel', icon: LayoutDashboard },
+      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen },
+      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 },
+      { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
-  { href: '/dashboard/resources', label: 'Resources', icon: FolderArchive, roles: ['admin', 'instructor', 'student'], badge: "New" },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings, roles: ['admin', 'instructor', 'student'] },
+  { href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
 // Mock current user role
-const currentUserRole = 'student'; // Change this to 'admin', 'instructor', or 'student' to test
+const currentUserRole = 'estudiante'; // Change this to 'administrador', 'instructor', or 'estudiante' to test
 
 export function AppSidebarNav() {
   const pathname = usePathname();
@@ -105,13 +108,25 @@ export function AppSidebarNav() {
     return items.map((item) => {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        const isOpen = openSubmenus[item.label] || false;
+        const isOpen = openSubmenus[item.label] || item.children.some(child => child.href && pathname.startsWith(child.href)); // Keep submenu open if a child is active
+        
+        // Initialize open state based on active child for first render
+        React.useEffect(() => {
+          if (item.children.some(child => child.href && pathname.startsWith(child.href))) {
+            if (!openSubmenus[item.label]) { // Only set if not already explicitly toggled
+                 setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
+            }
+          }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [pathname, item.label, item.children]);
+
+
         return (
           <SidebarMenuItem key={item.label}>
             <Comp
               onClick={() => toggleSubmenu(item.label)}
               className="justify-between"
-              isActive={item.children.some(child => pathname === child.href)}
+              isActive={item.children.some(child => child.href && pathname === child.href)}
               aria-expanded={isOpen}
             >
               <div className="flex items-center gap-2">
@@ -131,19 +146,19 @@ export function AppSidebarNav() {
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       return (
-        <SidebarMenuItem key={item.href}>
+        <SidebarMenuItem key={item.href || item.label}>
           <Comp
             asChild
-            isActive={pathname === item.href}
+            isActive={item.href ? pathname === item.href : false}
             tooltip={item.label}
           >
-            <Link href={item.href}>
+            <Link href={item.href || '#'}>
               <item.icon className="h-4 w-4" />
               <span>{item.label}</span>
               {item.badge && (
                 <span className={cn(
                   "ml-auto inline-block rounded-full px-2 py-0.5 text-xs",
-                  pathname === item.href ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
+                  item.href && pathname === item.href ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
                 )}>
                   {item.badge}
                 </span>
@@ -170,21 +185,21 @@ export function AppSidebarNav() {
         </SidebarMenu>
         
         <SidebarGroup className="mt-auto group-data-[collapsible=icon]:px-0">
-          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Support</SidebarGroupLabel>
+          <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Soporte</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Help & Support">
+                <SidebarMenuButton asChild tooltip="Ayuda y Soporte">
                     <Link href="#">
                         <LifeBuoy />
-                        <span className="group-data-[collapsible=icon]:hidden">Help & Support</span>
+                        <span className="group-data-[collapsible=icon]:hidden">Ayuda y Soporte</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Send Feedback">
+                <SidebarMenuButton asChild tooltip="Enviar Comentarios">
                     <Link href="#">
                         <MessageSquare />
-                        <span className="group-data-[collapsible=icon]:hidden">Send Feedback</span>
+                        <span className="group-data-[collapsible=icon]:hidden">Enviar Comentarios</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
@@ -199,17 +214,4 @@ export function AppSidebarNav() {
       </SidebarFooter>
     </Sidebar>
   );
-}
-
-// Helper icon for Admin Overview
-function ShieldCheck(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
-  )
-}
-// Helper icon for User Profile
-function User(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-  )
 }
