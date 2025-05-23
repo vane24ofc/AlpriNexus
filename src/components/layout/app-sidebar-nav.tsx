@@ -18,6 +18,7 @@ import {
   Shield, 
   User as UserIconLucide, 
   CalendarDays,
+  BarChartBig, // Icono para Métricas
 } from 'lucide-react';
 import {
   Sidebar,
@@ -37,28 +38,28 @@ import {
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { useSessionRole } from '@/app/dashboard/layout'; 
+import { useSessionRole, Role } from '@/app/dashboard/layout'; 
 
 interface NavItem {
   href?: string; 
   label: string;
   icon: React.ElementType;
-  roles?: string[]; 
+  roles?: Role[]; 
   children?: NavItem[];
   badge?: string;
-  isDashboardLink?: boolean; // Para identificar el enlace del Panel Principal
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'], isDashboardLink: true },
+  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
     label: 'Gestión',
-    icon: Users, 
+    icon: Shield, 
     roles: ['administrador'],
     children: [
-      // "Resumen de Admin" ahora es el Panel Principal (/dashboard) para el admin
+      { href: '/dashboard', label: 'Resumen de Admin', icon: LayoutDashboard }, // Apunta al panel unificado
       { href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
       { href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
+      { href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig },
     ],
   },
   {
@@ -66,9 +67,9 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      // "Mi Panel" ahora es el Panel Principal (/dashboard) para el instructor
-      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen },
-      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users },
+      { href: '/dashboard', label: 'Mi Panel', icon: LayoutDashboard }, // Apunta al panel unificado
+      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, // Ruta placeholder, podría ser /dashboard/courses/new o una lista propia
+      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, // Ruta placeholder
     ],
   },
   {
@@ -76,9 +77,9 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      // "Mi Panel" ahora es el Panel Principal (/dashboard) para el estudiante
-      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen },
-      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 },
+      { href: '/dashboard', label: 'Mi Panel', icon: LayoutDashboard }, // Apunta al panel unificado
+      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, // Ruta placeholder
+      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, // Ruta placeholder
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -92,62 +93,68 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  // El "Panel Principal" siempre es /dashboard, que mostrará contenido específico del rol.
-  const dashboardPath = '/dashboard';
+  const dashboardPath = '/dashboard'; // El panel unificado
 
-  // Filtra los items de navegación y sus hijos basado en el rol actual
-  const filteredNavItems = navItems.reduce((acc, item) => {
-    // Si el item no tiene roles definidos o incluye el rol actual
-    if (!item.roles || item.roles.includes(currentSessionRole)) {
-      let newItem = { ...item };
-      // Si es un enlace de "Panel Principal", su href es dashboardPath
-      if (item.isDashboardLink) {
-        newItem.href = dashboardPath;
-      }
+  const getFilteredNavItems = () => {
+    if (!currentSessionRole) return []; // Si el rol aún no está cargado, no mostrar nada o un loader
 
-      // Filtrar hijos
-      if (item.children) {
-        newItem.children = item.children.filter(child => 
-          !child.roles || child.roles.includes(currentSessionRole)
-        ).map(child => {
-          // Ajustar href de hijos que eran paneles específicos (ej. "Resumen Admin") para apuntar a /dashboard
-          if (child.label === "Resumen de Admin" || child.label === "Mi Panel") {
-            return { ...child, href: dashboardPath };
-          }
-          return child;
-        });
-        // Si después de filtrar no quedan hijos, no se añade el grupo si no tiene un href propio
-        if (newItem.children.length === 0 && !newItem.href) {
-          return acc;
+    return navItems.reduce((acc, item) => {
+      if (!item.roles || item.roles.includes(currentSessionRole)) {
+        let newItem = { ...item };
+        
+        // Ajustar href para el panel principal
+        if (item.label === 'Panel Principal') {
+            newItem.href = dashboardPath;
         }
-      }
-      acc.push(newItem);
-    }
-    return acc;
-  }, [] as NavItem[]);
 
+        if (item.children) {
+          newItem.children = item.children.filter(child => 
+            !child.roles || child.roles.includes(currentSessionRole)
+          ).map(child => {
+            // Si el hijo es un "Resumen de Rol" o "Mi Panel", también apunta a /dashboard
+            if (child.label === "Resumen de Admin" || child.label === "Mi Panel") {
+              return { ...child, href: dashboardPath };
+            }
+            return child;
+          });
+          if (newItem.children.length === 0 && !newItem.href) {
+            return acc;
+          }
+        }
+        acc.push(newItem);
+      }
+      return acc;
+    }, [] as NavItem[]);
+  };
+  
+  const filteredNavItems = getFilteredNavItems();
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
+  // Efecto para abrir submenús si un hijo está activo
+  useEffect(() => {
+    const activeSubmenus: Record<string, boolean> = {};
+    filteredNavItems.forEach(item => {
+      if (item.children && item.children.some(child => child.href && pathname.startsWith(child.href))) {
+        activeSubmenus[item.label] = true;
+      }
+    });
+    if (Object.keys(activeSubmenus).length > 0) {
+        setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, currentSessionRole]); // Re-evaluar cuando cambie el rol o la ruta
+
+
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      const effectiveHref = item.href; // href ya está ajustado
+      const effectiveHref = item.href; 
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        
-        let isOpen = openSubmenus[item.label];
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        useEffect(() => { 
-          const isActiveChild = item.children!.some(child => child.href && pathname.startsWith(child.href!));
-          if (isActiveChild && !openSubmenus[item.label]) { 
-             setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
-          }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [pathname, item.label, item.children]);
-
+        const isOpen = openSubmenus[item.label] || false; // Asegurar que isOpen tenga un valor booleano
 
         return (
           <SidebarMenuItem key={item.label}>
@@ -172,7 +179,7 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref && !item.children) return null; // No renderizar si no hay href y no es un grupo
+      if (!effectiveHref && !item.children) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       return (
@@ -245,3 +252,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
