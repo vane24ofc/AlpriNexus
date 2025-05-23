@@ -19,6 +19,7 @@ import {
   User as UserIconLucide, 
   CalendarDays,
   BarChartBig, // Icono para Métricas
+  PlusCircle, // Asegúrate de que PlusCircle esté aquí si se usa
 } from 'lucide-react';
 import {
   Sidebar,
@@ -30,7 +31,7 @@ import {
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  // SidebarMenuSubItem, // No se usa directamente si los items de submenú son SidebarMenuButton
   SidebarSeparator,
   SidebarGroup,
   SidebarGroupLabel,
@@ -56,7 +57,6 @@ const navItems: NavItem[] = [
     icon: Shield, 
     roles: ['administrador'],
     children: [
-      { href: '/dashboard', label: 'Resumen de Admin', icon: LayoutDashboard }, // Apunta al panel unificado
       { href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
       { href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
       { href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig },
@@ -67,9 +67,9 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { href: '/dashboard', label: 'Mi Panel', icon: LayoutDashboard }, // Apunta al panel unificado
-      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, // Ruta placeholder, podría ser /dashboard/courses/new o una lista propia
-      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, // Ruta placeholder
+      { href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
+      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, 
+      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, 
     ],
   },
   {
@@ -77,9 +77,8 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { href: '/dashboard', label: 'Mi Panel', icon: LayoutDashboard }, // Apunta al panel unificado
-      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, // Ruta placeholder
-      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, // Ruta placeholder
+      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, 
+      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, 
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -93,16 +92,15 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  const dashboardPath = '/dashboard'; // El panel unificado
+  const dashboardPath = '/dashboard';
 
-  const getFilteredNavItems = () => {
-    if (!currentSessionRole) return []; // Si el rol aún no está cargado, no mostrar nada o un loader
+  const getFilteredNavItems = (): NavItem[] => {
+    if (!currentSessionRole) return [];
 
     return navItems.reduce((acc, item) => {
       if (!item.roles || item.roles.includes(currentSessionRole)) {
         let newItem = { ...item };
         
-        // Ajustar href para el panel principal
         if (item.label === 'Panel Principal') {
             newItem.href = dashboardPath;
         }
@@ -110,15 +108,9 @@ export function AppSidebarNav() {
         if (item.children) {
           newItem.children = item.children.filter(child => 
             !child.roles || child.roles.includes(currentSessionRole)
-          ).map(child => {
-            // Si el hijo es un "Resumen de Rol" o "Mi Panel", también apunta a /dashboard
-            if (child.label === "Resumen de Admin" || child.label === "Mi Panel") {
-              return { ...child, href: dashboardPath };
-            }
-            return child;
-          });
-          if (newItem.children.length === 0 && !newItem.href) {
-            return acc;
+          );
+          if (newItem.children.length === 0 && !newItem.href) { 
+            return acc; 
           }
         }
         acc.push(newItem);
@@ -133,11 +125,10 @@ export function AppSidebarNav() {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
-  // Efecto para abrir submenús si un hijo está activo
   useEffect(() => {
     const activeSubmenus: Record<string, boolean> = {};
     filteredNavItems.forEach(item => {
-      if (item.children && item.children.some(child => child.href && pathname.startsWith(child.href))) {
+      if (item.children && item.children.some(child => child.href && pathname.startsWith(child.href as string))) {
         activeSubmenus[item.label] = true;
       }
     });
@@ -145,7 +136,7 @@ export function AppSidebarNav() {
         setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, currentSessionRole]); // Re-evaluar cuando cambie el rol o la ruta
+  }, [pathname, currentSessionRole]); 
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
@@ -154,14 +145,17 @@ export function AppSidebarNav() {
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        const isOpen = openSubmenus[item.label] || false; // Asegurar que isOpen tenga un valor booleano
+        const isOpen = openSubmenus[item.label] || false;
+
+        // Un grupo de menú es activo si alguno de sus hijos es activo o si el grupo mismo es la ruta actual (si tiene href)
+        const isGroupActive = (item.href && pathname === item.href) || item.children.some(child => child.href && pathname === child.href);
 
         return (
           <SidebarMenuItem key={item.label}>
             <Comp
               onClick={() => toggleSubmenu(item.label)}
               className="justify-between"
-              isActive={item.children.some(child => child.href && pathname === child.href)}
+              isActive={isGroupActive}
               aria-expanded={isOpen}
             >
               <div className="flex items-center gap-2">
@@ -206,6 +200,22 @@ export function AppSidebarNav() {
       );
     });
   };
+
+  if (!currentSessionRole) {
+    return (
+      <Sidebar collapsible="icon">
+         <SidebarHeader>
+            <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+            <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
+            <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
+            </Link>
+        </SidebarHeader>
+        <SidebarContent>
+            {/* Puedes poner un skeleton loader aquí si lo deseas */}
+        </SidebarContent>
+      </Sidebar>
+    );
+  }
 
 
   return (
@@ -252,4 +262,3 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
-
