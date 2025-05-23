@@ -207,7 +207,7 @@ export function AppSidebarNav() {
          <SidebarHeader>
             <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-            <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
+            <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
             </Link>
         </SidebarHeader>
         <SidebarContent>
@@ -223,7 +223,7 @@ export function AppSidebarNav() {
       <SidebarHeader>
         <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
+          <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>

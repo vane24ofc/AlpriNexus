@@ -183,7 +183,7 @@ export default function LoginPage() {
           alt="Diseño abstracto decorativo" 
           fill
           style={{objectFit: 'cover'}}
-          data-ai-hint="abstract network"
+          data-ai-hint="education learning"
         />
       </div>
     </div>

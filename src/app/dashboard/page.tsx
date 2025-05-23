@@ -321,7 +321,7 @@ export default function DashboardHomePage() {
       // Fallback or a generic welcome if role is somehow not set or unexpected
       return (
           <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Bienvenido a AlpriNexus</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Bienvenido a NexusAlpri</h1>
             <p>Tu panel de control se está cargando o no se ha reconocido tu rol.</p>
           </div>
       );

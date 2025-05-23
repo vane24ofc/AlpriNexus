@@ -182,7 +182,7 @@ export default function RegisterPage() {
           alt="Diseño abstracto decorativo para registro" 
           fill
           style={{objectFit: 'cover'}}
-          data-ai-hint="serene abstract"
+          data-ai-hint="knowledge growth"
         />
       </div>
     </div>
