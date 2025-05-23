@@ -89,15 +89,19 @@ export function AppSidebarNav() {
   const pathname = usePathname();
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
-  let currentUserRole = 'estudiante'; // Default role
+  let currentUserRole: string;
+
+  // Determinar el rol actual del usuario basado en el pathname
+  // Asegurarse de que la comprobación más específica (admin) vaya primero.
   if (pathname.startsWith('/dashboard/admin')) {
     currentUserRole = 'administrador';
   } else if (pathname.startsWith('/dashboard/instructor')) {
     currentUserRole = 'instructor';
   } else if (pathname.startsWith('/dashboard/student')) {
     currentUserRole = 'estudiante';
+  } else { // Por defecto para /dashboard o cualquier otra ruta no específica del panel
+    currentUserRole = 'estudiante'; // O un rol genérico si se prefiere
   }
-
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -115,13 +119,12 @@ export function AppSidebarNav() {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         
-        // Determine if submenu should be open based on current path or explicit toggle
         let isOpen = openSubmenus[item.label];
-        if (isOpen === undefined) { // If not explicitly toggled, check active child
+        if (isOpen === undefined) { 
           isOpen = item.children.some(child => child.href && pathname.startsWith(child.href));
         }
         
-        // Effect to set initial open state based on active child
+        // eslint-disable-next-line react-hooks/rules-of-hooks
         useEffect(() => {
           const isActiveChild = item.children.some(child => child.href && pathname.startsWith(child.href));
           if (isActiveChild && openSubmenus[item.label] === undefined) {
@@ -225,4 +228,3 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
-

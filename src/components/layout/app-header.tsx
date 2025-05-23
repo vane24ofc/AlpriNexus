@@ -22,25 +22,25 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isMobile } = useSidebar(); 
+  const { isMobile } = useSidebar();
 
-  let currentRoleDisplay = 'Estudiante';
-  let profileLinkPath = '/dashboard/student'; 
+  let currentRoleDisplay: string;
+  let profileLinkPath: string;
 
+  // Determinar el rol y el enlace del perfil basado en el pathname
+  // Asegurarse de que la comprobación más específica (admin) vaya primero.
   if (pathname.startsWith('/dashboard/admin')) {
     currentRoleDisplay = 'Administrador';
-    profileLinkPath = '/dashboard/admin'; 
+    profileLinkPath = '/dashboard/admin';
   } else if (pathname.startsWith('/dashboard/instructor')) {
     currentRoleDisplay = 'Instructor';
     profileLinkPath = '/dashboard/instructor';
   } else if (pathname.startsWith('/dashboard/student')) {
     currentRoleDisplay = 'Estudiante';
     profileLinkPath = '/dashboard/student';
-  } else if (pathname === '/dashboard') {
-    // Heuristic for generic dashboard page, default to student or a generic profile if exists
-    // For now, keep student as default if on generic /dashboard
-    currentRoleDisplay = 'Estudiante';
-    profileLinkPath = '/dashboard/student';
+  } else { // Por defecto para /dashboard o cualquier otra ruta no específica del panel
+    currentRoleDisplay = 'Estudiante'; // O un rol genérico si se prefiere
+    profileLinkPath = '/dashboard/student'; // O un enlace de perfil genérico
   }
   
   const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: currentRoleDisplay, avatar: 'https://placehold.co/100x100.png' };
@@ -121,4 +121,3 @@ export function AppHeader() {
     </header>
   );
 }
-
