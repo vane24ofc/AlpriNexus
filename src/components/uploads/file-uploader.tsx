@@ -3,7 +3,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { UploadCloud, FileText, XCircle, CheckCircle, Loader2, Eye, Users, Globe } from 'lucide-react';
+import { UploadCloud, FileText, XCircle, CheckCircle, Loader2, Eye, Users, Globe, Briefcase, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -11,8 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useSessionRole } from '@/app/dashboard/layout';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
+type FileCategory = 'company' | 'learning';
 
 interface UploadedFile {
   file: File;
@@ -21,6 +23,7 @@ interface UploadedFile {
   status: 'uploading' | 'success' | 'error';
   error?: string;
   visibility: FileVisibility;
+  category: FileCategory;
 }
 
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
@@ -29,27 +32,46 @@ const visibilityOptions: { value: FileVisibility; label: string; icon: React.Ele
   { value: 'private', label: 'Solo para mí', icon: Eye },
 ];
 
+const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
+  { value: 'learning', label: 'Archivos de Aprendizaje', icon: BookOpen },
+  { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
+];
+
 export function FileUploader() {
+  const { currentSessionRole } = useSessionRole();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedVisibility, setSelectedVisibility] = useState<FileVisibility>('public');
+  const [selectedCategory, setSelectedCategory] = useState<FileCategory>('learning');
+
+  const isAdmin = currentSessionRole === 'administrador';
+  const isInstructor = currentSessionRole === 'instructor';
+
+  useEffect(() => {
+    // Si es instructor, la categoría siempre es 'learning'
+    if (isInstructor) {
+      setSelectedCategory('learning');
+    }
+  }, [isInstructor]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles: UploadedFile[] = acceptedFiles.map(file => ({
       file,
-      id: Math.random().toString(36).substring(7), // Simple unique ID
+      id: Math.random().toString(36).substring(7),
       progress: 0,
       status: 'uploading',
-      visibility: selectedVisibility,
+      // Si la categoría es 'company', la visibilidad es implícitamente 'private' (para administradores)
+      // En otros casos, se usa la seleccionada.
+      visibility: selectedCategory === 'company' ? 'private' : selectedVisibility,
+      category: selectedCategory,
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
-  }, [selectedVisibility]);
+  }, [selectedVisibility, selectedCategory]);
 
   useEffect(() => {
-    // Simulate upload progress for new files
     files.filter(f => f.status === 'uploading' && f.progress === 0).forEach(uploadedFile => {
       let currentProgress = 0;
       const interval = setInterval(() => {
-        currentProgress += Math.floor(Math.random() * 10) + 10; // Simulate variable progress
+        currentProgress += Math.floor(Math.random() * 10) + 10;
         if (currentProgress >= 100) {
           clearInterval(interval);
           setFiles(prev =>
@@ -62,10 +84,9 @@ export function FileUploader() {
             prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: currentProgress } : f))
           );
         }
-      }, 200 + Math.random() * 300); // Randomize interval for more realistic simulation
+      }, 200 + Math.random() * 300);
     });
   }, [files]);
-
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -97,30 +118,72 @@ export function FileUploader() {
     return visibilityOptions.find(opt => opt.value === visibility)?.label || 'Desconocido';
   };
 
+  const getCategoryLabel = (category: FileCategory) => {
+    return categoryOptions.find(opt => opt.value === category)?.label || 'Desconocido';
+  };
+
   return (
     <Card className="w-full shadow-xl">
       <CardHeader>
         <CardTitle>Subir Recursos</CardTitle>
-        <CardDescription>Selecciona la visibilidad, luego arrastra y suelta archivos o haz clic para buscar. Admite imágenes, PDF, videos y documentos.</CardDescription>
+        <CardDescription>
+          {isAdmin && "Selecciona la categoría y visibilidad, luego arrastra y suelta archivos o haz clic para buscar."}
+          {isInstructor && "Selecciona la visibilidad (los archivos se subirán a 'Archivos de Aprendizaje'), luego arrastra y suelta archivos o haz clic para buscar."}
+          {" Admite imágenes, PDF, videos y documentos."}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 space-y-2">
-          <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
-          <Select value={selectedVisibility} onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}>
-            <SelectTrigger id="visibility-select" className="w-full md:w-1/2">
-              <SelectValue placeholder="Seleccionar visibilidad" />
-            </SelectTrigger>
-            <SelectContent>
-              {visibilityOptions.map(opt => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  <div className="flex items-center">
-                    <opt.icon className="w-4 h-4 mr-2" />
-                    {opt.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {isAdmin && (
+            <div className="space-y-2">
+              <Label htmlFor="category-select" className="text-base font-medium">Categoría del Recurso:</Label>
+              <Select value={selectedCategory} onValueChange={(value: FileCategory) => setSelectedCategory(value)}>
+                <SelectTrigger id="category-select">
+                  <SelectValue placeholder="Seleccionar categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex items-center">
+                        <opt.icon className="w-4 h-4 mr-2" />
+                        {opt.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* El selector de visibilidad se oculta si la categoría es 'company' (solo para admins) */}
+          { (isAdmin && selectedCategory === 'learning') || isInstructor ? (
+            <div className="space-y-2">
+              <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
+              <Select value={selectedVisibility} onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}>
+                <SelectTrigger id="visibility-select">
+                  <SelectValue placeholder="Seleccionar visibilidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {visibilityOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex items-center">
+                        <opt.icon className="w-4 h-4 mr-2" />
+                        {opt.label}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : isAdmin && selectedCategory === 'company' ? (
+            <div className="space-y-2">
+                <Label className="text-base font-medium">Visibilidad:</Label>
+                <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted">
+                    <Users className="w-4 h-4 mr-2 inline-block" />
+                    Automáticamente visible solo para Administradores.
+                </p>
+            </div>
+          ) : null }
         </div>
 
         <div
@@ -150,27 +213,38 @@ export function FileUploader() {
                     <FileText className="w-8 h-8 text-primary shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{uploadedFile.file.name}</p>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 flex-wrap gap-y-1 mt-1">
                         <p className="text-xs text-muted-foreground">{formatBytes(uploadedFile.file.size)}</p>
-                        <Badge variant="outline" className="text-xs">
-                           {getVisibilityLabel(uploadedFile.visibility)}
+                        <Badge variant="outline" className="text-xs capitalize">
+                           Categoría: {getCategoryLabel(uploadedFile.category)}
                         </Badge>
+                        {/* La visibilidad para 'company' es implícita, no mostramos el selector */}
+                        {uploadedFile.category === 'learning' && (
+                             <Badge variant="secondary" className="text-xs capitalize">
+                                Visibilidad: {getVisibilityLabel(uploadedFile.visibility)}
+                             </Badge>
+                        )}
+                         {uploadedFile.category === 'company' && (
+                             <Badge variant="secondary" className="text-xs">
+                                <Users className="w-3 h-3 mr-1"/> Solo Administradores
+                             </Badge>
+                        )}
                       </div>
                       {uploadedFile.status === 'uploading' && uploadedFile.progress < 100 && (
-                        <Progress value={uploadedFile.progress} className="h-1.5 mt-1" />
+                        <Progress value={uploadedFile.progress} className="h-1.5 mt-2" />
                       )}
                       {uploadedFile.status === 'success' && (
-                        <Badge variant="default" className="mt-1 bg-accent text-accent-foreground">
+                        <Badge variant="default" className="mt-2 bg-accent text-accent-foreground">
                           <CheckCircle className="w-3 h-3 mr-1" /> Éxito (Simulado)
                         </Badge>
                       )}
                       {uploadedFile.status === 'error' && (
-                        <Badge variant="destructive" className="mt-1">
+                        <Badge variant="destructive" className="mt-2">
                           <XCircle className="w-3 h-3 mr-1" /> Error: {uploadedFile.error || 'Fallo al subir'}
                         </Badge>
                       )}
                        {uploadedFile.status === 'uploading' && uploadedFile.progress === 100 && uploadedFile.status !== 'success' && uploadedFile.status !== 'error' && (
-                        <Badge variant="default" className="mt-1 bg-blue-500 text-white">
+                        <Badge variant="default" className="mt-2 bg-blue-500 text-white">
                             <CheckCircle className="w-3 h-3 mr-1" /> Procesando...
                         </Badge>
                        )}
