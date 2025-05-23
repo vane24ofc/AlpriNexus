@@ -48,6 +48,8 @@ export default function RegisterPage() {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
+    // En una app real, aquí se registraría al usuario y luego se redirigiría.
+    // Por ahora, solo redirige a la página de login.
     router.push('/login');
   }
 
@@ -59,7 +61,7 @@ export default function RegisterPage() {
           <Logo className="mb-6 h-9 w-auto" href="/" />
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Crear Cuenta</h1>
           <p className="mt-2 mb-8 text-muted-foreground">
-            Únete a NexusAlpri para comenzar tu viaje de aprendizaje.
+            Únete a NexusAlpri para comenzar tu viaje de aprendizaje corporativo.
           </p>
 
           <Form {...form}>
@@ -182,7 +184,7 @@ export default function RegisterPage() {
           alt="Diseño abstracto decorativo para registro" 
           fill
           style={{objectFit: 'cover'}}
-          data-ai-hint="knowledge growth"
+          data-ai-hint="employee onboarding"
         />
       </div>
     </div>
