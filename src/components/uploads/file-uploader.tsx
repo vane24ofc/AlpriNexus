@@ -29,7 +29,7 @@ interface UploadedFile {
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe },
   { value: 'instructors', label: 'Instructores y Administradores', icon: Users },
-  { value: 'private', label: 'Solo para mí', icon: Eye },
+  { value: 'private', label: 'Solo para mí (o solo Admins para Rec. Empresa)', icon: Eye },
 ];
 
 const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
@@ -45,9 +45,10 @@ export function FileUploader() {
 
   const isAdmin = currentSessionRole === 'administrador';
   const isInstructor = currentSessionRole === 'instructor';
+  const canUpload = isAdmin || isInstructor;
 
   useEffect(() => {
-    // Si es instructor, la categoría siempre es 'learning'
+    // Si es instructor, la categoría siempre es 'learning' y no puede cambiarla.
     if (isInstructor) {
       setSelectedCategory('learning');
     }
@@ -59,9 +60,7 @@ export function FileUploader() {
       id: Math.random().toString(36).substring(7),
       progress: 0,
       status: 'uploading',
-      // Si la categoría es 'company', la visibilidad es implícitamente 'private' (para administradores)
-      // En otros casos, se usa la seleccionada.
-      visibility: selectedCategory === 'company' ? 'private' : selectedVisibility,
+      visibility: selectedVisibility, // Usar siempre la visibilidad seleccionada
       category: selectedCategory,
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
@@ -122,6 +121,8 @@ export function FileUploader() {
     return categoryOptions.find(opt => opt.value === category)?.label || 'Desconocido';
   };
 
+  if (!canUpload) return null; // No mostrar nada si no puede subir
+
   return (
     <Card className="w-full shadow-xl">
       <CardHeader>
@@ -134,7 +135,7 @@ export function FileUploader() {
       </CardHeader>
       <CardContent>
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-          {isAdmin && (
+          {isAdmin && ( // Solo los admins pueden cambiar la categoría
             <div className="space-y-2">
               <Label htmlFor="category-select" className="text-base font-medium">Categoría del Recurso:</Label>
               <Select value={selectedCategory} onValueChange={(value: FileCategory) => setSelectedCategory(value)}>
@@ -155,35 +156,39 @@ export function FileUploader() {
             </div>
           )}
 
-          {/* El selector de visibilidad se oculta si la categoría es 'company' (solo para admins) */}
-          { (isAdmin && selectedCategory === 'learning') || isInstructor ? (
-            <div className="space-y-2">
-              <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
-              <Select value={selectedVisibility} onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}>
-                <SelectTrigger id="visibility-select">
-                  <SelectValue placeholder="Seleccionar visibilidad" />
-                </SelectTrigger>
-                <SelectContent>
-                  {visibilityOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <div className="flex items-center">
-                        <opt.icon className="w-4 h-4 mr-2" />
-                        {opt.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : isAdmin && selectedCategory === 'company' ? (
-            <div className="space-y-2">
-                <Label className="text-base font-medium">Visibilidad:</Label>
-                <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted">
-                    <Users className="w-4 h-4 mr-2 inline-block" />
-                    Automáticamente visible solo para Administradores.
+          {/* Instructores no ven selector de categoría, se asume "Archivos de Aprendizaje" */}
+          {isInstructor && (
+             <div className="space-y-2">
+                <Label className="text-base font-medium">Categoría del Recurso:</Label>
+                <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted flex items-center">
+                    <BookOpen className="w-4 h-4 mr-2"/>
+                    Archivos de Aprendizaje (Automático)
                 </p>
             </div>
-          ) : null }
+          )}
+
+          {/* Admins e Instructores pueden seleccionar visibilidad */}
+          <div className="space-y-2">
+            <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
+            <Select value={selectedVisibility} onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}>
+              <SelectTrigger id="visibility-select">
+                <SelectValue placeholder="Seleccionar visibilidad" />
+              </SelectTrigger>
+              <SelectContent>
+                {visibilityOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    <div className="flex items-center">
+                      <opt.icon className="w-4 h-4 mr-2" />
+                      {opt.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isAdmin && selectedCategory === 'company' && selectedVisibility === 'private' && (
+                 <p className="text-xs text-muted-foreground pl-1">Nota: 'Solo para mí' en 'Recursos de la Empresa' significa visible solo para Administradores.</p>
+            )}
+          </div>
         </div>
 
         <div
@@ -218,17 +223,9 @@ export function FileUploader() {
                         <Badge variant="outline" className="text-xs capitalize">
                            Categoría: {getCategoryLabel(uploadedFile.category)}
                         </Badge>
-                        {/* La visibilidad para 'company' es implícita, no mostramos el selector */}
-                        {uploadedFile.category === 'learning' && (
-                             <Badge variant="secondary" className="text-xs capitalize">
-                                Visibilidad: {getVisibilityLabel(uploadedFile.visibility)}
-                             </Badge>
-                        )}
-                         {uploadedFile.category === 'company' && (
-                             <Badge variant="secondary" className="text-xs">
-                                <Users className="w-3 h-3 mr-1"/> Solo Administradores
-                             </Badge>
-                        )}
+                        <Badge variant="secondary" className="text-xs capitalize">
+                           Visibilidad: {getVisibilityLabel(uploadedFile.visibility)}
+                        </Badge>
                       </div>
                       {uploadedFile.status === 'uploading' && uploadedFile.progress < 100 && (
                         <Progress value={uploadedFile.progress} className="h-1.5 mt-2" />

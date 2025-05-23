@@ -1,14 +1,14 @@
 
 "use client";
 
-import React from 'react'; // Removed useState, useEffect, usePathname as role comes from context
+import React from 'react';
 import { FileUploader } from "@/components/uploads/file-uploader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
+import { useSessionRole } from '@/app/dashboard/layout';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 
@@ -19,13 +19,14 @@ interface ResourceFile {
   size: string;
   uploadDate: string;
   url?: string; 
-  visibility: FileVisibility;
+  visibility: FileVisibility; // Aseguramos que visibility siempre esté presente
 }
 
-const sampleCompanyResources: Omit<ResourceFile, 'visibility'>[] = [
-  { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#' },
-  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#' },
-  { id: 'cr3', name: 'Guía de Marca AlpriNexus.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#' },
+const sampleCompanyResources: ResourceFile[] = [
+  { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors' },
+  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private' }, // 'private' aquí significa solo admin
+  { id: 'cr3', name: 'Guía de Marca AlpriNexus.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public' },
+  { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public'},
 ];
 
 const sampleLearningResources: ResourceFile[] = [
@@ -44,20 +45,30 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 
 export default function ResourcesPage() {
-  const { currentSessionRole } = useSessionRole(); // Consume role from context
+  const { currentSessionRole } = useSessionRole(); 
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
-  const filteredLearningResources = sampleLearningResources.filter(file => {
+  const filteredCompanyResources = sampleCompanyResources.filter(file => {
+    if (currentSessionRole === 'administrador') return true; // Admin ve todos los recursos de la empresa
     if (file.visibility === 'public') return true;
-    if (file.visibility === 'instructors' && (currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) return true;
-    // For 'private' in sample data: only visible to admins/instructors.
-    // In a real app, this would check if the current user is the owner of the file.
-    if (file.visibility === 'private' && (currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) return true;
+    if (file.visibility === 'instructors' && currentSessionRole === 'instructor') return true;
+    // 'private' en company resources implica que solo el admin los puede ver (ya cubierto)
     return false;
   });
 
-  const renderResourceTable = (files: (Omit<ResourceFile, 'visibility'> | ResourceFile)[], title: string, description: string, icon: React.ElementType, showVisibilityCol: boolean = false) => (
+  const filteredLearningResources = sampleLearningResources.filter(file => {
+    if (file.visibility === 'public') return true;
+    if ((currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) {
+      if (file.visibility === 'instructors') return true;
+      // Para 'private' en learning resources: en una app real, se validaría si es el dueño.
+      // Por ahora, si es admin/instructor, puede ver los 'private' de ejemplo.
+      if (file.visibility === 'private') return true; 
+    }
+    return false;
+  });
+
+  const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType, showVisibilityCol: boolean = false) => (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center">
@@ -81,7 +92,7 @@ export default function ResourcesPage() {
             </TableHeader>
             <TableBody>
               {files.map((file) => {
-                const displayInfo = 'visibility' in file ? visibilityDisplay[file.visibility as FileVisibility] : null;
+                const displayInfo = visibilityDisplay[file.visibility];
                 const VisibilityIcon = displayInfo?.icon;
                 
                 return (
@@ -123,7 +134,7 @@ export default function ResourcesPage() {
           </Table>
         ) : (
           <p className="text-muted-foreground text-center py-8">
-            No hay archivos disponibles en esta sección.
+            No hay archivos disponibles en esta sección para tu rol actual.
           </p>
         )}
       </CardContent>
@@ -137,8 +148,8 @@ export default function ResourcesPage() {
           <CardTitle className="text-3xl font-bold tracking-tight">Gestión de Recursos</CardTitle>
           <CardDescription>
             {canUpload
-              ? "Sube y gestiona los materiales de tu curso, documentos y otros recursos. Los estudiantes podrán visualizar los 'Archivos de Aprendizaje' según su visibilidad."
-              : "Visualiza y descarga los archivos de aprendizaje disponibles para tus cursos."}
+              ? "Sube y gestiona los materiales de tu curso, documentos y otros recursos. Controla la visibilidad para cada categoría."
+              : "Visualiza y descarga los archivos y recursos disponibles."}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -146,13 +157,15 @@ export default function ResourcesPage() {
       {canUpload && (
         <FileUploader />
       )}
-
-      {currentSessionRole === 'administrador' && 
-        renderResourceTable(
-            sampleCompanyResources, 
-            "Recursos de la Empresa", 
-            "Archivos importantes y documentos internos de la organización. Visible solo para administradores.",
-            Shield
+      
+      {renderResourceTable(
+        filteredCompanyResources, 
+        "Recursos de la Empresa", 
+        currentSessionRole === 'administrador' 
+          ? "Archivos importantes y documentos internos de la organización. Gestiona la visibilidad según sea necesario."
+          : "Documentos y recursos generales de la empresa disponibles para ti.",
+        Shield,
+        true // Siempre mostrar columna de visibilidad para recursos de empresa
       )}
       
       {renderResourceTable(
@@ -160,7 +173,7 @@ export default function ResourcesPage() {
         "Archivos de Aprendizaje",
         "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada.",
         BookOpen,
-        true // Show visibility column
+        true // Mostrar columna de visibilidad
       )}
     </div>
   );
