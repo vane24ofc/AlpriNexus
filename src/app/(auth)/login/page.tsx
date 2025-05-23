@@ -54,7 +54,13 @@ export default function LoginPage() {
       <CardHeader className="items-center text-center">
         <Logo className="mb-4 h-10 w-auto" />
         <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
-        <CardDescription>Sign in to access your AlpriNexus account.</CardDescription>
+        <CardDescription>
+          Sign in to access your AlpriNexus account.
+          <br />
+          <span className="text-xs text-muted-foreground">
+            (Test with: demo@example.com / password)
+          </span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
