@@ -61,7 +61,7 @@ export default function RegisterPage() {
           <Logo className="mb-6 h-9 w-auto" href="/" />
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Crear Cuenta</h1>
           <p className="mt-2 mb-8 text-muted-foreground">
-            Únete a NexusAlpri para comenzar tu viaje de aprendizaje corporativo.
+            Únete a AlpriNexus para comenzar tu viaje de aprendizaje corporativo.
           </p>
 
           <Form {...form}>
