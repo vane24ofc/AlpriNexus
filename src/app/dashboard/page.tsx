@@ -1,21 +1,50 @@
 
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, BookOpen, Users, Activity } from "lucide-react";
-import Image from "next/image";
+import { useSessionRole } from '@/app/dashboard/layout'; // Importar el hook
 
 export default function DashboardHomePage() {
-  // This could be dynamic based on user role
-  const userName = "Usuario Demo"; 
-  const role = "Estudiante"; // or 'Instructor', 'Administrador'
+  const { currentSessionRole } = useSessionRole(); // Obtener el rol de la sesión
 
-  const quickLinks = [
-    { title: "Mis Cursos", translatedTitle: "mis cursos", href: "/dashboard/student/my-courses", icon: BookOpen, roles: ['estudiante', 'instructor'] },
-    { title: "Gestión de Usuarios", translatedTitle: "gestión de usuarios", href: "/dashboard/admin/users", icon: Users, roles: ['administrador'] },
+  const userName = "Usuario Demo"; // Podría ser dinámico en una app real
+
+  let displayRole: string;
+  switch (currentSessionRole) {
+    case 'administrador':
+      displayRole = 'Administrador';
+      break;
+    case 'instructor':
+      displayRole = 'Instructor';
+      break;
+    case 'estudiante':
+    default:
+      displayRole = 'Estudiante';
+      break;
+  }
+
+  const allQuickLinks = [
+    // Enlaces para Estudiantes
+    { title: "Mis Cursos", translatedTitle: "mis cursos", href: "/dashboard/student/my-courses", icon: BookOpen, roles: ['estudiante'] },
     { title: "Ver Progreso", translatedTitle: "ver progreso", href: "/dashboard/student/progress", icon: BarChart, roles: ['estudiante'] },
-    { title: "Subir Recursos", translatedTitle: "subir recursos", href: "/dashboard/resources", icon: Activity, roles: ['administrador', 'instructor'] },
-  ].filter(link => link.roles.includes(role.toLowerCase()));
+
+    // Enlaces para Instructores
+    { title: "Mis Cursos", translatedTitle: "mis cursos", href: "/dashboard/instructor/my-courses", icon: BookOpen, roles: ['instructor'] },
+    // "Subir Recursos" es compartido, ver abajo
+
+    // Enlaces para Administradores
+    { title: "Gestión de Usuarios", translatedTitle: "gestión de usuarios", href: "/dashboard/admin/users", icon: Users, roles: ['administrador'] },
+    { title: "Gestión de Cursos", translatedTitle: "gestión de cursos", href: "/dashboard/admin/courses", icon: BookOpen, roles: ['administrador'] },
+    
+    // Enlaces Compartidos
+    { title: "Subir Recursos", translatedTitle: "subir recursos", href: "/dashboard/resources", icon: Activity, roles: ['instructor', 'administrador'] },
+  ];
+
+  const quickLinks = allQuickLinks.filter(link => link.roles.includes(currentSessionRole));
 
 
   return (
@@ -24,7 +53,7 @@ export default function DashboardHomePage() {
         <CardHeader>
           <CardTitle className="text-3xl md:text-4xl font-bold">¡Bienvenido de nuevo, {userName}!</CardTitle>
           <CardDescription className="text-lg text-muted-foreground">
-            Has iniciado sesión como {role}. Aquí&apos;s un resumen rápido de tu panel de AlpriNexus.
+            Has iniciado sesión como {displayRole}. Aquí tienes un resumen rápido de tu panel de AlpriNexus.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -36,7 +65,7 @@ export default function DashboardHomePage() {
               <h3 className="text-xl font-semibold mb-3">Enlaces Rápidos:</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {quickLinks.map(link => (
-                  <Button key={link.title} variant="outline" asChild className="justify-start p-6 text-left h-auto hover:bg-primary/10 hover:border-primary">
+                  <Button key={link.href + link.title} variant="outline" asChild className="justify-start p-6 text-left h-auto hover:bg-primary/10 hover:border-primary">
                     <Link href={link.href}>
                       <link.icon className="mr-3 h-6 w-6 text-primary" />
                       <div>
