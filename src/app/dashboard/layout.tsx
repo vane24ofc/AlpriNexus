@@ -6,12 +6,12 @@ import { usePathname } from 'next/navigation';
 import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { Loader2 } from 'lucide-react'; // For loading state
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
 interface SessionRoleContextType {
-  currentSessionRole: Role;
-  setCurrentSessionRole_DO_NOT_USE_DIRECTLY?: (role: Role) => void; // For internal layout use if ever needed
+  currentSessionRole: Role | null; // Allow null during loading
 }
 
 const SessionRoleContext = createContext<SessionRoleContextType | undefined>(undefined);
@@ -30,55 +30,64 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  
-  const [currentSessionRole, setCurrentSessionRole] = useState<Role>(() => {
-    if (typeof window !== 'undefined') {
-      const storedRole = localStorage.getItem('sessionRole') as Role;
-      if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-        return storedRole;
-      }
-    }
-    return 'estudiante'; // Default if nothing in localStorage or SSR
-  });
+  const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
+  const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
-    // This effect primarily handles role changes based on direct navigation to specific role paths
-    // (e.g., /dashboard/admin) and ensures localStorage is updated.
-    // It also re-confirms role from localStorage if path is generic and role state might be stale.
+    // This effect runs only on the client after mount
+    const storedRole = localStorage.getItem('sessionRole') as Role;
+    let determinedRole: Role = 'estudiante'; // Default role
 
+    if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
+      determinedRole = storedRole; // Use stored role if valid
+    }
+    
+    // Check if the current path implies a specific role
+    // Path-based role takes precedence and updates localStorage if different.
     let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
       roleFromPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
       roleFromPath = 'instructor';
     } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
-      //  Ensure /dashboard/student/profile doesn't incorrectly set role to 'estudiante' if current role is different
-      //  and user is just visiting their profile.
-      //  The main student dashboard is /dashboard/student or just /dashboard if role is student.
-      //  The page /dashboard handles displaying student content if role is student.
+      // Ensure profile page doesn't override if user is admin/instructor visiting student profile
+      // This specific condition might need refinement based on how student profiles are accessed by other roles.
+      // For now, if it's clearly a student section path, set role to student.
       roleFromPath = 'estudiante';
     }
 
-    if (roleFromPath) {
-      // If path implies a specific role
-      if (roleFromPath !== currentSessionRole) {
-        setCurrentSessionRole(roleFromPath);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sessionRole', roleFromPath);
-        }
-      }
-    } else {
-      // If path is generic (e.g., /dashboard, /dashboard/resources, /dashboard/calendar)
-      // Ensure currentSessionRole is aligned with localStorage.
-      // This is a safeguard, as initialState function for useState should handle initial load.
-      if (typeof window !== 'undefined') {
-        const storedRole = localStorage.getItem('sessionRole') as Role;
-        if (storedRole && storedRole !== currentSessionRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-           setCurrentSessionRole(storedRole);
-        }
-      }
+    if (roleFromPath && roleFromPath !== determinedRole) {
+        determinedRole = roleFromPath;
+        localStorage.setItem('sessionRole', determinedRole);
+    } else if (!roleFromPath && !storedRole) {
+        // If path is generic (e.g. /dashboard) AND there was no stored role,
+        // ensure default 'estudiante' is stored.
+        localStorage.setItem('sessionRole', determinedRole); 
     }
-  }, [pathname, currentSessionRole]); // currentSessionRole in dependency to re-sync localStorage if it changes internally.
+    
+    setCurrentSessionRole(determinedRole);
+    setIsLoadingRole(false);
+
+  }, [pathname]); // Re-evaluate when path changes
+
+  if (isLoadingRole) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando panel...</p>
+      </div>
+    );
+  }
+  
+  // Fallback if role determination fails, though 'estudiante' default should prevent currentSessionRole from being null here
+  if (!currentSessionRole) {
+     return (
+      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
+        <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
+        {/* Optionally, add a button to redirect to login */}
+      </div>
+     );
+  }
 
   return (
     <SessionRoleContext.Provider value={{ currentSessionRole }}>
