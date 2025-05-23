@@ -37,6 +37,7 @@ import {
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
 
 interface NavItem {
   href?: string; 
@@ -67,7 +68,7 @@ const navItems: NavItem[] = [
       { href: '/dashboard/instructor', label: 'Mi Panel', icon: LayoutDashboard },
       { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen },
       { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users },
-      { href: '/dashboard/resources', label: 'Subir Contenido', icon: UploadCloud, roles: ['instructor', 'administrador'] },
+      // Removed duplicate "Subir Contenido" as "Recursos" link serves admins/instructors for uploads
     ],
   },
   {
@@ -81,57 +82,42 @@ const navItems: NavItem[] = [
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
+  // The "Recursos" link is now unique and its behavior (upload vs view) is handled on the resources page itself based on role.
   { href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
   { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
 export function AppSidebarNav() {
   const pathname = usePathname();
+  const { currentSessionRole } = useSessionRole(); // Consume role from context
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
-
-  let currentUserRole: string;
-
-  // Determinar el rol actual del usuario basado en el pathname
-  // Asegurarse de que la comprobación más específica (admin) vaya primero.
-  if (pathname.startsWith('/dashboard/admin')) {
-    currentUserRole = 'administrador';
-  } else if (pathname.startsWith('/dashboard/instructor')) {
-    currentUserRole = 'instructor';
-  } else if (pathname.startsWith('/dashboard/student')) {
-    currentUserRole = 'estudiante';
-  } else { // Por defecto para /dashboard o cualquier otra ruta no específica del panel
-    currentUserRole = 'estudiante'; // O un rol genérico si se prefiere
-  }
+  
+  // Filter nav items based on the role from context
+  const filteredNavItems = navItems.filter(item => 
+    !item.roles || item.roles.includes(currentSessionRole)
+  ).map(item => ({
+    ...item,
+    children: item.children?.filter(child => !child.roles || child.roles.includes(currentSessionRole))
+  }));
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
-  const filteredNavItems = navItems.filter(item => 
-    !item.roles || item.roles.includes(currentUserRole)
-  ).map(item => ({
-    ...item,
-    children: item.children?.filter(child => !child.roles || child.roles.includes(currentUserRole))
-  }));
-
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         
         let isOpen = openSubmenus[item.label];
-        if (isOpen === undefined) { 
-          isOpen = item.children.some(child => child.href && pathname.startsWith(child.href));
-        }
-        
         // eslint-disable-next-line react-hooks/rules-of-hooks
-        useEffect(() => {
-          const isActiveChild = item.children.some(child => child.href && pathname.startsWith(child.href));
-          if (isActiveChild && openSubmenus[item.label] === undefined) {
+        useEffect(() => { // Keep useEffect for submenu open state based on active child
+          const isActiveChild = item.children!.some(child => child.href && pathname.startsWith(child.href!));
+          if (isActiveChild && !openSubmenus[item.label]) { // Only set if not already explicitly set
              setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
           }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [pathname, item.label]);
+        }, [pathname, item.label, item.children]);
 
 
         return (

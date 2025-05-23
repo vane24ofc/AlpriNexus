@@ -1,14 +1,14 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { usePathname } from 'next/navigation';
+import React from 'react'; // Removed useState, useEffect, usePathname as role comes from context
 import { FileUploader } from "@/components/uploads/file-uploader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 
@@ -20,10 +20,9 @@ interface ResourceFile {
   uploadDate: string;
   url?: string; 
   visibility: FileVisibility;
-  // uploadedByRole?: 'admin' | 'instructor'; // Para una lógica 'private' más precisa
 }
 
-const sampleCompanyResources: Omit<ResourceFile, 'visibility'>[] = [ // No necesitan visibilidad individual, la sección es admin-only
+const sampleCompanyResources: Omit<ResourceFile, 'visibility'>[] = [
   { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#' },
   { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#' },
   { id: 'cr3', name: 'Guía de Marca AlpriNexus.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#' },
@@ -45,29 +44,16 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 
 export default function ResourcesPage() {
-  const pathname = usePathname();
-  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const { currentSessionRole } = useSessionRole(); // Consume role from context
 
-  useEffect(() => {
-    if (pathname.startsWith('/dashboard/admin')) {
-      setCurrentUserRole('administrador');
-    } else if (pathname.startsWith('/dashboard/instructor')) {
-      setCurrentUserRole('instructor');
-    } else if (pathname.startsWith('/dashboard/student')) {
-      setCurrentUserRole('estudiante');
-    } else {
-      setCurrentUserRole('estudiante'); 
-    }
-  }, [pathname]);
-
-  const canUpload = currentUserRole === 'administrador' || currentUserRole === 'instructor';
+  const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
   const filteredLearningResources = sampleLearningResources.filter(file => {
     if (file.visibility === 'public') return true;
-    if (file.visibility === 'instructors' && (currentUserRole === 'administrador' || currentUserRole === 'instructor')) return true;
-    // Simplificación para 'private' en datos de ejemplo: solo visible para admins/instructors.
-    // En una app real, se necesitaría verificar si el currentUser es el propietario del archivo.
-    if (file.visibility === 'private' && (currentUserRole === 'administrador' || currentUserRole === 'instructor')) return true;
+    if (file.visibility === 'instructors' && (currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) return true;
+    // For 'private' in sample data: only visible to admins/instructors.
+    // In a real app, this would check if the current user is the owner of the file.
+    if (file.visibility === 'private' && (currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) return true;
     return false;
   });
 
@@ -152,7 +138,7 @@ export default function ResourcesPage() {
         <FileUploader />
       )}
 
-      {currentUserRole === 'administrador' && 
+      {currentSessionRole === 'administrador' && 
         renderResourceTable(
             sampleCompanyResources, 
             "Recursos de la Empresa", 
@@ -163,7 +149,7 @@ export default function ResourcesPage() {
       {renderResourceTable(
         filteredLearningResources,
         "Archivos de Aprendizaje",
-        "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada por el cargador.",
+        "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada.",
         BookOpen,
         true // Show visibility column
       )}

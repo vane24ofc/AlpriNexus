@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Removed usePathname, role comes from context
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,36 +14,38 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIcon, ShieldCheck, BookOpen, GraduationCap } from 'lucide-react';
+import { LogOut, Search, Settings, User as UserIconLucide, ShieldCheck, BookOpen, GraduationCap } from 'lucide-react';
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { useSessionRole } from '@/app/dashboard/layout'; // Import the context hook
 
 export function AppHeader() {
   const router = useRouter();
-  const pathname = usePathname();
   const { isMobile } = useSidebar();
+  const { currentSessionRole } = useSessionRole(); // Consume the role from context
 
-  let currentRoleDisplay: string;
   let profileLinkPath: string;
+  let roleDisplay: string = "Estudiante"; // Default
 
-  // Determinar el rol y el enlace del perfil basado en el pathname
-  // Asegurarse de que la comprobación más específica (admin) vaya primero.
-  if (pathname.startsWith('/dashboard/admin')) {
-    currentRoleDisplay = 'Administrador';
-    profileLinkPath = '/dashboard/admin';
-  } else if (pathname.startsWith('/dashboard/instructor')) {
-    currentRoleDisplay = 'Instructor';
-    profileLinkPath = '/dashboard/instructor';
-  } else if (pathname.startsWith('/dashboard/student')) {
-    currentRoleDisplay = 'Estudiante';
-    profileLinkPath = '/dashboard/student';
-  } else { // Por defecto para /dashboard o cualquier otra ruta no específica del panel
-    currentRoleDisplay = 'Estudiante'; // O un rol genérico si se prefiere
-    profileLinkPath = '/dashboard/student'; // O un enlace de perfil genérico
+  switch (currentSessionRole) {
+    case 'administrador':
+      roleDisplay = 'Administrador';
+      profileLinkPath = '/dashboard/admin';
+      break;
+    case 'instructor':
+      roleDisplay = 'Instructor';
+      profileLinkPath = '/dashboard/instructor';
+      break;
+    case 'estudiante':
+      roleDisplay = 'Estudiante';
+      profileLinkPath = '/dashboard/student';
+      break;
+    default:
+      profileLinkPath = '/dashboard/student'; // Fallback
   }
   
-  const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: currentRoleDisplay, avatar: 'https://placehold.co/100x100.png' };
+  const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
 
   const handleLogout = () => {
     router.push('/login');
@@ -58,10 +60,9 @@ export function AppHeader() {
       case 'estudiante':
         return <GraduationCap className="mr-2 h-4 w-4" />;
       default:
-        return <UserIcon className="mr-2 h-4 w-4" />;
+        return <UserIconLucide className="mr-2 h-4 w-4" />;
     }
   };
-
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
@@ -106,7 +107,7 @@ export function AppHeader() {
                 {getRoleIcon(user.role)}
                 <span>Perfil de {user.role}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('#')}>
+            <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/settings')}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Configuración</span>
             </DropdownMenuItem>
