@@ -56,7 +56,7 @@ export default function LoginPage() {
       roleToStore = 'administrador';
     } else if (values.email === 'instructor@example.com') {
       roleToStore = 'instructor';
-    } else if (values.email === 'student@example.com') { // Mantenemos una credencial de estudiante por si acaso
+    } else if (values.email === 'student@example.com') { 
       roleToStore = 'estudiante';
     }
 
@@ -77,8 +77,6 @@ export default function LoginPage() {
             Ingresa para obtener acceso ilimitado a datos e información.
           </p>
           
-          {/* SECCIÓN DE CREDENCIALES DE PRUEBA ELIMINADA */}
-
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
@@ -185,7 +183,7 @@ export default function LoginPage() {
           alt="Diseño abstracto decorativo" 
           fill
           style={{objectFit: 'cover'}}
-          data-ai-hint="abstract geometric colorful pattern"
+          data-ai-hint="abstract network"
         />
       </div>
     </div>
