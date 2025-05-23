@@ -53,7 +53,7 @@ export default function DashboardHomePage() {
         <CardHeader>
           <CardTitle className="text-3xl md:text-4xl font-bold">¡Bienvenido de nuevo, {userName}!</CardTitle>
           <CardDescription className="text-lg text-muted-foreground">
-            Has iniciado sesión como {displayRole}. Aquí tienes un resumen rápido de tu panel de AlpriNexus.
+            Has iniciado sesión como {displayRole}. Aquí tienes un resumen rápido de tu panel de NexusAlpri.
           </CardDescription>
         </CardHeader>
         <CardContent>

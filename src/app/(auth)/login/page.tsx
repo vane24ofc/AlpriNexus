@@ -64,17 +64,9 @@ export default function LoginPage() {
         <Logo className="mb-4 h-10 w-auto" />
         <CardTitle className="text-3xl font-bold">Bienvenido de Nuevo</CardTitle>
         <CardDescription>
-          Inicia sesión para acceder a tu cuenta de AlpriNexus.
+          Inicia sesión para acceder a tu cuenta
           <br />
-          <span className="text-xs text-muted-foreground">
-            Prueba con:
-            <br />
-            Estudiante: student@example.com / password
-            <br />
-            Instructor: instructor@example.com / password
-            <br />
-            Admin: admin@example.com / password
-          </span>
+          
         </CardDescription>
       </CardHeader>
       <CardContent>

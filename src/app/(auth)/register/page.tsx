@@ -61,7 +61,7 @@ export default function RegisterPage() {
       <CardHeader className="items-center text-center">
         <Logo className="mb-4 h-10 w-auto" />
         <CardTitle className="text-3xl font-bold">Crear Cuenta</CardTitle>
-        <CardDescription>Únete a AlpriNexus para comenzar tu viaje de aprendizaje.</CardDescription>
+        <CardDescription>Únete a NexusAlpri para comenzar tu viaje de aprendizaje.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>

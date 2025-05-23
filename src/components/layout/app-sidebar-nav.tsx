@@ -174,7 +174,7 @@ export function AppSidebarNav() {
       <SidebarHeader>
         <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
+          <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>
@@ -207,7 +207,7 @@ export function AppSidebarNav() {
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
-          © {new Date().getFullYear()} AlpriNexus
+          © {new Date().getFullYear()} NexusAlpri
         </div>
       </SidebarFooter>
     </Sidebar>

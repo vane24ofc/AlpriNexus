@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'AlpriNexus - Plataforma de Aprendizaje',
+  title: 'NexusAlpri - Plataforma de Aprendizaje',
   description: 'Una plataforma de aprendizaje moderna para estudiantes, instructores y administradores.',
 };
 

@@ -1,4 +1,4 @@
-# **App Name**: AlpriNexus
+# **App Name**: NexusAlpri
 
 ## Core Features:
 
