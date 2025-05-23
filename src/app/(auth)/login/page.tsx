@@ -58,12 +58,7 @@ export default function LoginPage() {
         <CardDescription>
           Inicia sesión para acceder a tu cuenta de AlpriNexus.
           <br />
-          <span className="mt-2 block text-xs">
-            Prueba con: <br />
-            Admin: <code className="bg-muted px-1 py-0.5 rounded-sm">admin@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code> <br />
-            Instructor: <code className="bg-muted px-1 py-0.5 rounded-sm">instructor@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code> <br />
-            Estudiante: <code className="bg-muted px-1 py-0.5 rounded-sm">student@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code>
-          </span>
+  
         </CardDescription>
       </CardHeader>
       <CardContent>
