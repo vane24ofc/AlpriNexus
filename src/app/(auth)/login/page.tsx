@@ -26,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/common/logo';
 import { Mail, Lock } from 'lucide-react';
+import type { Role } from '@/app/dashboard/layout'; // Import Role type
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
@@ -45,8 +46,23 @@ export default function LoginPage() {
   function onSubmit(values: z.infer<typeof formSchema>) {
     // Simulate login
     console.log(values);
-    // On successful login, redirect to dashboard
-    // The /dashboard page will now handle showing role-specific content
+    
+    let roleToStore: Role = 'estudiante'; // Default role
+
+    if (values.email === 'admin@example.com') {
+      roleToStore = 'administrador';
+    } else if (values.email === 'instructor@example.com') {
+      roleToStore = 'instructor';
+    } else if (values.email === 'student@example.com') {
+      roleToStore = 'estudiante';
+    }
+
+    // Store the role in localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sessionRole', roleToStore);
+    }
+
+    // All roles redirect to /dashboard; DashboardLayout will handle showing correct content
     router.push('/dashboard');
   }
 
@@ -58,7 +74,13 @@ export default function LoginPage() {
         <CardDescription>
           Inicia sesión para acceder a tu cuenta de AlpriNexus.
           <br />
-  
+          <span className="text-xs">
+            Admin: admin@example.com / password
+            <br />
+            Instructor: instructor@example.com / password
+            <br />
+            Estudiante: student@example.com / password
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent>

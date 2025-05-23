@@ -7,10 +7,11 @@ import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 
-type Role = 'administrador' | 'instructor' | 'estudiante';
+export type Role = 'administrador' | 'instructor' | 'estudiante';
 
 interface SessionRoleContextType {
   currentSessionRole: Role;
+  setCurrentSessionRole_DO_NOT_USE_DIRECTLY?: (role: Role) => void; // For internal layout use if ever needed
 }
 
 const SessionRoleContext = createContext<SessionRoleContextType | undefined>(undefined);
@@ -29,30 +30,55 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [currentSessionRole, setCurrentSessionRole] = useState<Role>('estudiante'); // Default
+  
+  const [currentSessionRole, setCurrentSessionRole] = useState<Role>(() => {
+    if (typeof window !== 'undefined') {
+      const storedRole = localStorage.getItem('sessionRole') as Role;
+      if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
+        return storedRole;
+      }
+    }
+    return 'estudiante'; // Default if nothing in localStorage or SSR
+  });
 
   useEffect(() => {
-    let newRoleBasedOnPath: Role | null = null;
+    // This effect primarily handles role changes based on direct navigation to specific role paths
+    // (e.g., /dashboard/admin) and ensures localStorage is updated.
+    // It also re-confirms role from localStorage if path is generic and role state might be stale.
+
+    let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
-      newRoleBasedOnPath = 'administrador';
+      roleFromPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
-      newRoleBasedOnPath = 'instructor';
-    } else if (pathname.startsWith('/dashboard/student')) {
-      newRoleBasedOnPath = 'estudiante';
+      roleFromPath = 'instructor';
+    } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
+      //  Ensure /dashboard/student/profile doesn't incorrectly set role to 'estudiante' if current role is different
+      //  and user is just visiting their profile.
+      //  The main student dashboard is /dashboard/student or just /dashboard if role is student.
+      //  The page /dashboard handles displaying student content if role is student.
+      roleFromPath = 'estudiante';
     }
 
-    // Si la ruta actual define un rol específico (newRoleBasedOnPath no es null)
-    // Y ese rol es diferente del rol actualmente en el estado (currentSessionRole)
-    // Entonces, actualizamos el estado.
-    if (newRoleBasedOnPath && newRoleBasedOnPath !== currentSessionRole) {
-      setCurrentSessionRole(newRoleBasedOnPath);
+    if (roleFromPath) {
+      // If path implies a specific role
+      if (roleFromPath !== currentSessionRole) {
+        setCurrentSessionRole(roleFromPath);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sessionRole', roleFromPath);
+        }
+      }
+    } else {
+      // If path is generic (e.g., /dashboard, /dashboard/resources, /dashboard/calendar)
+      // Ensure currentSessionRole is aligned with localStorage.
+      // This is a safeguard, as initialState function for useState should handle initial load.
+      if (typeof window !== 'undefined') {
+        const storedRole = localStorage.getItem('sessionRole') as Role;
+        if (storedRole && storedRole !== currentSessionRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
+           setCurrentSessionRole(storedRole);
+        }
+      }
     }
-    // Si newRoleBasedOnPath es null (es decir, estamos en una ruta genérica como /resources o /calendar),
-    // no hacemos nada, y currentSessionRole conserva su valor anterior.
-    // Esto asegura que el rol persista durante la navegación a páginas compartidas.
-    // El comportamiento por defecto ('estudiante') se aplica si el usuario llega directamente a
-    // una ruta genérica sin haber establecido un rol previamente desde una ruta específica.
-  }, [pathname, currentSessionRole]); // Es importante incluir currentSessionRole aquí para que el efecto se re-ejecute si el rol cambia por otras razones y necesita ser re-evaluado contra el pathname.
+  }, [pathname, currentSessionRole]); // currentSessionRole in dependency to re-sync localStorage if it changes internally.
 
   return (
     <SessionRoleContext.Provider value={{ currentSessionRole }}>
