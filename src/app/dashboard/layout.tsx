@@ -3,15 +3,16 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image'; // Importar Image
 import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { Loader2 } from 'lucide-react'; // For loading state
+import { Loader2 } from 'lucide-react'; 
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
 interface SessionRoleContextType {
-  currentSessionRole: Role | null; // Allow null during loading
+  currentSessionRole: Role | null; 
 }
 
 const SessionRoleContext = createContext<SessionRoleContextType | undefined>(undefined);
@@ -39,28 +40,24 @@ export default function DashboardLayout({
     let determinedRole: Role = 'estudiante'; // Default role
 
     if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-      determinedRole = storedRole; // Use stored role if valid
+      determinedRole = storedRole; 
     }
     
-    // Check if the current path implies a specific role
-    // Path-based role takes precedence and updates localStorage if different.
+    // Path-based role detection can override or set initial if no localStorage.
     let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
       roleFromPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
       roleFromPath = 'instructor';
     } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
-      // Ensure profile page doesn't override if user is admin/instructor visiting student profile
-      // This specific condition might need refinement based on how student profiles are accessed by other roles.
-      // For now, if it's clearly a student section path, set role to student.
       roleFromPath = 'estudiante';
     }
 
     if (roleFromPath && roleFromPath !== determinedRole) {
         determinedRole = roleFromPath;
-        localStorage.setItem('sessionRole', determinedRole);
+        localStorage.setItem('sessionRole', determinedRole); // Update localStorage if path dictates a change
     } else if (!roleFromPath && !storedRole) {
-        // If path is generic (e.g. /dashboard) AND there was no stored role,
+        // If path is generic (e.g. /dashboard, /calendar) AND there was no stored role,
         // ensure default 'estudiante' is stored.
         localStorage.setItem('sessionRole', determinedRole); 
     }
@@ -68,7 +65,7 @@ export default function DashboardLayout({
     setCurrentSessionRole(determinedRole);
     setIsLoadingRole(false);
 
-  }, [pathname]); // Re-evaluate when path changes
+  }, [pathname]);
 
   if (isLoadingRole) {
     return (
@@ -79,12 +76,10 @@ export default function DashboardLayout({
     );
   }
   
-  // Fallback if role determination fails, though 'estudiante' default should prevent currentSessionRole from being null here
   if (!currentSessionRole) {
      return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
         <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
-        {/* Optionally, add a button to redirect to login */}
       </div>
      );
   }
@@ -95,8 +90,16 @@ export default function DashboardLayout({
         <AppSidebarNav />
         <SidebarInset>
           <AppHeader />
-          <main className="flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+          <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8"> {/* Añadido relative aquí */}
             {children}
+            <Image
+              src="/alprigrama_watermark.png"
+              alt="Alprigrama S.A.S Watermark"
+              width={800} // Ancho original de la imagen
+              height={742} // Alto original de la imagen
+              className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
+              data-ai-hint="brand watermark logo"
+            />
           </main>
         </SidebarInset>
       </SidebarProvider>

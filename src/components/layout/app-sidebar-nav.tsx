@@ -256,7 +256,8 @@ export function AppSidebarNav() {
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
-          © {new Date().getFullYear()} AlpriNexus
+        Copyright Alprigrama S.A.S
+          © {new Date().getFullYear()} Todos los derechos reservados.
         </div>
       </SidebarFooter>
     </Sidebar>
