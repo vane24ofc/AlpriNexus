@@ -32,26 +32,27 @@ export default function DashboardLayout({
   const [currentSessionRole, setCurrentSessionRole] = useState<Role>('estudiante'); // Default
 
   useEffect(() => {
-    let newRole: Role | null = null;
+    let newRoleBasedOnPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
-      newRole = 'administrador';
+      newRoleBasedOnPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
-      newRole = 'instructor';
+      newRoleBasedOnPath = 'instructor';
     } else if (pathname.startsWith('/dashboard/student')) {
-      newRole = 'estudiante';
+      newRoleBasedOnPath = 'estudiante';
     }
 
-    // Solo actualiza el rol si se ha determinado un nuevo rol específico
-    // y es diferente del rol actual.
-    // Si newRole es null (para rutas genéricas como /dashboard/calendar o /dashboard/resources),
-    // el currentSessionRole persistirá desde la última ruta específica de rol visitada.
-    if (newRole && newRole !== currentSessionRole) {
-      setCurrentSessionRole(newRole);
+    // Si la ruta actual define un rol específico (newRoleBasedOnPath no es null)
+    // Y ese rol es diferente del rol actualmente en el estado (currentSessionRole)
+    // Entonces, actualizamos el estado.
+    if (newRoleBasedOnPath && newRoleBasedOnPath !== currentSessionRole) {
+      setCurrentSessionRole(newRoleBasedOnPath);
     }
-    // Si el usuario aterriza directamente en una ruta genérica y el currentSessionRole
-    // es aún el 'estudiante' inicial, se mantendrá como 'estudiante', lo cual es
-    // el comportamiento esperado si no hay contexto de un rol previo.
-  }, [pathname, currentSessionRole]); // Añadido currentSessionRole a las dependencias
+    // Si newRoleBasedOnPath es null (es decir, estamos en una ruta genérica como /resources o /calendar),
+    // no hacemos nada, y currentSessionRole conserva su valor anterior.
+    // Esto asegura que el rol persista durante la navegación a páginas compartidas.
+    // El comportamiento por defecto ('estudiante') se aplica si el usuario llega directamente a
+    // una ruta genérica sin haber establecido un rol previamente desde una ruta específica.
+  }, [pathname, currentSessionRole]); // Es importante incluir currentSessionRole aquí para que el efecto se re-ejecute si el rol cambia por otras razones y necesita ser re-evaluado contra el pathname.
 
   return (
     <SessionRoleContext.Provider value={{ currentSessionRole }}>
