@@ -3,78 +3,56 @@
 @tailwind utilities;
 
 body {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --background: 0 0% 0%; /* #000000 Pure Black */
+    --foreground: 0 0% 88%; /* #E0E0E0 Light Gray */
+
+    --card: 0 0% 10%; /* #1A1A1A Dark Gray for cards */
+    --card-foreground: 0 0% 88%; /* #E0E0E0 Light Gray for card text */
+
+    --popover: 0 0% 7%; /* #121212 Darker Gray for popovers */
+    --popover-foreground: 0 0% 88%; /* #E0E0E0 Light Gray */
+
+    --primary: 223 84% 25%; /* #0A2A77 Sapphire Blue */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF White */
+
+    --secondary: 200 18% 36%; /* #455A64 Deep Blueish Gray (darker variant for secondary elements) */
+    --secondary-foreground: 0 0% 100%; /* #FFFFFF White */
+
+    --muted: 0 0% 13%; /* #212121 A slightly different dark gray for muted elements */
+    --muted-foreground: 0 0% 60%; /* #999999 Medium Gray for muted text */
+
+    --accent: 120 39% 50%; /* #4CAF50 Dark Green */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF White */
+
+    --destructive: 0 72% 51%; /* A brighter red for dark theme */
+    --destructive-foreground: 0 0% 100%; /* White */
+
+    --border: 200 18% 30%; /* #3E5057 Slightly darker version of #455A64 for borders */
+    --input: 0 0% 20%; /* #333333 Dark Gray for input backgrounds */
+    --ring: 223 84% 25%; /* #0A2A77 Sapphire Blue for focus rings */
+
+    --radius: 0.5rem; /* 8px. Buttons/Cards will use rounded-lg (8px). Inputs will use rounded-md (6px) */
+
+    --chart-1: 223 84% 35%; /* Sapphire Blue, lighter shade */
+    --chart-2: 120 39% 40%; /* Dark Green, darker shade */
+    --chart-3: 200 18% 50%; /* Deep Blueish Gray, lighter shade */
+    --chart-4: 34 91% 45%; /* Gold/Bronze like color #B8860B */
+    --chart-5: 0 70% 60%; /* A contrasting red/orange */
+
+    /* Sidebar specific colors, matching the theme */
+    --sidebar-background: 0 0% 7%; /* #121212 Slightly different than main background */
+    --sidebar-foreground: 0 0% 88%; /* #E0E0E0 */
+    --sidebar-primary: 223 84% 25%; /* Sapphire Blue */
+    --sidebar-primary-foreground: 0 0% 100%; /* White */
+    --sidebar-accent: 120 39% 50%; /* Dark Green */
+    --sidebar-accent-foreground: 0 0% 100%; /* White */
+    --sidebar-border: 0 0% 15%; /* #262626 */
+    --sidebar-ring: 223 84% 25%; /* Sapphire Blue */
   }
 }
 
