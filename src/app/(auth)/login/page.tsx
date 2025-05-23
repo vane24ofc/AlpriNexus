@@ -45,8 +45,16 @@ export default function LoginPage() {
     // Simulate login
     console.log(values);
     // On successful login, redirect to dashboard
-    // For now, just log and redirect
-    router.push('/dashboard');
+    // For now, just log and redirect based on email
+    if (values.email.startsWith('student')) {
+      router.push('/dashboard/student');
+    } else if (values.email.startsWith('instructor')) {
+      router.push('/dashboard/instructor');
+    } else if (values.email.startsWith('admin')) {
+      router.push('/dashboard/admin');
+    } else {
+      router.push('/dashboard');
+    }
   }
 
   return (
@@ -58,7 +66,13 @@ export default function LoginPage() {
           Sign in to access your AlpriNexus account.
           <br />
           <span className="text-xs text-muted-foreground">
-            (Test with: demo@example.com / password)
+            Test with:
+            <br />
+            Student: student@example.com / password
+            <br />
+            Instructor: instructor@example.com / password
+            <br />
+            Admin: admin@example.com / password
           </span>
         </CardDescription>
       </CardHeader>
