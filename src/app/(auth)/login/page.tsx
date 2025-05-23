@@ -56,7 +56,7 @@ export default function LoginPage() {
       roleToStore = 'administrador';
     } else if (values.email === 'instructor@example.com') {
       roleToStore = 'instructor';
-    } else if (values.email === 'student@example.com') {
+    } else if (values.email === 'student@example.com') { // Mantenemos una credencial de estudiante por si acaso
       roleToStore = 'estudiante';
     }
 
@@ -77,12 +77,7 @@ export default function LoginPage() {
             Ingresa para obtener acceso ilimitado a datos e información.
           </p>
           
-          <div className="text-xs text-muted-foreground mb-4 p-3 border border-dashed border-border rounded-md bg-background/30">
-            <p className="font-semibold mb-1">Credenciales de prueba:</p>
-            Admin: admin@example.com / password <br />
-            Instructor: instructor@example.com / password <br />
-            Estudiante: student@example.com / password
-          </div>
+          {/* SECCIÓN DE CREDENCIALES DE PRUEBA ELIMINADA */}
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
@@ -186,14 +181,13 @@ export default function LoginPage() {
       {/* Columna Decorativa */}
       <div className="hidden bg-gray-100 md:block md:w-1/2 relative">
         <Image 
-          src="https://placehold.co/800x1000.png" // Placeholder para el arte abstracto
+          src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo" 
-          layout="fill" 
-          objectFit="cover"
+          fill
+          style={{objectFit: 'cover'}}
           data-ai-hint="abstract geometric colorful pattern"
         />
       </div>
     </div>
   );
-
-    
+}
