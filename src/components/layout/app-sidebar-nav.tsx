@@ -185,7 +185,7 @@ export function AppSidebarNav() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-          <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={undefined} />
+          <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
           <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
         </Link>
       </SidebarHeader>

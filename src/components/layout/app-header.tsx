@@ -25,7 +25,7 @@ export function AppHeader() {
   const { isMobile } = useSidebar(); 
 
   let currentRoleDisplay = 'Estudiante';
-  let profileLinkPath = '/dashboard/student'; // Default to student profile
+  let profileLinkPath = '/dashboard/student'; 
 
   if (pathname.startsWith('/dashboard/admin')) {
     currentRoleDisplay = 'Administrador';
@@ -34,6 +34,11 @@ export function AppHeader() {
     currentRoleDisplay = 'Instructor';
     profileLinkPath = '/dashboard/instructor';
   } else if (pathname.startsWith('/dashboard/student')) {
+    currentRoleDisplay = 'Estudiante';
+    profileLinkPath = '/dashboard/student';
+  } else if (pathname === '/dashboard') {
+    // Heuristic for generic dashboard page, default to student or a generic profile if exists
+    // For now, keep student as default if on generic /dashboard
     currentRoleDisplay = 'Estudiante';
     profileLinkPath = '/dashboard/student';
   }
@@ -63,7 +68,7 @@ export function AppHeader() {
       {isMobile && <SidebarTrigger />}
       {!isMobile && (
          <Link href="/dashboard" className="hidden items-center gap-2 md:flex">
-            <Logo className="h-8 w-auto" />
+            <Logo className="h-8 w-auto" href={null} />
          </Link>
       )}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
@@ -116,3 +121,4 @@ export function AppHeader() {
     </header>
   );
 }
+
