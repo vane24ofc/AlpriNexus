@@ -32,16 +32,26 @@ export default function DashboardLayout({
   const [currentSessionRole, setCurrentSessionRole] = useState<Role>('estudiante'); // Default
 
   useEffect(() => {
+    let newRole: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
-      setCurrentSessionRole('administrador');
+      newRole = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
-      setCurrentSessionRole('instructor');
+      newRole = 'instructor';
     } else if (pathname.startsWith('/dashboard/student')) {
-      setCurrentSessionRole('estudiante');
+      newRole = 'estudiante';
     }
-    // If pathname is generic (e.g., /dashboard/resources, /dashboard/settings, /dashboard),
-    // currentSessionRole will retain its value from the last specific path.
-  }, [pathname]);
+
+    // Solo actualiza el rol si se ha determinado un nuevo rol específico
+    // y es diferente del rol actual.
+    // Si newRole es null (para rutas genéricas como /dashboard/calendar o /dashboard/resources),
+    // el currentSessionRole persistirá desde la última ruta específica de rol visitada.
+    if (newRole && newRole !== currentSessionRole) {
+      setCurrentSessionRole(newRole);
+    }
+    // Si el usuario aterriza directamente en una ruta genérica y el currentSessionRole
+    // es aún el 'estudiante' inicial, se mantendrá como 'estudiante', lo cual es
+    // el comportamiento esperado si no hay contexto de un rol previo.
+  }, [pathname, currentSessionRole]); // Añadido currentSessionRole a las dependencias
 
   return (
     <SessionRoleContext.Provider value={{ currentSessionRole }}>
