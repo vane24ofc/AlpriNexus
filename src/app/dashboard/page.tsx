@@ -1,4 +1,5 @@
 
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart, BookOpen, Users, Activity } from "lucide-react";
@@ -36,13 +37,13 @@ export default function DashboardHomePage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {quickLinks.map(link => (
                   <Button key={link.title} variant="outline" asChild className="justify-start p-6 text-left h-auto hover:bg-primary/10 hover:border-primary">
-                    <a href={link.href}>
+                    <Link href={link.href}>
                       <link.icon className="mr-3 h-6 w-6 text-primary" />
                       <div>
                         <p className="font-semibold">{link.title}</p>
                         <p className="text-xs text-muted-foreground">Ir a {link.translatedTitle}</p>
                       </div>
-                    </a>
+                    </Link>
                   </Button>
                 ))}
               </div>
