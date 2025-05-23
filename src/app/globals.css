@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -63,4 +64,41 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom style for calendar event markers */
+.day-with-event-dot {
+  position: relative !important; /* Important to override potential conflicting styles */
+}
+
+.day-with-event-dot::after {
+  content: '';
+  display: block;
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: hsl(var(--primary));
+  z-index: 1; /* Ensure dot is above default day background */
+}
+
+/* Style for dot on selected day */
+.rdp-day_selected.day-with-event-dot::after,
+button.rdp-day_selected.day-with-event-dot:hover::after,
+button.rdp-day_selected.day-with-event-dot:focus::after {
+  background-color: hsl(var(--primary-foreground));
+}
+
+/* Style for dot on today's date (if not selected) */
+.rdp-day_today.day-with-event-dot:not(.rdp-day_selected)::after {
+  background-color: hsl(var(--accent-foreground)); /* Or another contrasting color for today's accent */
+}
+
+/* Ensure the text of the day number is above the dot if there's overlap or for clarity */
+.day-with-event-dot > .rdp-day_button_level1 {
+  position: relative;
+  z-index: 2;
 }

@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Shield, 
   User as UserIconLucide, 
+  CalendarDays, // Added CalendarDays
 } from 'lucide-react';
 import {
   Sidebar,
@@ -68,7 +69,6 @@ const navItems: NavItem[] = [
       { href: '/dashboard/instructor', label: 'Mi Panel', icon: LayoutDashboard },
       { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen },
       { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users },
-      // Removed duplicate "Subir Contenido" as "Recursos" link serves admins/instructors for uploads
     ],
   },
   {
@@ -82,17 +82,16 @@ const navItems: NavItem[] = [
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
-  // The "Recursos" link is now unique and its behavior (upload vs view) is handled on the resources page itself based on role.
+  { href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
   { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
 export function AppSidebarNav() {
   const pathname = usePathname();
-  const { currentSessionRole } = useSessionRole(); // Consume role from context
+  const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  // Filter nav items based on the role from context
   const filteredNavItems = navItems.filter(item => 
     !item.roles || item.roles.includes(currentSessionRole)
   ).map(item => ({
@@ -111,9 +110,9 @@ export function AppSidebarNav() {
         
         let isOpen = openSubmenus[item.label];
         // eslint-disable-next-line react-hooks/rules-of-hooks
-        useEffect(() => { // Keep useEffect for submenu open state based on active child
+        useEffect(() => { 
           const isActiveChild = item.children!.some(child => child.href && pathname.startsWith(child.href!));
-          if (isActiveChild && !openSubmenus[item.label]) { // Only set if not already explicitly set
+          if (isActiveChild && !openSubmenus[item.label]) { 
              setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
           }
         // eslint-disable-next-line react-hooks/exhaustive-deps
