@@ -56,7 +56,7 @@ const navItems: NavItem[] = [
     icon: Users, 
     roles: ['administrador'],
     children: [
-      { href: '/dashboard/admin', label: 'Resumen de Admin', icon: Shield },
+      // "Resumen de Admin" ahora es el Panel Principal (/dashboard) para el admin
       { href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
       { href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
     ],
@@ -66,7 +66,7 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { href: '/dashboard/instructor', label: 'Mi Panel', icon: LayoutDashboard },
+      // "Mi Panel" ahora es el Panel Principal (/dashboard) para el instructor
       { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen },
       { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users },
     ],
@@ -76,7 +76,7 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { href: '/dashboard/student', label: 'Mi Panel', icon: LayoutDashboard },
+      // "Mi Panel" ahora es el Panel Principal (/dashboard) para el estudiante
       { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen },
       { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 },
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
@@ -92,21 +92,40 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  const getRoleSpecificDashboardPath = () => {
-    switch (currentSessionRole) {
-      case 'administrador': return '/dashboard/admin';
-      case 'instructor': return '/dashboard/instructor';
-      case 'estudiante':
-      default: return '/dashboard/student';
-    }
-  };
+  // El "Panel Principal" siempre es /dashboard, que mostrará contenido específico del rol.
+  const dashboardPath = '/dashboard';
 
-  const filteredNavItems = navItems.filter(item => 
-    !item.roles || item.roles.includes(currentSessionRole)
-  ).map(item => ({
-    ...item,
-    children: item.children?.filter(child => !child.roles || child.roles.includes(currentSessionRole))
-  }));
+  // Filtra los items de navegación y sus hijos basado en el rol actual
+  const filteredNavItems = navItems.reduce((acc, item) => {
+    // Si el item no tiene roles definidos o incluye el rol actual
+    if (!item.roles || item.roles.includes(currentSessionRole)) {
+      let newItem = { ...item };
+      // Si es un enlace de "Panel Principal", su href es dashboardPath
+      if (item.isDashboardLink) {
+        newItem.href = dashboardPath;
+      }
+
+      // Filtrar hijos
+      if (item.children) {
+        newItem.children = item.children.filter(child => 
+          !child.roles || child.roles.includes(currentSessionRole)
+        ).map(child => {
+          // Ajustar href de hijos que eran paneles específicos (ej. "Resumen Admin") para apuntar a /dashboard
+          if (child.label === "Resumen de Admin" || child.label === "Mi Panel") {
+            return { ...child, href: dashboardPath };
+          }
+          return child;
+        });
+        // Si después de filtrar no quedan hijos, no se añade el grupo si no tiene un href propio
+        if (newItem.children.length === 0 && !newItem.href) {
+          return acc;
+        }
+      }
+      acc.push(newItem);
+    }
+    return acc;
+  }, [] as NavItem[]);
+
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -114,7 +133,7 @@ export function AppSidebarNav() {
   
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      const effectiveHref = item.isDashboardLink ? getRoleSpecificDashboardPath() : item.href;
+      const effectiveHref = item.href; // href ya está ajustado
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
@@ -153,6 +172,8 @@ export function AppSidebarNav() {
         );
       }
 
+      if (!effectiveHref && !item.children) return null; // No renderizar si no hay href y no es un grupo
+
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       return (
         <SidebarMenuItem key={effectiveHref || item.label}>
@@ -183,9 +204,9 @@ export function AppSidebarNav() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href={getRoleSpecificDashboardPath()} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+        <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
+          <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>
@@ -218,7 +239,7 @@ export function AppSidebarNav() {
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
-          © {new Date().getFullYear()} NexusAlpri
+          © {new Date().getFullYear()} AlpriNexus
         </div>
       </SidebarFooter>
     </Sidebar>

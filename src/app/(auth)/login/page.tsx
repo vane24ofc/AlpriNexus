@@ -46,16 +46,8 @@ export default function LoginPage() {
     // Simulate login
     console.log(values);
     // On successful login, redirect to dashboard
-    // For now, just log and redirect based on email
-    if (values.email.startsWith('student')) {
-      router.push('/dashboard/student');
-    } else if (values.email.startsWith('instructor')) {
-      router.push('/dashboard/instructor');
-    } else if (values.email.startsWith('admin')) {
-      router.push('/dashboard/admin');
-    } else {
-      router.push('/dashboard');
-    }
+    // The /dashboard page will now handle showing role-specific content
+    router.push('/dashboard');
   }
 
   return (
@@ -64,9 +56,14 @@ export default function LoginPage() {
         <Logo className="mb-4 h-10 w-auto" />
         <CardTitle className="text-3xl font-bold">Bienvenido de Nuevo</CardTitle>
         <CardDescription>
-          Inicia sesión para acceder a tu cuenta
+          Inicia sesión para acceder a tu cuenta de AlpriNexus.
           <br />
-          
+          <span className="mt-2 block text-xs">
+            Prueba con: <br />
+            Admin: <code className="bg-muted px-1 py-0.5 rounded-sm">admin@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code> <br />
+            Instructor: <code className="bg-muted px-1 py-0.5 rounded-sm">instructor@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code> <br />
+            Estudiante: <code className="bg-muted px-1 py-0.5 rounded-sm">student@example.com</code> / <code className="bg-muted px-1 py-0.5 rounded-sm">password</code>
+          </span>
         </CardDescription>
       </CardHeader>
       <CardContent>
