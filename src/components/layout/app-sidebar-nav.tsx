@@ -16,8 +16,8 @@ import {
   LifeBuoy,
   ChevronDown,
   ChevronRight,
-  Shield, // Using Shield for Admin Overview as ShieldCheck is custom
-  User as UserIconLucide, // Renaming to avoid conflict with custom User
+  Shield, 
+  User as UserIconLucide, 
 } from 'lucide-react';
 import {
   Sidebar,
@@ -35,15 +35,14 @@ import {
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
-import { Button } from '@/components/ui/button';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
-  href?: string; // Optional if it's a parent item
+  href?: string; 
   label: string;
   icon: React.ElementType;
-  roles?: string[]; // 'administrador', 'instructor', 'estudiante'
+  roles?: string[]; 
   children?: NavItem[];
   badge?: string;
 }
@@ -52,7 +51,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
     label: 'Gestión',
-    icon: Users, // Changed to a generic icon as ShieldCheck was custom
+    icon: Users, 
     roles: ['administrador'],
     children: [
       { href: '/dashboard/admin', label: 'Resumen de Admin', icon: Shield },
@@ -86,12 +85,19 @@ const navItems: NavItem[] = [
   { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
-// Mock current user role
-const currentUserRole = 'estudiante'; // Change this to 'administrador', 'instructor', or 'estudiante' to test
-
 export function AppSidebarNav() {
   const pathname = usePathname();
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
+
+  let currentUserRole = 'estudiante'; // Default role
+  if (pathname.startsWith('/dashboard/admin')) {
+    currentUserRole = 'administrador';
+  } else if (pathname.startsWith('/dashboard/instructor')) {
+    currentUserRole = 'instructor';
+  } else if (pathname.startsWith('/dashboard/student')) {
+    currentUserRole = 'estudiante';
+  }
+
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -108,17 +114,21 @@ export function AppSidebarNav() {
     return items.map((item) => {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        const isOpen = openSubmenus[item.label] || item.children.some(child => child.href && pathname.startsWith(child.href)); // Keep submenu open if a child is active
         
-        // Initialize open state based on active child for first render
-        React.useEffect(() => {
-          if (item.children.some(child => child.href && pathname.startsWith(child.href))) {
-            if (!openSubmenus[item.label]) { // Only set if not already explicitly toggled
-                 setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
-            }
+        // Determine if submenu should be open based on current path or explicit toggle
+        let isOpen = openSubmenus[item.label];
+        if (isOpen === undefined) { // If not explicitly toggled, check active child
+          isOpen = item.children.some(child => child.href && pathname.startsWith(child.href));
+        }
+        
+        // Effect to set initial open state based on active child
+        useEffect(() => {
+          const isActiveChild = item.children.some(child => child.href && pathname.startsWith(child.href));
+          if (isActiveChild && openSubmenus[item.label] === undefined) {
+             setOpenSubmenus(prev => ({ ...prev, [item.label]: true }));
           }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        }, [pathname, item.label, item.children]);
+        }, [pathname, item.label]);
 
 
         return (

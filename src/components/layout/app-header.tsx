@@ -2,7 +2,7 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,12 +21,26 @@ import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 
 export function AppHeader() {
   const router = useRouter();
-  const { isMobile } = useSidebar(); // Get sidebar context if needed
+  const pathname = usePathname();
+  const { isMobile } = useSidebar(); 
 
-  // Placeholder user data and logout function
-  const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: 'Estudiante', avatar: 'https://placehold.co/100x100.png' };
+  let currentRoleDisplay = 'Estudiante';
+  let profileLinkPath = '/dashboard/student'; // Default to student profile
+
+  if (pathname.startsWith('/dashboard/admin')) {
+    currentRoleDisplay = 'Administrador';
+    profileLinkPath = '/dashboard/admin'; 
+  } else if (pathname.startsWith('/dashboard/instructor')) {
+    currentRoleDisplay = 'Instructor';
+    profileLinkPath = '/dashboard/instructor';
+  } else if (pathname.startsWith('/dashboard/student')) {
+    currentRoleDisplay = 'Estudiante';
+    profileLinkPath = '/dashboard/student';
+  }
+  
+  const user = { name: 'Usuario Demo', email: 'demo@ejemplo.com', role: currentRoleDisplay, avatar: 'https://placehold.co/100x100.png' };
+
   const handleLogout = () => {
-    // Perform logout logic here
     router.push('/login');
   };
 
@@ -83,7 +97,7 @@ export function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/student')}> {/* Assuming profile is under student route for demo */}
+             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push(profileLinkPath)}>
                 {getRoleIcon(user.role)}
                 <span>Perfil de {user.role}</span>
             </DropdownMenuItem>
