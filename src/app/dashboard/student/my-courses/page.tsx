@@ -73,7 +73,8 @@ export default function MyEnrolledCoursesPage() {
                   <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className="h-2" />
                 </div>
                 <Button asChild className="w-full bg-primary hover:bg-primary/90">
-                  <Link href={`/dashboard/courses/${course.id}/view`}> {/* Placeholder para la vista del curso */}
+                  {/* Actualizado para enlazar a la nueva página de visualización del curso */}
+                  <Link href={`/dashboard/courses/${course.id}/view`}> 
                     {course.progress === 100 ? 'Ver Certificado' : (course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso')}
                     <Zap className="ml-2 h-4 w-4" />
                   </Link>
@@ -86,3 +87,4 @@ export default function MyEnrolledCoursesPage() {
     </div>
   );
 }
+
