@@ -18,8 +18,8 @@ import {
   Shield, 
   User as UserIconLucide, 
   CalendarDays,
-  BarChartBig, // Icono para Métricas
-  PlusCircle, // Asegúrate de que PlusCircle esté aquí si se usa
+  BarChartBig,
+  PlusCircle,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -31,7 +31,6 @@ import {
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubButton,
-  // SidebarMenuSubItem, // No se usa directamente si los items de submenú son SidebarMenuButton
   SidebarSeparator,
   SidebarGroup,
   SidebarGroupLabel,
@@ -69,7 +68,7 @@ const navItems: NavItem[] = [
     children: [
       { href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
       { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, 
-      { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, 
+      // { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, 
     ],
   },
   {
@@ -78,7 +77,7 @@ const navItems: NavItem[] = [
     roles: ['estudiante'],
     children: [
       { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, 
-      { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, 
+      // { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, 
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -92,7 +91,12 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  const dashboardPath = '/dashboard';
+  const determineDashboardPath = (role: Role | null): string => {
+    if (!role) return '/dashboard'; // Fallback
+    return '/dashboard'; // Ahora todos van a /dashboard
+  };
+  
+  const dashboardPath = determineDashboardPath(currentSessionRole);
 
   const getFilteredNavItems = (): NavItem[] => {
     if (!currentSessionRole) return [];
@@ -106,9 +110,19 @@ export function AppSidebarNav() {
         }
 
         if (item.children) {
-          newItem.children = item.children.filter(child => 
-            !child.roles || child.roles.includes(currentSessionRole)
-          );
+          newItem.children = item.children.filter(child => {
+            if (!child.roles || child.roles.includes(currentSessionRole)) {
+              // Si el hijo es un enlace de "panel principal" o "resumen" del rol, ahora apuntará a /dashboard
+              if (child.label === 'Resumen de Admin' || child.label === 'Mi Panel (Instructor)' || child.label === 'Mi Panel (Estudiante)') {
+                // Estos elementos serán eliminados o su lógica fusionada en el panel principal
+                return false; // Excluir estos elementos directamente si se opta por eliminarlos de la vista de submenú
+              }
+              return true;
+            }
+            return false;
+          });
+
+          // Si después de filtrar hijos, el grupo ya no tiene hijos y no es un enlace por sí mismo, no lo añadimos
           if (newItem.children.length === 0 && !newItem.href) { 
             return acc; 
           }
@@ -141,14 +155,14 @@ export function AppSidebarNav() {
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      const effectiveHref = item.href; 
+      const effectiveHref = item.label === 'Panel Principal' ? dashboardPath : item.href; 
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.label] || false;
 
-        // Un grupo de menú es activo si alguno de sus hijos es activo o si el grupo mismo es la ruta actual (si tiene href)
-        const isGroupActive = (item.href && pathname === item.href) || item.children.some(child => child.href && pathname === child.href);
+        const isGroupActive = (effectiveHref && pathname === effectiveHref) || 
+                              item.children.some(child => child.href && pathname === child.href);
 
         return (
           <SidebarMenuItem key={item.label}>
@@ -263,3 +277,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
