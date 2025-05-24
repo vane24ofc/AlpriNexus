@@ -74,7 +74,7 @@ export default function AdminCoursesPage() {
         <Image src={course.thumbnailUrl} alt={course.title} width={80} height={45} className="rounded-md object-cover" data-ai-hint="course thumbnail education" />
       </TableCell>
       <TableCell className="font-medium max-w-xs truncate">
-        <Link href="#" className="hover:underline text-primary">{course.title}</Link>
+        <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
         <p className="text-xs text-muted-foreground md:hidden">{course.instructorName}</p>
       </TableCell>
       <TableCell className="hidden sm:table-cell">{course.instructorName}</TableCell>
@@ -100,9 +100,9 @@ export default function AdminCoursesPage() {
             </Button>
           </>
         )}
-        {/*<Button variant="ghost" size="icon" asChild>
+         <Button variant="ghost" size="icon" asChild>
           <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
-        </Button>*/}
+        </Button>
          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'delete')}>
           <Trash2 className="h-4 w-4" />
         </Button>

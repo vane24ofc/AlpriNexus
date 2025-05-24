@@ -100,7 +100,12 @@ export default function MyCoursesPage() {
                         />
                       </TableCell>
                       <TableCell className="font-medium max-w-xs truncate">
-                        {course.title}
+                        {/* Enlace para ver el curso publicado (si está aprobado) */}
+                        {course.status === 'approved' ? (
+                           <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
+                        ) : (
+                          course.title
+                        )}
                         <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -114,13 +119,7 @@ export default function MyCoursesPage() {
                       </TableCell>
                       <TableCell className="text-right space-x-1 md:space-x-2">
                         <Button variant="outline" size="sm" asChild>
-                          <Link href="#"> {/* Placeholder: /dashboard/courses/[id]/view */}
-                            <Eye className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Ver</span>
-                          </Link>
-                        </Button>
-                        <Button variant="outline" size="sm" asChild>
-                          {/* El enlace para editar debería ser /dashboard/courses/[courseId]/edit */}
-                          <Link href={`/dashboard/courses/new?edit=${course.id}`}> {/* Simulación para llevar al form con idea de editar */}
+                           <Link href={`/dashboard/courses/${course.id}/edit`}>
                             <Edit3 className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Editar</span>
                           </Link>
                         </Button>
