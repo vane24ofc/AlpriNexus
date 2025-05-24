@@ -12,22 +12,23 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
+import { generateCourseOutline, type GenerateCourseOutlineInput } from '@/ai/flows/generate-course-outline-flow';
 
 const lessonSchema = z.object({
-  id: z.string().optional(), // Puede ser opcional si se genera al añadir
+  id: z.string().optional(), 
   title: z.string().min(3, { message: "El título de la lección debe tener al menos 3 caracteres." }),
 });
 
 const courseFormSchema = z.object({
   title: z.string().min(5, { message: "El título del curso debe tener al menos 5 caracteres." }),
   description: z.string().min(20, { message: "La descripción debe tener al menos 20 caracteres." }),
-  thumbnailFile: z.instanceof(File).optional().nullable(), // Para el input de archivo
+  thumbnailFile: z.instanceof(File).optional().nullable(), 
   lessons: z.array(lessonSchema).min(1, { message: "El curso debe tener al menos una lección." }),
   interactiveContent: z.string().optional(),
 });
@@ -35,8 +36,8 @@ const courseFormSchema = z.object({
 type CourseFormValues = z.infer<typeof courseFormSchema>;
 
 interface CourseFormProps {
-  initialData?: Course; // Para editar
-  onSubmitCourse: (data: CourseFormValues, thumbnailUrl?: string) => Promise<void>; // thumbnailUrl es string si ya existe o se subió
+  initialData?: Course; 
+  onSubmitCourse: (data: CourseFormValues, thumbnailUrl?: string) => Promise<void>; 
   isSubmitting: boolean;
 }
 
@@ -46,6 +47,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const { currentSessionRole } = useSessionRole();
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -53,12 +55,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       title: initialData?.title || '',
       description: initialData?.description || '',
       thumbnailFile: null,
-      lessons: initialData?.lessons || [{ title: '' }],
+      lessons: initialData?.lessons?.map(l => ({id: l.id, title: l.title})) || [{ title: '' }],
       interactiveContent: initialData?.interactiveContent || '',
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "lessons",
   });
@@ -66,10 +68,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const handleThumbnailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 5 * 1024 * 1024) { 
         toast({ variant: "destructive", title: "Archivo Demasiado Grande", description: "La imagen no debe exceder los 5MB." });
         form.setValue('thumbnailFile', null);
-        setThumbnailPreview(initialData?.thumbnailUrl || null); // Revertir a la imagen inicial si la hay
+        setThumbnailPreview(initialData?.thumbnailUrl || null); 
         return;
       }
       if (!file.type.startsWith("image/")) {
@@ -81,7 +83,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const reader = new FileReader();
       reader.onloadend = () => {
         setThumbnailPreview(reader.result as string);
-        form.setValue('thumbnailFile', file); // Guardar el objeto File
+        form.setValue('thumbnailFile', file); 
         form.clearErrors('thumbnailFile');
       };
       reader.readAsDataURL(file);
@@ -95,15 +97,54 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
+  const handleGenerateOutline = async () => {
+    const title = form.getValues("title");
+    const description = form.getValues("description");
+
+    if (!title.trim() || !description.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Faltan Datos",
+        description: "Por favor, introduce un título y una descripción para el curso antes de generar el esquema.",
+      });
+      return;
+    }
+
+    setIsAiGenerating(true);
+    try {
+      const input: GenerateCourseOutlineInput = { courseTitle: title, courseDescription: description };
+      const result = await generateCourseOutline(input);
+      if (result.lessonTitles && result.lessonTitles.length > 0) {
+        const newLessons = result.lessonTitles.map(lessonTitle => ({ title: lessonTitle }));
+        replace(newLessons); // Reemplaza las lecciones existentes con las generadas por IA
+        toast({
+          title: "Esquema de Lecciones Generado",
+          description: "Se han añadido las lecciones sugeridas por la IA.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error de IA",
+          description: "La IA no pudo generar un esquema de lecciones o devolvió una lista vacía.",
+        });
+      }
+    } catch (error) {
+      console.error("Error generando esquema de lecciones:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de IA",
+        description: "Ocurrió un error al intentar generar el esquema de lecciones.",
+      });
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
   const processSubmit = async (data: CourseFormValues) => {
-    // En una app real, aquí subirías thumbnailFile a un GCS bucket y obtendrías una URL.
-    // Por ahora, si hay un thumbnailFile, usamos su preview (data URL).
-    // Si no hay thumbnailFile pero hay initialData.thumbnailUrl, la conservamos.
     let finalThumbnailUrl = initialData?.thumbnailUrl;
     if (data.thumbnailFile) {
-      finalThumbnailUrl = thumbnailPreview!; // Usamos la dataURL de la previsualización
+      finalThumbnailUrl = thumbnailPreview!; 
     } else if (!finalThumbnailUrl && !data.thumbnailFile) {
-      // Si no hay archivo nuevo Y no había imagen inicial, usamos un placeholder
       finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
     }
     
@@ -147,9 +188,15 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Lecciones del Curso</CardTitle>
-                <CardDescription>Añade y organiza las lecciones de tu curso. Debes añadir al menos una lección.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Lecciones del Curso</CardTitle>
+                  <CardDescription>Añade y organiza las lecciones. Debes añadir al menos una.</CardDescription>
+                </div>
+                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={isAiGenerating || isSubmitting}>
+                  {isAiGenerating ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Wand2 className="mr-2 h-5 w-5" />}
+                  {isAiGenerating ? 'Generando...' : 'Sugerir Lecciones con IA'}
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => (
@@ -167,20 +214,22 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           </FormItem>
                         )}
                       />
-                      {/* Aquí podrías añadir más campos por lección, como un textarea para contenido */}
                     </div>
                     {fields.length > 1 && (
-                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-0.5" aria-label="Eliminar lección">
+                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-0.5" aria-label="Eliminar lección" disabled={isAiGenerating || isSubmitting}>
                             <Trash2 className="h-5 w-5" />
                         </Button>
                     )}
                   </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ title: '' })} className="w-full">
+                <Button type="button" variant="outline" onClick={() => append({ title: '' })} className="w-full" disabled={isAiGenerating || isSubmitting}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
                     <p className="text-sm font-medium text-destructive">{form.formState.errors.lessons.root.message}</p>
+                )}
+                 {form.formState.errors.lessons?.message && (
+                    <p className="text-sm font-medium text-destructive">{form.formState.errors.lessons.message}</p>
                 )}
               </CardContent>
             </Card>
@@ -205,13 +254,13 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 <FormField
                   control={form.control}
                   name="thumbnailFile"
-                  render={() => ( // No usamos {field} directamente porque el manejo es custom
+                  render={() => ( 
                     <FormItem>
                       <FormLabel className="sr-only">Archivo de Miniatura</FormLabel>
                       <FormControl>
-                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" />
+                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={isAiGenerating || isSubmitting}/>
                       </FormControl>
-                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full">
+                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={isAiGenerating || isSubmitting}>
                          <ImageUp className="mr-2 h-4 w-4" /> {thumbnailPreview ? 'Cambiar Miniatura' : 'Seleccionar Miniatura'}
                        </Button>
                       <FormMessage />
@@ -233,7 +282,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="sr-only">Contenido Interactivo</FormLabel>
-                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} /></FormControl>
+                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={isAiGenerating || isSubmitting} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -245,11 +294,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         </div>
         
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting}>
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isAiGenerating}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting} className="min-w-[120px]">
-            {isSubmitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
+          <Button type="submit" disabled={isSubmitting || isAiGenerating} className="min-w-[120px]">
+            {isSubmitting ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
             {isSubmitting ? 'Guardando...' : (currentSessionRole === 'instructor' ? 'Enviar a Revisión' : 'Guardar Curso')}
           </Button>
         </div>
@@ -262,8 +311,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
 export const simulateFileUpload = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     setTimeout(() => {
-      // Simular URL de archivo subido. En una app real, sería una URL de GCS, S3, etc.
-      // Por ahora, usamos la Data URL generada por FileReader si está disponible, o un placeholder.
       const reader = new FileReader();
       reader.onloadend = () => {
         resolve(reader.result as string);
@@ -276,6 +323,6 @@ export const simulateFileUpload = (file: File): Promise<string> => {
       } else {
         resolve("https://placehold.co/600x400.png?text=Miniatura");
       }
-    }, 1500); // Simular retraso de red
+    }, 1500); 
   });
 };
