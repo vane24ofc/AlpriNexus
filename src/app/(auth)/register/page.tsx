@@ -180,7 +180,7 @@ export default function RegisterPage() {
       {/* Columna Decorativa */}
       <div className="hidden bg-gray-100 md:block md:w-1/2 relative">
         <Image 
-          src="/register-decorative.png" 
+          src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo para registro" 
           fill
           style={{objectFit: 'cover'}}
