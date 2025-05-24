@@ -59,7 +59,7 @@ export default function AdminUsersPage() {
           Gestión de Usuarios
         </h1>
         <Button asChild className="bg-primary hover:bg-primary/90">
-          <Link href="#"> {/* Placeholder para futura página de creación de usuario */}
+          <Link href="/dashboard/admin/users/new">
             <UserPlus className="mr-2 h-5 w-5" /> Añadir Nuevo Usuario
           </Link>
         </Button>
