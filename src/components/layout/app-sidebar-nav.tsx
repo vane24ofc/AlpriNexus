@@ -19,7 +19,6 @@ import {
   User as UserIconLucide, 
   CalendarDays,
   BarChartBig,
-  PlusCircle,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -39,6 +38,8 @@ import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, Role } from '@/app/dashboard/layout'; 
+// Importación faltante
+import { PlusCircle } from 'lucide-react';
 
 interface NavItem {
   href?: string; 
@@ -68,7 +69,6 @@ const navItems: NavItem[] = [
     children: [
       { href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
       { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, 
-      // { href: '/dashboard/instructor/students', label: 'Mis Estudiantes', icon: Users }, 
     ],
   },
   {
@@ -77,7 +77,6 @@ const navItems: NavItem[] = [
     roles: ['estudiante'],
     children: [
       { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, 
-      // { href: '/dashboard/student/progress', label: 'Mi Progreso', icon: BarChart3 }, 
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -91,12 +90,7 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  const determineDashboardPath = (role: Role | null): string => {
-    if (!role) return '/dashboard'; // Fallback
-    return '/dashboard'; // Ahora todos van a /dashboard
-  };
-  
-  const dashboardPath = determineDashboardPath(currentSessionRole);
+  const dashboardPath = '/dashboard'; // Todos los roles van a /dashboard para el panel principal
 
   const getFilteredNavItems = (): NavItem[] => {
     if (!currentSessionRole) return [];
@@ -105,24 +99,24 @@ export function AppSidebarNav() {
       if (!item.roles || item.roles.includes(currentSessionRole)) {
         let newItem = { ...item };
         
-        if (item.label === 'Panel Principal') {
+        if (newItem.label === 'Panel Principal') {
             newItem.href = dashboardPath;
         }
 
         if (item.children) {
           newItem.children = item.children.filter(child => {
-            if (!child.roles || child.roles.includes(currentSessionRole)) {
-              // Si el hijo es un enlace de "panel principal" o "resumen" del rol, ahora apuntará a /dashboard
-              if (child.label === 'Resumen de Admin' || child.label === 'Mi Panel (Instructor)' || child.label === 'Mi Panel (Estudiante)') {
-                // Estos elementos serán eliminados o su lógica fusionada en el panel principal
-                return false; // Excluir estos elementos directamente si se opta por eliminarlos de la vista de submenú
-              }
-              return true;
+            // Si el hijo tiene roles definidos, verificar si el rol actual está incluido.
+            // Si el hijo no tiene roles definidos, se asume que es visible para el rol padre.
+            if (child.roles && !child.roles.includes(currentSessionRole)) {
+              return false;
             }
-            return false;
+            // Eliminar los enlaces redundantes a paneles principales de rol si es que aún existieran en la definición
+             if (['Resumen de Admin', 'Mi Panel (Instructor)', 'Mi Panel (Estudiante)'].includes(child.label)) {
+                return false; 
+            }
+            return true;
           });
 
-          // Si después de filtrar hijos, el grupo ya no tiene hijos y no es un enlace por sí mismo, no lo añadimos
           if (newItem.children.length === 0 && !newItem.href) { 
             return acc; 
           }
@@ -139,37 +133,51 @@ export function AppSidebarNav() {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
-  useEffect(() => {
+ useEffect(() => {
     const activeSubmenus: Record<string, boolean> = {};
     filteredNavItems.forEach(item => {
-      if (item.children && item.children.some(child => child.href && pathname.startsWith(child.href as string))) {
-        activeSubmenus[item.label] = true;
+      if (item.children) {
+        // Abre el submenú si la ruta actual comienza con la ruta de alguno de sus hijos
+        // O si la ruta actual es exactamente la del item padre (si el item padre es un enlace)
+        const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
+        const isParentActive = item.href && pathname === item.href;
+
+        if (isChildActive || isParentActive) {
+          activeSubmenus[item.label] = true;
+        }
       }
     });
     if (Object.keys(activeSubmenus).length > 0) {
         setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, currentSessionRole]); 
+  }, [pathname, currentSessionRole]); // No añadir filteredNavItems directamente para evitar bucles si su referencia cambia
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      const effectiveHref = item.label === 'Panel Principal' ? dashboardPath : item.href; 
+      // El href efectivo es el href del item, o el dashboardPath si el label es "Panel Principal"
+      const effectiveHref = item.href || (item.label === 'Panel Principal' ? dashboardPath : undefined);
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.label] || false;
 
+        // Un grupo está activo si su propio enlace (si existe) está activo, o si alguno de sus hijos está activo.
         const isGroupActive = (effectiveHref && pathname === effectiveHref) || 
-                              item.children.some(child => child.href && pathname === child.href);
+                              item.children.some(child => child.href && pathname.startsWith(child.href as string));
+        
+        // Si el ítem es un agrupador sin href propio (solo tiene hijos),
+        // el estado activo se determina puramente por sus hijos.
+        const isActiveForButton = effectiveHref ? (pathname === effectiveHref) : isGroupActive;
+
 
         return (
           <SidebarMenuItem key={item.label}>
             <Comp
               onClick={() => toggleSubmenu(item.label)}
               className="justify-between"
-              isActive={isGroupActive}
+              isActive={isActiveForButton}
               aria-expanded={isOpen}
             >
               <div className="flex items-center gap-2">
@@ -187,23 +195,24 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref && !item.children) return null; 
+      // Si no tiene hijos o los hijos fueron filtrados y no tiene un href propio, no renderizar nada.
+      if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       return (
         <SidebarMenuItem key={effectiveHref || item.label}>
           <Comp
             asChild
-            isActive={effectiveHref ? pathname === effectiveHref : false}
+            isActive={pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath) }
             tooltip={item.label}
           >
-            <Link href={effectiveHref || '#'}>
+            <Link href={effectiveHref}>
               <item.icon className="h-4 w-4" />
               <span>{item.label}</span>
               {item.badge && (
                 <span className={cn(
                   "ml-auto inline-block rounded-full px-2 py-0.5 text-xs",
-                  effectiveHref && pathname === effectiveHref ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
+                  (pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref))) ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
                 )}>
                   {item.badge}
                 </span>
