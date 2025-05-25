@@ -8,9 +8,10 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ArrowLeft, BookOpen, PlayCircle, FileText } from 'lucide-react';
+import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress'; // Importar Progress
 
 // Sample courses to simulate fetching data
 const sampleCourses: Course[] = [
@@ -27,14 +28,27 @@ export default function StudentCourseViewPage() {
   const courseId = params.courseId as string;
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
+  const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
+
 
   useEffect(() => {
     if (courseId) {
-      // Simulate API call
+      setIsLoading(true);
       setTimeout(() => {
         const foundCourse = sampleCourses.find(c => c.id === courseId);
         if (foundCourse) {
           setCourse(foundCourse);
+          // Simular carga de progreso guardado (ej. primeras N lecciones)
+          const initialCompleted = new Set<string>();
+          // if (foundCourse.lessons && foundCourse.lessons.length > 0) {
+          //   initialCompleted.add(foundCourse.lessons[0].id); // Ejemplo: primera lección completada
+          // }
+          setCompletedLessons(initialCompleted);
+          if (foundCourse.lessons && foundCourse.lessons.length > 0) {
+            setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`); // Abrir la primera lección por defecto
+          }
+
         } else {
           toast({
             variant: "destructive",
@@ -48,10 +62,45 @@ export default function StudentCourseViewPage() {
     }
   }, [courseId, router, toast]);
 
+  const handleToggleLessonComplete = (lessonId: string) => {
+    setCompletedLessons(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lessonId)) {
+        // newSet.delete(lessonId); // Permitir desmarcar si se desea, por ahora solo marca como completo
+      } else {
+        newSet.add(lessonId);
+        toast({ title: "¡Lección Marcada!", description: `Has marcado la lección como completada.` });
+      }
+      return newSet;
+    });
+  };
+
+  const courseProgress = course && course.lessons && course.lessons.length > 0
+    ? Math.round((completedLessons.size / course.lessons.length) * 100)
+    : 0;
+
+  const allLessonsCompleted = course && course.lessons && completedLessons.size === course.lessons.length;
+
+  const handleContinueCourse = () => {
+    if (!course || !course.lessons || course.lessons.length === 0) return;
+    if (allLessonsCompleted) {
+        setActiveAccordionItem(`lesson-${course.lessons[0].id}`); // Abrir la primera si todo está completo
+        return;
+    }
+    const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
+    if (firstUncompletedLesson) {
+      setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
+    } else if (course.lessons.length > 0) {
+       // Si no hay incompletas (pero no todas completas, raro) o para el caso de todas completas
+      setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
+    }
+  };
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
-        <BookOpen className="h-12 w-12 animate-spin text-primary" />
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="ml-3 text-lg">Cargando curso...</p>
       </div>
     );
@@ -104,28 +153,50 @@ export default function StudentCourseViewPage() {
                 <BookOpen className="mr-3 h-6 w-6 text-primary" />
                 Lecciones del Curso
               </CardTitle>
-              <CardDescription>Explora el contenido del curso lección por lección.</CardDescription>
+              <CardDescription>Explora el contenido del curso lección por lección. Marca las lecciones como completadas.</CardDescription>
             </CardHeader>
             <CardContent>
               {course.lessons && course.lessons.length > 0 ? (
-                <Accordion type="single" collapsible className="w-full">
-                  {course.lessons.map((lesson, index) => (
-                    <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id}>
-                      <AccordionTrigger className="text-lg hover:no-underline">
-                        <div className="flex items-center">
-                           <span className="text-primary font-semibold mr-3">{index + 1}.</span>
-                           {lesson.title}
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="pl-8 pr-4 py-4 bg-muted/30 rounded-b-md">
-                        {/* Placeholder para el contenido de la lección */}
-                        <p className="text-muted-foreground">Contenido de la lección "{lesson.title}" estará disponible aquí.</p>
-                        <Button size="sm" className="mt-3">
-                          <PlayCircle className="mr-2 h-4 w-4" /> Iniciar Lección (Próximamente)
-                        </Button>
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
+                <Accordion 
+                    type="single" 
+                    collapsible 
+                    className="w-full" 
+                    value={activeAccordionItem}
+                    onValueChange={setActiveAccordionItem}
+                >
+                  {course.lessons.map((lesson, index) => {
+                    const isCompleted = completedLessons.has(lesson.id);
+                    return (
+                        <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id}>
+                        <AccordionTrigger className="text-lg hover:no-underline">
+                            <div className="flex items-center">
+                            {isCompleted && <CheckCircle className="mr-2 h-5 w-5 text-green-500 flex-shrink-0" />}
+                            <span className={`text-primary font-semibold mr-3 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{index + 1}.</span>
+                            <span className={`${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{lesson.title}</span>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pl-8 pr-4 py-4 bg-muted/30 rounded-b-md">
+                            <p className="text-muted-foreground mb-3">Contenido de la lección "{lesson.title}" estará disponible aquí.</p>
+                            <Button 
+                                size="sm" 
+                                onClick={() => handleToggleLessonComplete(lesson.id)}
+                                disabled={isCompleted}
+                                variant={isCompleted ? "secondary" : "default"}
+                            >
+                                {isCompleted ? (
+                                    <>
+                                        <CheckCircle className="mr-2 h-4 w-4" /> Lección Completada
+                                    </>
+                                ) : (
+                                    <>
+                                        <PlayCircle className="mr-2 h-4 w-4" /> Marcar como Completada
+                                    </>
+                                )}
+                            </Button>
+                        </AccordionContent>
+                        </AccordionItem>
+                    );
+                  })}
                 </Accordion>
               ) : (
                 <p className="text-muted-foreground">No hay lecciones definidas para este curso todavía.</p>
@@ -147,12 +218,40 @@ export default function StudentCourseViewPage() {
           )}
            <Card>
             <CardHeader>
-              <CardTitle className="text-xl">Progreso</CardTitle>
+              <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-                <p className="text-6xl font-bold text-primary">75%</p>
-                <p className="text-muted-foreground">Completado (Simulado)</p>
-                 <Button className="w-full mt-4">Continuar donde lo dejaste</Button>
+                <div className="relative w-24 h-24 mx-auto mb-2">
+                    <svg className="w-full h-full" viewBox="0 0 36 36">
+                        <path
+                        className="text-muted/30"
+                        strokeWidth="3"
+                        fill="none"
+                        stroke="currentColor"
+                        d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                        <path
+                        className="text-primary"
+                        strokeWidth="3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeDasharray={`${courseProgress}, 100`}
+                        d="M18 2.0845
+                            a 15.9155 15.9155 0 0 1 0 31.831
+                            a 15.9155 15.9155 0 0 1 0 -31.831"
+                        />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl font-bold text-primary">{courseProgress}%</span>
+                    </div>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">{allLessonsCompleted ? "¡Curso Completado!" : "Completado"}</p>
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className="h-2 mb-4" />
+                <Button className="w-full" onClick={handleContinueCourse}>
+                    {allLessonsCompleted ? "Revisar Curso" : "Continuar donde lo dejaste"}
+                </Button>
             </CardContent>
           </Card>
         </div>
@@ -160,3 +259,5 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
+    
