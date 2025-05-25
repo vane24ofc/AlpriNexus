@@ -100,12 +100,7 @@ export default function MyCoursesPage() {
                         />
                       </TableCell>
                       <TableCell className="font-medium max-w-xs truncate">
-                        {/* Enlace para ver el curso publicado (si está aprobado) */}
-                        {course.status === 'approved' ? (
-                           <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
-                        ) : (
-                          course.title
-                        )}
+                         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
                         <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
@@ -118,14 +113,18 @@ export default function MyCoursesPage() {
                         {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
                       </TableCell>
                       <TableCell className="text-right space-x-1 md:space-x-2">
-                        <Button variant="outline" size="sm" asChild>
-                           <Link href={`/dashboard/courses/${course.id}/edit`}>
-                            <Edit3 className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Editar</span>
+                        <Button variant="ghost" size="icon" asChild>
+                          <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
+                            <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                        <Button variant="ghost" size="icon" asChild>
+                           <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
+                            <Edit3 className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas (Próximamente)">
                           <BarChart2 className="h-4 w-4" />
-                          <span className="sr-only">Estadísticas</span>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -139,3 +138,5 @@ export default function MyCoursesPage() {
     </div>
   );
 }
+
+    

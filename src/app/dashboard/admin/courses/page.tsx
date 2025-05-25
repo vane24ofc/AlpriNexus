@@ -82,7 +82,10 @@ export default function AdminCoursesPage() {
         <Badge variant={
           course.status === 'approved' ? 'default' :
           course.status === 'pending' ? 'secondary' : 'destructive'
-        } className={course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : ''}>
+        } className={
+          course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
+          course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
+        }>
           {course.status === 'approved' && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
           {course.status === 'pending' && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
           {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />}
@@ -101,9 +104,14 @@ export default function AdminCoursesPage() {
           </>
         )}
          <Button variant="ghost" size="icon" asChild>
-          <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
+            <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
+                <Eye className="h-4 w-4" />
+            </Link>
         </Button>
-         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'delete')}>
+         <Button variant="ghost" size="icon" asChild>
+          <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso"><Edit3 className="h-4 w-4" /></Link>
+        </Button>
+         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'delete')} title="Eliminar Curso">
           <Trash2 className="h-4 w-4" />
         </Button>
       </TableCell>
@@ -219,7 +227,7 @@ export default function AdminCoursesPage() {
                   if (actionType === 'reject') handleCourseAction(courseToModify.id, 'rejected');
                   if (actionType === 'delete') handleDeleteCourse(courseToModify.id);
                 }}
-                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'approve' ? 'bg-accent hover:bg-accent/90' : '')}
+                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'approve' ? 'bg-accent hover:bg-accent/90 text-accent-foreground' : '')}
               >
                 {actionType === 'approve' && 'Aprobar'}
                 {actionType === 'reject' && 'Rechazar'}
@@ -232,3 +240,5 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
+
+    
