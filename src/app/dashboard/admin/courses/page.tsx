@@ -92,24 +92,24 @@ export default function AdminCoursesPage() {
           {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
         </Badge>
       </TableCell>
-      <TableCell className="text-right space-x-1 md:space-x-2">
+      <TableCell className="text-right space-x-1 md:space-x-0"> {/* Ajustado el espacio para íconos */}
         {course.status === 'pending' && (
           <>
-            <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')}>
+            <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1">
               <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
             </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'reject')}>
+            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')}>
               <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
             </Button>
           </>
         )}
-         <Button variant="ghost" size="icon" asChild>
-            <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
+         <Button variant="ghost" size="icon" asChild title="Ver Curso">
+            <Link href={`/dashboard/courses/${course.id}/view`}>
                 <Eye className="h-4 w-4" />
             </Link>
         </Button>
-         <Button variant="ghost" size="icon" asChild>
-          <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso"><Edit3 className="h-4 w-4" /></Link>
+         <Button variant="ghost" size="icon" asChild title="Editar Curso">
+          <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
         </Button>
          <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'delete')} title="Eliminar Curso">
           <Trash2 className="h-4 w-4" />
@@ -166,7 +166,7 @@ export default function AdminCoursesPage() {
           <TabsTrigger value="published">
             Publicados ({publishedCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="hidden md:flex">
+          <TabsTrigger value="rejected" className="hidden md:flex"> {/* Clase hidden md:flex para ocultar en móvil y mostrar en md y superior */}
             Rechazados ({rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
@@ -240,5 +240,3 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
-
-    
