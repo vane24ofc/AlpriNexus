@@ -1,13 +1,42 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSessionRole, Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Settings, BarChart3, Bell, Zap, Award, CheckCircle, PlusCircle, MessageSquare, BarChart, Star, Loader2, Library } from "lucide-react";
+import {
+  BookOpen,
+  Users,
+  Settings,
+  BarChart3,
+  Bell,
+  Zap,
+  Award,
+  CheckCircle,
+  PlusCircle,
+  MessageSquare,
+  BarChart as BarChartIcon,
+  Star,
+  Loader2,
+  Library
+} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from '@/hooks/use-toast';
 
 // Admin Dashboard Content
 const AdminDashboardContent = () => {
@@ -96,48 +125,7 @@ const AdminDashboardContent = () => {
           </CardContent>
         </Card>
       </div>
-      
-      {/* Dialog for Send Announcement */}
-      <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
-            <DialogDescription>
-            Redacta y envía un anuncio a los usuarios de la plataforma.
-            </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="announcement-title" className="text-right">
-                Título
-            </Label>
-            <Input
-                id="announcement-title"
-                placeholder="Ej: Mantenimiento Programado"
-                className="col-span-3"
-                value={announcementTitle}
-                onChange={(e) => setAnnouncementTitle(e.target.value)}
-            />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="announcement-message" className="text-right">
-                Mensaje
-            </Label>
-            <Textarea
-                id="announcement-message"
-                placeholder="Escribe aquí el contenido del anuncio..."
-                className="col-span-3"
-                rows={5}
-                value={announcementMessage}
-                onChange={(e) => setAnnouncementMessage(e.target.value)}
-            />
-            </div>
-        </div>
-        <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
-        </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    </div>
   );
 };
 
@@ -147,7 +135,7 @@ const InstructorDashboardContent = () => {
     { title: "Mis Cursos", value: "12", icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
     { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, 
     { title: "Revisiones Pendientes", value: "8", icon: MessageSquare, link: "#" },
-    { title: "Calificación Promedio", value: "4.7/5", icon: BarChart, link: "#" },
+    { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" },
   ];
 
   return (
@@ -198,7 +186,7 @@ const InstructorDashboardContent = () => {
                       <p className="text-sm text-muted-foreground">{course.students} estudiantes inscritos</p>
                     </div>
                     <Button variant="outline" size="sm" asChild>
-                      <Link href="#">Gestionar</Link>
+                      <Link href={`/dashboard/courses/${course.id}/edit`}>Gestionar</Link>
                     </Button>
                   </div>
                   <div className="mt-2">
@@ -275,7 +263,6 @@ const StudentDashboardContent = () => {
               <div className="bg-primary h-2.5 rounded-full" style={{ width: `60%` }}></div>
             </div>
             <Button asChild>
-              {/* Enlace a un curso específico de ejemplo */}
               <Link href="/dashboard/courses/course-js-adv/view">Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
             </Button>
           </div>
@@ -346,19 +333,6 @@ const StudentDashboardContent = () => {
   );
 };
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { useToast } from '@/hooks/use-toast';
 
 function AdminDashboardWrapper() {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
@@ -388,6 +362,45 @@ function AdminDashboardWrapper() {
   return (
     <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
       <AdminDashboardContent />
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
+            <DialogDescription>
+            Redacta y envía un anuncio a los usuarios de la plataforma.
+            </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="announcement-title" className="text-right">
+                Título
+            </Label>
+            <Input
+                id="announcement-title"
+                placeholder="Ej: Mantenimiento Programado"
+                className="col-span-3"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+            />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="announcement-message" className="text-right">
+                Mensaje
+            </Label>
+            <Textarea
+                id="announcement-message"
+                placeholder="Escribe aquí el contenido del anuncio..."
+                className="col-span-3"
+                rows={5}
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+            />
+            </div>
+        </div>
+        <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
@@ -398,7 +411,7 @@ export default function DashboardHomePage() {
 
   if (isLoadingRole) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4">
+      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando panel...</p>
       </div>
@@ -407,7 +420,7 @@ export default function DashboardHomePage() {
 
   if (!currentSessionRole) {
      return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4">
+      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
       </div>
      );
@@ -430,7 +443,6 @@ export default function DashboardHomePage() {
   }
 }
 
-// Helper para iconos de estrella (si es necesario, ya que InstructorDashboard lo usa)
 function StarIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -438,4 +450,6 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+    
 
+    
