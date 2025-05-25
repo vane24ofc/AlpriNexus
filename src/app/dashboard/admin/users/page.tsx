@@ -6,12 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
 import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Role } from '@/app/dashboard/layout';
-import { useToast } from '@/hooks/use-toast'; // Import useToast
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface User {
   id: string;
@@ -39,29 +49,48 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>(sampleUsers);
-  const { toast } = useToast(); // Initialize useToast
+  const { toast } = useToast();
+  const [userToModify, setUserToModify] = useState<User | null>(null);
+  const [actionType, setActionType] = useState<'delete' | 'changeRole' | null>(null);
+  const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
 
-  const handleDeleteUser = (userId: string) => {
-    const userToDelete = users.find(user => user.id === userId);
-    if (userToDelete) {
-      setUsers(prev => prev.filter(user => user.id !== userId));
-      toast({
-        title: "Usuario Eliminado",
-        description: `El usuario "${userToDelete.name}" ha sido eliminado (simulado).`,
-        variant: "destructive",
-      });
+
+  const openDialog = (user: User, type: 'delete' | 'changeRole', newRole?: Role) => {
+    setUserToModify(user);
+    setActionType(type);
+    if (type === 'changeRole' && newRole) {
+      setNewRoleForChange(newRole);
     }
   };
+
+  const closeDialog = () => {
+    setUserToModify(null);
+    setActionType(null);
+    setNewRoleForChange(null);
+  };
+
+  const handleDeleteUser = () => {
+    if (!userToModify) return;
+    const userName = userToModify.name;
+    setUsers(prev => prev.filter(user => user.id !== userToModify.id));
+    toast({
+      title: "Usuario Eliminado",
+      description: `El usuario "${userName}" ha sido eliminado.`,
+      variant: "destructive",
+    });
+    closeDialog();
+  };
   
-  const handleChangeRole = (userId: string, newRole: Role) => {
-    const userToChange = users.find(user => user.id === userId);
-    if (userToChange) {
-      setUsers(prev => prev.map(user => user.id === userId ? { ...user, role: newRole } : user));
-      toast({
-        title: "Rol de Usuario Actualizado",
-        description: `El rol de "${userToChange.name}" ha sido cambiado a ${roleDisplayInfo[newRole].label} (simulado).`,
-      });
-    }
+  const handleChangeRole = () => {
+    if (!userToModify || !newRoleForChange) return;
+    const userName = userToModify.name;
+    const newRoleLabel = roleDisplayInfo[newRoleForChange].label;
+    setUsers(prev => prev.map(user => user.id === userToModify.id ? { ...user, role: newRoleForChange! } : user));
+    toast({
+      title: "Rol de Usuario Actualizado",
+      description: `El rol de "${userName}" ha sido cambiado a ${newRoleLabel}.`,
+    });
+    closeDialog();
   };
 
   return (
@@ -146,15 +175,24 @@ export default function AdminUsersPage() {
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuLabel>Cambiar Rol a:</DropdownMenuLabel>
-                            {(Object.keys(roleDisplayInfo) as Role[]).filter(r => r !== user.role).map(newRole => (
-                                <DropdownMenuItem key={newRole} onClick={() => handleChangeRole(user.id, newRole)}>
-                                    {React.createElement(roleDisplayInfo[newRole].icon, {className: "mr-2 h-4 w-4"})}
-                                    {roleDisplayInfo[newRole].label}
-                                </DropdownMenuItem>
-                            ))}
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                {React.createElement(roleInfo.icon, {className: "mr-2 h-4 w-4"})}
+                                Cambiar Rol a:
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuPortal>
+                                <DropdownMenuSubContent>
+                                  {(Object.keys(roleDisplayInfo) as Role[]).filter(r => r !== user.role).map(newRoleKey => (
+                                      <DropdownMenuItem key={newRoleKey} onClick={() => openDialog(user, 'changeRole', newRoleKey)}>
+                                          {React.createElement(roleDisplayInfo[newRoleKey].icon, {className: "mr-2 h-4 w-4"})}
+                                          {roleDisplayInfo[newRoleKey].label}
+                                      </DropdownMenuItem>
+                                  ))}
+                                </DropdownMenuSubContent>
+                              </DropdownMenuPortal>
+                            </DropdownMenuSub>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-destructive hover:!text-destructive focus:!text-destructive">
+                            <DropdownMenuItem onClick={() => openDialog(user, 'delete')} className="text-destructive hover:!text-destructive focus:!text-destructive">
                               <Trash2 className="mr-2 h-4 w-4" /> Eliminar Usuario
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -168,6 +206,33 @@ export default function AdminUsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {userToModify && actionType && (
+        <AlertDialog open={!!userToModify} onOpenChange={closeDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Acción</AlertDialogTitle>
+              <AlertDialogDescription>
+                {actionType === 'delete' && `¿Estás seguro de que quieres eliminar permanentemente al usuario "${userToModify.name}"? Esta acción no se puede deshacer.`}
+                {actionType === 'changeRole' && `¿Estás seguro de que quieres cambiar el rol de "${userToModify.name}" a ${newRoleForChange ? roleDisplayInfo[newRoleForChange].label : ''}?`}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={closeDialog}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (actionType === 'delete') handleDeleteUser();
+                  if (actionType === 'changeRole') handleChangeRole();
+                }}
+                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}
+              >
+                {actionType === 'delete' && 'Eliminar Permanentemente'}
+                {actionType === 'changeRole' && 'Confirmar Cambio de Rol'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
