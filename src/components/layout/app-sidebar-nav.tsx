@@ -19,6 +19,8 @@ import {
   User as UserIconLucide, 
   CalendarDays,
   BarChartBig,
+  PlusCircle,
+  Library, // Añadido para Explorar Cursos
 } from 'lucide-react';
 import {
   Sidebar,
@@ -38,8 +40,6 @@ import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, Role } from '@/app/dashboard/layout'; 
-// Importación faltante
-import { PlusCircle } from 'lucide-react';
 
 interface NavItem {
   href?: string; 
@@ -77,6 +77,7 @@ const navItems: NavItem[] = [
     roles: ['estudiante'],
     children: [
       { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, 
+      { href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library }, // Nuevo enlace
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -90,7 +91,7 @@ export function AppSidebarNav() {
   const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   
-  const dashboardPath = '/dashboard'; // Todos los roles van a /dashboard para el panel principal
+  const dashboardPath = '/dashboard'; 
 
   const getFilteredNavItems = (): NavItem[] => {
     if (!currentSessionRole) return [];
@@ -105,14 +106,8 @@ export function AppSidebarNav() {
 
         if (item.children) {
           newItem.children = item.children.filter(child => {
-            // Si el hijo tiene roles definidos, verificar si el rol actual está incluido.
-            // Si el hijo no tiene roles definidos, se asume que es visible para el rol padre.
             if (child.roles && !child.roles.includes(currentSessionRole)) {
               return false;
-            }
-            // Eliminar los enlaces redundantes a paneles principales de rol si es que aún existieran en la definición
-             if (['Resumen de Admin', 'Mi Panel (Instructor)', 'Mi Panel (Estudiante)'].includes(child.label)) {
-                return false; 
             }
             return true;
           });
@@ -137,8 +132,6 @@ export function AppSidebarNav() {
     const activeSubmenus: Record<string, boolean> = {};
     filteredNavItems.forEach(item => {
       if (item.children) {
-        // Abre el submenú si la ruta actual comienza con la ruta de alguno de sus hijos
-        // O si la ruta actual es exactamente la del item padre (si el item padre es un enlace)
         const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
         const isParentActive = item.href && pathname === item.href;
 
@@ -151,24 +144,20 @@ export function AppSidebarNav() {
         setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, currentSessionRole]); // No añadir filteredNavItems directamente para evitar bucles si su referencia cambia
+  }, [pathname, currentSessionRole]); 
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      // El href efectivo es el href del item, o el dashboardPath si el label es "Panel Principal"
       const effectiveHref = item.href || (item.label === 'Panel Principal' ? dashboardPath : undefined);
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.label] || false;
 
-        // Un grupo está activo si su propio enlace (si existe) está activo, o si alguno de sus hijos está activo.
         const isGroupActive = (effectiveHref && pathname === effectiveHref) || 
                               item.children.some(child => child.href && pathname.startsWith(child.href as string));
         
-        // Si el ítem es un agrupador sin href propio (solo tiene hijos),
-        // el estado activo se determina puramente por sus hijos.
         const isActiveForButton = effectiveHref ? (pathname === effectiveHref) : isGroupActive;
 
 
@@ -195,7 +184,6 @@ export function AppSidebarNav() {
         );
       }
 
-      // Si no tiene hijos o los hijos fueron filtrados y no tiene un href propio, no renderizar nada.
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
@@ -203,7 +191,7 @@ export function AppSidebarNav() {
         <SidebarMenuItem key={effectiveHref || item.label}>
           <Comp
             asChild
-            isActive={pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath) }
+            isActive={pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath && !(effectiveHref === '/dashboard/courses/explore' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore'))  ) }
             tooltip={item.label}
           >
             <Link href={effectiveHref}>
@@ -286,4 +274,3 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
-

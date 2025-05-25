@@ -2,10 +2,10 @@
 "use client";
 
 import React from 'react';
-import { useSessionRole } from '@/app/dashboard/layout';
+import { useSessionRole, Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, Settings, BarChart3, Bell, Zap, Award, CheckCircle, PlusCircle, MessageSquare, BarChart, Star, Loader2 } from "lucide-react";
+import { BookOpen, Users, Settings, BarChart3, Bell, Zap, Award, CheckCircle, PlusCircle, MessageSquare, BarChart, Star, Loader2, Library } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -81,10 +81,12 @@ const AdminDashboardContent = () => {
                     <span className="font-medium">Gestionar Cursos</span>
                 </Link>
             </Button>
-             <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center">
-                <Bell className="h-8 w-8 mb-2 text-accent"/>
-                <span className="font-medium">Enviar Anuncio</span>
-            </Button>
+            <DialogTrigger asChild>
+                 <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center">
+                    <Bell className="h-8 w-8 mb-2 text-accent"/>
+                    <span className="font-medium">Enviar Anuncio</span>
+                </Button>
+            </DialogTrigger>
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
                 <Link href="/dashboard/settings">
                     <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
@@ -94,15 +96,56 @@ const AdminDashboardContent = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
+      
+      {/* Dialog for Send Announcement */}
+      <DialogContent className="sm:max-w-[480px]">
+        <DialogHeader>
+            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
+            <DialogDescription>
+            Redacta y envía un anuncio a los usuarios de la plataforma.
+            </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="announcement-title" className="text-right">
+                Título
+            </Label>
+            <Input
+                id="announcement-title"
+                placeholder="Ej: Mantenimiento Programado"
+                className="col-span-3"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+            />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="announcement-message" className="text-right">
+                Mensaje
+            </Label>
+            <Textarea
+                id="announcement-message"
+                placeholder="Escribe aquí el contenido del anuncio..."
+                className="col-span-3"
+                rows={5}
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+            />
+            </div>
+        </div>
+        <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
+        </DialogFooter>
+        </DialogContent>
+    </Dialog>
   );
 };
 
 // Instructor Dashboard Content
 const InstructorDashboardContent = () => {
   const stats = [
-    { title: "Mis Cursos", value: "12", icon: BookOpen, link: "#" }, // Debería enlazar a /dashboard/instructor/my-courses
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Debería enlazar a /dashboard/instructor/students
+    { title: "Mis Cursos", value: "12", icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
+    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, 
     { title: "Revisiones Pendientes", value: "8", icon: MessageSquare, link: "#" },
     { title: "Calificación Promedio", value: "4.7/5", icon: BarChart, link: "#" },
   ];
@@ -209,9 +252,9 @@ const InstructorDashboardContent = () => {
 // Student Dashboard Content
 const StudentDashboardContent = () => {
   const enrolledCourses = [
-    { id: "course1", name: "Introducción a la Programación", instructor: "Dr. Ada Lovelace", progress: 75, image: "https://placehold.co/600x300.png?text=Curso+1", dataAiHint: "programming course" },
-    { id: "course2", name: "Bootcamp de Desarrollo Web", instructor: "Prof. Tim Berners-Lee", progress: 40, image: "https://placehold.co/600x300.png?text=Curso+2", dataAiHint: "web development" },
-    { id: "course3", name: "Fundamentos de Ciencia de Datos", instructor: "Dr. Alan Turing", progress: 90, image: "https://placehold.co/600x300.png?text=Curso+3", dataAiHint: "data science" },
+    { id: "course-js-adv", name: "JavaScript Avanzado", instructor: "Dr. Ada Lovelace", progress: 75, image: "https://placehold.co/600x300.png?text=JS+Avanzado", dataAiHint: "javascript programming" },
+    { id: "course-python-ds", name: "Bootcamp de Desarrollo Web", instructor: "Prof. Tim Berners-Lee", progress: 40, image: "https://placehold.co/600x300.png?text=Web+Dev", dataAiHint: "web development" },
+    { id: "course-ux-design", name: "Fundamentos de Ciencia de Datos", instructor: "Dr. Alan Turing", progress: 90, image: "https://placehold.co/600x300.png?text=Data+Science", dataAiHint: "data science" },
   ];
 
   return (
@@ -232,37 +275,43 @@ const StudentDashboardContent = () => {
               <div className="bg-primary h-2.5 rounded-full" style={{ width: `60%` }}></div>
             </div>
             <Button asChild>
-              <Link href="#">Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
+              {/* Enlace a un curso específico de ejemplo */}
+              <Link href="/dashboard/courses/course-js-adv/view">Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      <div className="space-y-2">
+      <div className="flex justify-between items-center">
         <h2 className="text-2xl font-semibold">Mis Cursos Inscritos</h2>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {enrolledCourses.map((course) => (
-            <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
-              <Image src={course.image} alt={course.name} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint} />
-              <CardHeader>
-                <CardTitle className="text-lg leading-tight">{course.name}</CardTitle>
-                <CardDescription>Por {course.instructor}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                  <span>Progreso</span>
-                  <span>{course.progress}%</span>
-                </div>
-                <div className="w-full bg-muted rounded-full h-2">
-                  <div className={`h-2 rounded-full ${course.progress === 100 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.progress}%` }}></div>
-                </div>
-                <Button variant="outline" size="sm" asChild className="w-full mt-4">
-                  <Link href="#">{course.progress === 100 ? 'Ver Certificado' : 'Continuar Aprendiendo'}</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Button variant="outline" asChild>
+            <Link href="/dashboard/courses/explore">
+                <Library className="mr-2 h-4 w-4" /> Explorar Más Cursos
+            </Link>
+        </Button>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {enrolledCourses.map((course) => (
+          <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
+            <Image src={course.image} alt={course.name} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint} />
+            <CardHeader>
+              <CardTitle className="text-lg leading-tight">{course.name}</CardTitle>
+              <CardDescription>Por {course.instructor}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                <span>Progreso</span>
+                <span>{course.progress}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <div className={`h-2 rounded-full ${course.progress === 100 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.progress}%` }}></div>
+              </div>
+              <Button variant="outline" size="sm" asChild className="w-full mt-4">
+                <Link href={`/dashboard/courses/${course.id}/view`}>{course.progress === 100 ? 'Ver Certificado' : 'Continuar Aprendiendo'}</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ))}
       </div>
       
       <div className="grid gap-6 md:grid-cols-2">
@@ -297,11 +346,57 @@ const StudentDashboardContent = () => {
   );
 };
 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from '@/hooks/use-toast';
+
+function AdminDashboardWrapper() {
+  const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
+  const [announcementTitle, setAnnouncementTitle] = React.useState('');
+  const [announcementMessage, setAnnouncementMessage] = React.useState('');
+  const { toast } = useToast();
+
+  const handleSendAnnouncement = () => {
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Campos Vacíos",
+        description: "Por favor, ingresa un título y un mensaje para el anuncio.",
+      });
+      return;
+    }
+    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage });
+    toast({
+      title: "Anuncio Enviado (Simulado)",
+      description: `El anuncio "${announcementTitle}" ha sido enviado.`,
+    });
+    setIsAnnouncementDialogOpen(false);
+    setAnnouncementTitle('');
+    setAnnouncementMessage('');
+  };
+
+  return (
+    <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
+      <AdminDashboardContent />
+    </Dialog>
+  );
+}
+
 
 export default function DashboardHomePage() {
-  const { currentSessionRole } = useSessionRole();
+  const { currentSessionRole, isLoadingRole } = useSessionRole();
 
-  if (!currentSessionRole) {
+  if (isLoadingRole) {
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -310,15 +405,22 @@ export default function DashboardHomePage() {
     );
   }
 
+  if (!currentSessionRole) {
+     return (
+      <div className="flex h-screen flex-col items-center justify-center space-y-4">
+        <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
+      </div>
+     );
+  }
+
   switch (currentSessionRole) {
     case 'administrador':
-      return <AdminDashboardContent />;
+      return <AdminDashboardWrapper />;
     case 'instructor':
       return <InstructorDashboardContent />;
     case 'estudiante':
       return <StudentDashboardContent />;
     default:
-      // Fallback or a generic welcome if role is somehow not set or unexpected
       return (
           <div className="space-y-6">
             <h1 className="text-3xl font-bold tracking-tight">Bienvenido a NexusAlpri</h1>
@@ -336,3 +438,4 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
