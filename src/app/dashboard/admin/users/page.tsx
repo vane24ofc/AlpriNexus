@@ -11,6 +11,7 @@ import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationC
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Role } from '@/app/dashboard/layout';
+import { useToast } from '@/hooks/use-toast'; // Import useToast
 
 interface User {
   id: string;
@@ -38,17 +39,29 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>(sampleUsers);
+  const { toast } = useToast(); // Initialize useToast
 
-  // Placeholder para acciones futuras
-  const handleEditUser = (userId: string) => console.log(`Editar usuario: ${userId}`);
   const handleDeleteUser = (userId: string) => {
-    console.log(`Eliminar usuario: ${userId}`);
-    setUsers(prev => prev.filter(user => user.id !== userId));
-    // Aquí iría un toast de confirmación
+    const userToDelete = users.find(user => user.id === userId);
+    if (userToDelete) {
+      setUsers(prev => prev.filter(user => user.id !== userId));
+      toast({
+        title: "Usuario Eliminado",
+        description: `El usuario "${userToDelete.name}" ha sido eliminado (simulado).`,
+        variant: "destructive",
+      });
+    }
   };
+  
   const handleChangeRole = (userId: string, newRole: Role) => {
-    console.log(`Cambiar rol de ${userId} a ${newRole}`);
-    setUsers(prev => prev.map(user => user.id === userId ? { ...user, role: newRole } : user));
+    const userToChange = users.find(user => user.id === userId);
+    if (userToChange) {
+      setUsers(prev => prev.map(user => user.id === userId ? { ...user, role: newRole } : user));
+      toast({
+        title: "Rol de Usuario Actualizado",
+        description: `El rol de "${userToChange.name}" ha sido cambiado a ${roleDisplayInfo[newRole].label} (simulado).`,
+      });
+    }
   };
 
   return (
@@ -111,7 +124,7 @@ export default function AdminUsersPage() {
                           {roleInfo.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">{user.joinDate}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
                           {user.status === 'active' ? 'Activo' : 'Inactivo'}
@@ -127,8 +140,10 @@ export default function AdminUsersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => handleEditUser(user.id)}>
-                              <Edit className="mr-2 h-4 w-4" /> Editar Usuario
+                            <DropdownMenuItem asChild>
+                               <Link href={`/dashboard/admin/users/${user.id}/edit`}>
+                                <Edit className="mr-2 h-4 w-4" /> Editar Usuario
+                              </Link>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuLabel>Cambiar Rol a:</DropdownMenuLabel>
