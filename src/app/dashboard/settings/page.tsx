@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,36 +9,62 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, User, Bell, Palette, Lock } from 'lucide-react';
-import { useSessionRole } from '@/app/dashboard/layout'; // Para obtener el rol si es necesario
+import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save } from 'lucide-react';
+import { useSessionRole } from '@/app/dashboard/layout'; 
 import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
   const { currentSessionRole } = useSessionRole();
   const { toast } = useToast();
   
-  // Mock user data - en una app real, vendría de la sesión/API
   const [userData, setUserData] = useState({
-    name: currentSessionRole ? `${currentSessionRole.charAt(0).toUpperCase() + currentSessionRole.slice(1)} User` : 'Demo User',
-    email: currentSessionRole ? `${currentSessionRole}@example.com` : 'demo@example.com',
+    name: '',
+    email: '',
   });
 
-  // Mock settings state
   const [notificationPrefs, setNotificationPrefs] = useState({
     emailNewCourses: true,
     emailAnnouncements: true,
     appUpdates: false,
   });
   const [appearanceTheme, setAppearanceTheme] = useState('dark');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    // Simular carga de datos del usuario basado en el rol
+    // En una app real, esto vendría de una API/sesión
+    if (currentSessionRole) {
+      setUserData({
+        name: `${currentSessionRole.charAt(0).toUpperCase() + currentSessionRole.slice(1)} Usuario`,
+        email: `${currentSessionRole}@example.com`,
+      });
+    } else {
+      setUserData({
+        name: 'Usuario Demo',
+        email: 'demo@example.com',
+      });
+    }
+  }, [currentSessionRole]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUserData(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSaveChanges = () => {
+    setIsSaving(true);
     // Simular guardado de cambios
+    console.log("Datos de usuario actualizados:", userData);
     console.log("Preferencias de notificación:", notificationPrefs);
     console.log("Tema de apariencia:", appearanceTheme);
-    toast({
-      title: "Configuración Guardada",
-      description: "Tus preferencias han sido actualizadas (simulado).",
-    });
+    
+    setTimeout(() => {
+      toast({
+        title: "Configuración Guardada",
+        description: "Tus preferencias han sido actualizadas (simulado).",
+      });
+      setIsSaving(false);
+    }, 1000);
   };
 
   return (
@@ -51,24 +77,20 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Columna de Navegación de Configuración (opcional, más útil si hay muchas secciones) */}
-        {/* Por ahora, lo mantenemos simple y ponemos todo en una columna principal */}
-        
-        {/* Contenido Principal de Configuración */}
         <div className="lg:col-span-3 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Información de la Cuenta</CardTitle>
-              <CardDescription>Visualiza la información básica de tu cuenta.</CardDescription>
+              <CardDescription>Actualiza tu información personal.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="fullName">Nombre Completo</Label>
-                <Input id="fullName" value={userData.name} readOnly className="bg-muted/50"/>
+                <Label htmlFor="name">Nombre Completo</Label>
+                <Input id="name" name="name" value={userData.name} onChange={handleInputChange} />
               </div>
               <div>
                 <Label htmlFor="email">Correo Electrónico</Label>
-                <Input id="email" type="email" value={userData.email} readOnly className="bg-muted/50"/>
+                <Input id="email" name="email" type="email" value={userData.email} onChange={handleInputChange} />
               </div>
             </CardContent>
           </Card>
@@ -130,7 +152,7 @@ export default function SettingsPage() {
                <CardDescription>Gestiona la seguridad de tu cuenta.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button variant="outline">Cambiar Contraseña (Próximamente)</Button>
+                <Button variant="outline" disabled>Cambiar Contraseña (Próximamente)</Button>
                 <p className="text-xs text-muted-foreground mt-2">Se recomienda cambiar la contraseña periódicamente.</p>
             </CardContent>
           </Card>
@@ -157,7 +179,10 @@ export default function SettingsPage() {
           </Card>
 
           <div className="flex justify-end pt-4">
-            <Button onClick={handleSaveChanges} className="min-w-[150px]">Guardar Cambios</Button>
+            <Button onClick={handleSaveChanges} className="min-w-[150px]" disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
           </div>
         </div>
       </div>

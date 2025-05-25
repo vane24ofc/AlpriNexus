@@ -8,12 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera } from "lucide-react";
+import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link"; // Importar Link
 
 export default function StudentProfilePage() {
   const { toast } = useToast();
-  const [avatarUrl, setAvatarUrl] = useState("https://placehold.co/100x100.png");
+  const [avatarUrl, setAvatarUrl] = useState("https://placehold.co/100x100.png?text=Perfil");
   const [studentData, setStudentData] = useState({
     name: "Estudiante Demo",
     email: "student@example.com",
@@ -66,9 +67,11 @@ export default function StudentProfilePage() {
           <User className="mr-3 h-8 w-8 text-primary" />
           Mi Perfil
         </h1>
-        <Button variant="outline">
-          <Edit3 className="mr-2 h-4 w-4" />
-          Editar Perfil (Próximamente)
+        <Button variant="outline" asChild>
+          <Link href="/dashboard/settings">
+            <Settings className="mr-2 h-4 w-4" />
+            Ir a Configuración
+          </Link>
         </Button>
       </div>
 
@@ -113,19 +116,11 @@ export default function StudentProfilePage() {
 
         <Card className="lg:col-span-2 shadow-lg">
           <CardHeader>
-            <CardTitle>Información de la Cuenta</CardTitle>
-            <CardDescription>Detalles de tu cuenta y preferencias.</CardDescription>
+            <CardTitle>Resumen de Actividad</CardTitle>
+            <CardDescription>Tu progreso en la plataforma.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="fullName">Nombre Completo</Label>
-              <Input id="fullName" defaultValue={studentData.name} readOnly className="bg-muted/50"/>
-            </div>
-            <div>
-              <Label htmlFor="email">Correo Electrónico</Label>
-              <Input id="email" type="email" defaultValue={studentData.email} readOnly className="bg-muted/50"/>
-            </div>
-            <Separator />
+            
             <CardTitle className="text-lg pt-2">Estadísticas de Aprendizaje</CardTitle>
              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center p-3 bg-muted/30 rounded-md">
@@ -136,7 +131,7 @@ export default function StudentProfilePage() {
                     </div>
                 </div>
                 <div className="flex items-center p-3 bg-muted/30 rounded-md">
-                    <Shield className="mr-3 h-5 w-5 text-accent"/>
+                    <Shield className="mr-3 h-5 w-5 text-accent"/> {/* Cambiado a Shield para diferenciar de Badge de curso */}
                     <div>
                         <p className="font-semibold">{studentData.coursesCompleted} Cursos Completados</p>
                         <p className="text-xs text-muted-foreground">¡Felicidades por tus logros!</p>
@@ -144,11 +139,15 @@ export default function StudentProfilePage() {
                 </div>
             </div>
             <Separator />
-            <Button variant="destructive" className="w-full md:w-auto">
+            <Button variant="outline" className="w-full md:w-auto" disabled>
+                Ver Certificados (Próximamente)
+            </Button>
+            <Separator />
+             <Button variant="destructive" className="w-full md:w-auto" disabled>
                 Eliminar Cuenta (Próximamente)
             </Button>
              <p className="text-xs text-muted-foreground">
-                Contacta con soporte si deseas cambiar tu contraseña o tienes otras consultas sobre tu cuenta.
+                Para cambiar tu contraseña u otras opciones de seguridad, visita la página de Configuración.
             </p>
           </CardContent>
         </Card>
