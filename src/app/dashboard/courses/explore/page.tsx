@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -48,16 +48,23 @@ export default function ExploreCoursesPage() {
   }, []);
 
   // Filtramos solo los cursos aprobados para el catálogo
-  const approvedCourses = allPlatformCourses.filter(course => course.status === 'approved');
+  const approvedCourses = useMemo(() => allPlatformCourses.filter(course => course.status === 'approved'), []);
 
-  const filteredCourses = approvedCourses.filter(course =>
-    course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    course.instructorName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCourses = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return approvedCourses;
+    }
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    return approvedCourses.filter(course =>
+      course.title.toLowerCase().includes(lowercasedSearchTerm) ||
+      course.description.toLowerCase().includes(lowercasedSearchTerm) ||
+      course.instructorName.toLowerCase().includes(lowercasedSearchTerm)
+    );
+  }, [approvedCourses, searchTerm]);
 
   const handleEnroll = (courseId: string, courseTitle: string) => {
-    const newEnrolledIds = new Set(enrolledCourseIds).add(courseId);
+    const newEnrolledIds = new Set(enrolledCourseIds);
+    newEnrolledIds.add(courseId);
     setEnrolledCourseIds(newEnrolledIds);
     localStorage.setItem(LOCAL_STORAGE_ENROLLED_KEY, JSON.stringify(Array.from(newEnrolledIds)));
     toast({
