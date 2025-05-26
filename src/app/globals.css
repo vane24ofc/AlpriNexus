@@ -18,8 +18,8 @@ body {
     --popover: 0 0% 100%; /* Blanco */
     --popover-foreground: 0 0% 3.9%; /* Casi Negro */
 
-    --primary: 222.2 47.4% 11.2%; /* Azul oscuro para tema claro */
-    --primary-foreground: 0 0% 98%; /* Casi Blanco */
+    --primary: 217 91% 60%; /* Azul Brillante (Tailwind Blue 500) - Mantenido para tema claro */
+    --primary-foreground: 0 0% 100%; /* Blanco - Mantenido para tema claro */
 
     --secondary: 0 0% 96.1%; /* Gris muy claro */
     --secondary-foreground: 0 0% 9%; /* Negro */
@@ -27,15 +27,15 @@ body {
     --muted: 0 0% 96.1%; /* Gris muy claro */
     --muted-foreground: 0 0% 45.1%; /* Gris medio */
 
-    --accent: 0 0% 94%; /* Gris claro para acento en tema claro */
-    --accent-foreground: 0 0% 9%; /* Negro */
+    --accent: 160 70% 45%; /* Teal vibrante como acento en tema claro */
+    --accent-foreground: 0 0% 100%; /* Blanco */
 
     --destructive: 0 84.2% 60.2%; /* Rojo para destructivo */
     --destructive-foreground: 0 0% 98%; /* Casi Blanco */
 
     --border: 0 0% 89.8%; /* Gris claro para bordes */
     --input: 0 0% 93%; /* Gris aún más claro para inputs */
-    --ring: 222.2 47.4% 11.2%; /* Azul oscuro para anillos de foco */
+    --ring: 217 91% 65%; /* Azul un poco más claro para anillos de foco en tema claro */
 
     --radius: 0.5rem;
 
@@ -93,14 +93,14 @@ body {
     --chart-4: 150 70% 45%; /* Verde Esmeralda */
     --chart-5: 280 75% 65%; /* Lavanda */
 
-    /* Sidebar specific colors - Dark theme */
-    --sidebar-background: 220 15% 12%; /* Azul muy oscuro y desaturado */
-    --sidebar-foreground: 0 0% 95%; /* Casi blanco, para contraste */
+    /* Sidebar specific colors - Dark theme - NUEVA PALETA */
+    --sidebar-background: 220 15% 10%; /* Azul muy oscuro y profundo, casi negro */
+    --sidebar-foreground: 0 0% 95%;   /* Texto casi blanco para contraste */
     --sidebar-primary: hsl(var(--primary)); /* Usa el primario principal del tema oscuro */
     --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Texto para el primario */
-    --sidebar-accent: 220 15% 20%; /* Un tono ligeramente más claro que el fondo para hover/acento sutil */
-    --sidebar-accent-foreground: 0 0% 95%; /* Texto para el acento */
-    --sidebar-border: 220 15% 18%; /* Borde sutil y oscuro */
+    --sidebar-accent: 220 40% 28%;    /* Azul Zafiro Oscuro para hover/acento */
+    --sidebar-accent-foreground: 0 0% 95%; /* Texto casi blanco para el acento */
+    --sidebar-border: 220 15% 15%;   /* Borde sutil, ligeramente más claro que el fondo */
     --sidebar-ring: hsl(var(--ring));
   }
 }
@@ -151,3 +151,4 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
   position: relative;
   z-index: 2;
 }
+
