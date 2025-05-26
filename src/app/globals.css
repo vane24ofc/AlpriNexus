@@ -9,6 +9,55 @@ body {
 
 @layer base {
   :root {
+    --background: 0 0% 100%; /* Blanco */
+    --foreground: 0 0% 3.9%; /* Casi Negro */
+
+    --card: 0 0% 100%; /* Blanco */
+    --card-foreground: 0 0% 3.9%; /* Casi Negro */
+
+    --popover: 0 0% 100%; /* Blanco */
+    --popover-foreground: 0 0% 3.9%; /* Casi Negro */
+
+    --primary: 222.2 47.4% 11.2%; /* Azul oscuro para tema claro */
+    --primary-foreground: 0 0% 98%; /* Casi Blanco */
+
+    --secondary: 0 0% 96.1%; /* Gris muy claro */
+    --secondary-foreground: 0 0% 9%; /* Negro */
+
+    --muted: 0 0% 96.1%; /* Gris muy claro */
+    --muted-foreground: 0 0% 45.1%; /* Gris medio */
+
+    --accent: 0 0% 94%; /* Gris claro para acento en tema claro */
+    --accent-foreground: 0 0% 9%; /* Negro */
+
+    --destructive: 0 84.2% 60.2%; /* Rojo para destructivo */
+    --destructive-foreground: 0 0% 98%; /* Casi Blanco */
+
+    --border: 0 0% 89.8%; /* Gris claro para bordes */
+    --input: 0 0% 93%; /* Gris aún más claro para inputs */
+    --ring: 222.2 47.4% 11.2%; /* Azul oscuro para anillos de foco */
+
+    --radius: 0.5rem;
+
+    /* Chart colors - Paleta para tema claro */
+    --chart-1: 220 70% 50%; /* Azul brillante */
+    --chart-2: 160 60% 45%; /* Verde azulado */
+    --chart-3: 40 80% 55%;  /* Naranja */
+    --chart-4: 290 65% 60%; /* Púrpura */
+    --chart-5: 0 75% 65%;   /* Rojo coral */
+
+    /* Sidebar specific colors - Light theme */
+    --sidebar-background: 0 0% 98%; /* Gris muy claro, casi blanco */
+    --sidebar-foreground: 0 0% 3.9%; /* Casi Negro */
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 0 0% 90%; /* Gris un poco más oscuro para acento de sidebar */
+    --sidebar-accent-foreground: 0 0% 3.9%; /* Casi Negro */
+    --sidebar-border: 0 0% 85%; /* Gris para bordes de sidebar */
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .dark {
     --background: 0 0% 4%; /* #0A0A0A Un negro un poco más suave */
     --foreground: 0 0% 95%; /* #F2F2F2 Un gris muy claro, casi blanco */
 
@@ -35,27 +84,24 @@ body {
 
     --border: 0 0% 20%; /* #333333 Gris para bordes */
     --input: 0 0% 18%; /* #2E2E2E Gris oscuro para fondos de input */
-    --ring: 217 91% 65%; /* Azul un poco más claro para anillos de foco, coordinado con el primario */
+    --ring: 217 91% 65%; /* Azul un poco más claro para anillos de foco */
 
-    --radius: 0.5rem; /* 8px. Buttons/Cards will use rounded-lg (8px). Inputs will use rounded-md (6px) */
-
-    /* Chart colors - NUEVA PALETA */
+    /* Chart colors - Paleta para tema oscuro (la que ya tenías) */
     --chart-1: 200 80% 55%; /* Azul Cielo Brillante */
     --chart-2: 340 85% 60%; /* Rosa/Magenta Vibrante */
     --chart-3: 45 100% 50%; /* Amarillo Dorado */
     --chart-4: 150 70% 45%; /* Verde Esmeralda */
     --chart-5: 280 75% 65%; /* Lavanda */
 
-
-    /* Sidebar specific colors, matching the theme */
+    /* Sidebar specific colors - Dark theme */
     --sidebar-background: 0 0% 8%; /* #141414 Similar al popover */
     --sidebar-foreground: 0 0% 95%; /* #F2F2F2 */
-    --sidebar-primary: hsl(var(--primary)); /* Azul (color primario) */
-    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Blanco */
-    --sidebar-accent: hsl(var(--accent)); /* Teal (color de acento) */
-    --sidebar-accent-foreground: hsl(var(--accent-foreground)); /* Blanco */
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: hsl(var(--accent));
+    --sidebar-accent-foreground: hsl(var(--accent-foreground));
     --sidebar-border: 0 0% 15%; /* #262626 Similar a muted */
-    --sidebar-ring: hsl(var(--ring)); /* Coordinado con el primario */
+    --sidebar-ring: hsl(var(--ring));
   }
 }
 
@@ -96,8 +142,17 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
 
 /* Style for dot on today's date (if not selected) */
 .rdp-day_today.day-with-event-dot:not(.rdp-day_selected)::after {
-  background-color: hsl(var(--accent-foreground)); /* Or another contrasting color for today's accent */
+  /* For dark theme, accent-foreground is white. For light theme, accent-foreground is black.
+     We need a color that works on accent background.
+     If accent is light gray (light theme), dot should be dark.
+     If accent is teal (dark theme), dot should be white.
+     Let's use primary-foreground which is usually white/light text on primary color.
+     Or more simply, we can hardcode.
+     Given our light theme accent is light gray and dark theme accent is teal:
+  */
+  background-color: hsl(var(--accent-foreground));
 }
+
 
 /* Ensure the text of the day number is above the dot if there's overlap or for clarity */
 .day-with-event-dot > .rdp-day_button_level1 {

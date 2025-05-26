@@ -9,14 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save } from 'lucide-react';
-import { useSessionRole } from '@/app/dashboard/layout'; 
+import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2 } from 'lucide-react';
+import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SettingsPage() {
   const { currentSessionRole } = useSessionRole();
   const { toast } = useToast();
-  
+
   const [userData, setUserData] = useState({
     name: '',
     email: '',
@@ -27,12 +27,13 @@ export default function SettingsPage() {
     emailAnnouncements: true,
     appUpdates: false,
   });
-  const [appearanceTheme, setAppearanceTheme] = useState('dark');
+  
+  // Theme state will be managed by RootLayout and localStorage directly for simplicity in this step
+  const [currentTheme, setCurrentTheme] = useState('dark');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     // Simular carga de datos del usuario basado en el rol
-    // En una app real, esto vendría de una API/sesión
     if (currentSessionRole) {
       setUserData({
         name: `${currentSessionRole.charAt(0).toUpperCase() + currentSessionRole.slice(1)} Usuario`,
@@ -44,6 +45,10 @@ export default function SettingsPage() {
         email: 'demo@example.com',
       });
     }
+
+    // Load current theme from localStorage
+    const storedTheme = localStorage.getItem('nexusAlpriTheme') || 'dark';
+    setCurrentTheme(storedTheme);
   }, [currentSessionRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,13 +56,24 @@ export default function SettingsPage() {
     setUserData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleThemeChange = (newTheme: string) => {
+    setCurrentTheme(newTheme);
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(newTheme);
+    localStorage.setItem('nexusAlpriTheme', newTheme);
+    toast({
+      title: "Tema Actualizado",
+      description: `El tema de la aplicación ha cambiado a ${newTheme === 'dark' ? 'Oscuro' : 'Claro'}.`,
+    });
+  };
+
   const handleSaveChanges = () => {
     setIsSaving(true);
-    // Simular guardado de cambios
     console.log("Datos de usuario actualizados:", userData);
     console.log("Preferencias de notificación:", notificationPrefs);
-    console.log("Tema de apariencia:", appearanceTheme);
-    
+    console.log("Tema de apariencia:", currentTheme); // currentTheme is from component state
+
     setTimeout(() => {
       toast({
         title: "Configuración Guardada",
@@ -164,17 +180,16 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-2">
               <Label htmlFor="theme-select">Tema</Label>
-              <Select value={appearanceTheme} onValueChange={setAppearanceTheme}>
+              <Select value={currentTheme} onValueChange={handleThemeChange}>
                 <SelectTrigger id="theme-select" className="w-[180px]">
                   <SelectValue placeholder="Seleccionar tema" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dark">Oscuro (Actual)</SelectItem>
-                  <SelectItem value="light" disabled>Claro (Próximamente)</SelectItem>
-                  <SelectItem value="system" disabled>Sistema (Próximamente)</SelectItem>
+                  <SelectItem value="light">Claro</SelectItem>
+                  <SelectItem value="dark">Oscuro</SelectItem>
+                  {/* <SelectItem value="system" disabled>Sistema (Próximamente)</SelectItem> */}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Más opciones de personalización estarán disponibles pronto.</p>
             </CardContent>
           </Card>
 
