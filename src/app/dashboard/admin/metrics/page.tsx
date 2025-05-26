@@ -14,7 +14,9 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, Bar, BarChart as ReBarChart, LabelList } from 'recharts';
 import type { ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import Image from "next/image";
 
 const userGrowthData = [
   { month: "Ene", users: 65 },
@@ -63,6 +65,12 @@ const courseActivityChartConfig = {
 export default function AdminMetricsPage() {
   const { toast } = useToast();
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [isPreviewReportOpen, setIsPreviewReportOpen] = useState(false);
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    setCurrentDate(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }));
+  }, []);
 
   const stats = [
     { title: "Usuarios Totales", value: "1,523", icon: Users, trend: "+5% último mes" },
@@ -81,17 +89,16 @@ export default function AdminMetricsPage() {
     });
     setTimeout(() => {
       setIsGeneratingReport(false);
-      toast({
-        title: "Informe Generado (Simulado)",
-        description: "El informe 'Actividad de Usuarios Q1 2024.pdf' está listo para descargar.",
-        action: (
-          <Button variant="outline" size="sm" onClick={() => alert('Descarga simulada iniciada.')}>
-            <Download className="mr-2 h-4 w-4" />
-            Descargar
-          </Button>
-        ),
-      });
+      setIsPreviewReportOpen(true); // Abre el diálogo de vista previa
     }, 2500);
+  };
+
+  const handleDownloadSimulatedReport = () => {
+    setIsPreviewReportOpen(false);
+    toast({
+        title: "Descarga Iniciada (Simulada)",
+        description: "El informe 'Actividad_AlpriNexus_Q1_2024.pdf' ha comenzado a descargarse.",
+    });
   };
 
   return (
@@ -284,7 +291,85 @@ export default function AdminMetricsPage() {
         </CardContent>
       </Card>
 
+      <Dialog open={isPreviewReportOpen} onOpenChange={setIsPreviewReportOpen}>
+        <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Vista Previa del Informe de Actividad</DialogTitle>
+            <DialogDescription>
+              Este es un ejemplo de cómo se vería el informe generado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-grow overflow-y-auto p-4 border rounded-md bg-card text-card-foreground">
+            <div className="text-center mb-6">
+              <Image src="/width_800.png" alt="NexusAlpri Logo" width={150} height={150 * (326/413)} className="mx-auto mb-2" data-ai-hint="company logo"/>
+              <h2 className="text-xl font-semibold">Informe de Actividad de la Plataforma AlpriNexus</h2>
+              <p className="text-sm text-muted-foreground">Fecha de Generación: {currentDate}</p>
+            </div>
+
+            <section className="mb-6">
+              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">1. Resumen Ejecutivo</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Este informe presenta un análisis de la actividad de los usuarios en la plataforma AlpriNexus para el período actual.
+                Se observó un crecimiento constante en el número de usuarios y una tasa de finalización de cursos estable.
+                Las áreas de enfoque incluyen mejorar la participación en cursos específicos y continuar fomentando el registro de nuevos usuarios.
+              </p>
+            </section>
+
+            <section className="mb-6">
+              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">2. Métricas Clave de Usuarios</h3>
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats[0].value}</span> ({stats[0].trend})</li>
+                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats[3].value}</span> ({stats[3].trend})</li>
+                <li>Instructores Activos: <span className="font-semibold text-foreground">{stats[4].value}</span> ({stats[4].trend})</li>
+                <li>Distribución de Roles:
+                  <ul className="list-['-_'] list-inside ml-4">
+                    {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value}</li>)}
+                  </ul>
+                </li>
+              </ul>
+            </section>
+
+            <section className="mb-6">
+              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">3. Actividad de Cursos</h3>
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                <li>Cursos Activos: <span className="font-semibold text-foreground">{stats[1].value}</span> ({stats[1].trend})</li>
+                <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats[2].value}</span> ({stats[2].trend})</li>
+                <li>Cursos en Revisión: <span className="font-semibold text-foreground">{stats[5].value}</span> ({stats[5].trend})</li>
+                <li>Cursos más populares (Inscritos / Completados):
+                  <ul className="list-['-_'] list-inside ml-4">
+                    {courseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)}
+                  </ul>
+                </li>
+              </ul>
+            </section>
+
+            <section>
+              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">4. Conclusiones y Recomendaciones</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-2">
+                La plataforma muestra un rendimiento saludable. Se recomienda iniciar campañas para promocionar cursos con menor tasa de finalización
+                y facilitar el proceso de onboarding para nuevos instructores para aumentar la oferta de cursos.
+              </p>
+               <p className="text-sm text-muted-foreground leading-relaxed">
+                Monitorizar el crecimiento de usuarios y la actividad de los cursos seguirá siendo crucial para el éxito continuo de AlpriNexus.
+              </p>
+            </section>
+            
+            <div className="mt-8 text-xs text-muted-foreground text-center">
+              <p>&copy; {new Date().getFullYear()} AlpriNexus - Alprigrama S.A.S. Todos los derechos reservados.</p>
+              <p>Este es un informe generado automáticamente. La información es confidencial.</p>
+            </div>
+          </div>
+          <DialogFooter className="pt-4 border-t">
+            <Button variant="outline" onClick={() => setIsPreviewReportOpen(false)}>Cerrar Vista Previa</Button>
+            <Button onClick={handleDownloadSimulatedReport}>
+                <Download className="mr-2 h-4 w-4" />
+                Descargar PDF (Simulado)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
+    
