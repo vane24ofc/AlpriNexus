@@ -20,26 +20,24 @@ export default function CreateCoursePage() {
     console.log("Datos del curso a crear:", data);
     console.log("URL de Miniatura (simulada/existente):", thumbnailUrl);
 
-    // Simulación de creación de curso
     const newCourse: Course = {
       id: crypto.randomUUID(),
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: "Usuario Actual", // Debería venir de la sesión
+      instructorName: "Usuario Actual", 
       status: currentSessionRole === 'instructor' ? 'pending' : 'approved',
-      lessons: data.lessons.map((lesson: any, index: number) => ({
+      lessons: data.lessons.map((lesson: any) => ({
         id: crypto.randomUUID(),
         title: lesson.title,
+        content: lesson.content || '', // Asegurar que content es una cadena
+        contentType: 'text', // Por defecto, las nuevas lecciones son de texto
       })),
       interactiveContent: data.interactiveContent,
     };
 
-    // En una app real, aquí harías una llamada API para guardar el curso.
-    // Y si es un instructor, se enviaría para revisión.
-    // Si es admin, se publicaría directamente o se guardaría como borrador.
 
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simular guardado
+    await new Promise(resolve => setTimeout(resolve, 1500)); 
 
     toast({
       title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
@@ -49,9 +47,10 @@ export default function CreateCoursePage() {
     setIsSubmitting(false);
 
     if (currentSessionRole === 'administrador') {
-      router.push('/dashboard/admin/courses'); // Redirigir a la lista de cursos del admin
+      router.push('/dashboard/admin/courses'); 
     } else {
-      router.push('/dashboard/instructor'); // Redirigir al panel del instructor
+      // Para instructores, o cualquier otro rol que pueda crear (si se expande)
+      router.push('/dashboard/instructor/my-courses'); 
     }
   };
 
@@ -67,3 +66,4 @@ export default function CreateCoursePage() {
     </div>
   );
 }
+    

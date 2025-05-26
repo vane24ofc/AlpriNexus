@@ -12,18 +12,19 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader, Sparkles } from 'lucide-react'; // Añadido Sparkles
+import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { generateCourseOutline, type GenerateCourseOutlineInput } from '@/ai/flows/generate-course-outline-flow';
-import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow'; // Nueva importación
+import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow';
 
 const lessonSchema = z.object({
   id: z.string().optional(), 
   title: z.string().min(3, { message: "El título de la lección debe tener al menos 3 caracteres." }),
+  content: z.string().optional(), // Añadido campo para contenido de la lección
 });
 
 const courseFormSchema = z.object({
@@ -49,7 +50,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
   const [isAiGeneratingLessons, setIsAiGeneratingLessons] = useState(false);
-  const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false); // Nuevo estado
+  const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false);
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -57,7 +58,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       title: initialData?.title || '',
       description: initialData?.description || '',
       thumbnailFile: null,
-      lessons: initialData?.lessons?.map(l => ({id: l.id, title: l.title})) || [{ title: '' }],
+      lessons: initialData?.lessons?.map(l => ({id: l.id, title: l.title, content: l.content || ''})) || [{ title: '', content: '' }],
       interactiveContent: initialData?.interactiveContent || '',
     },
   });
@@ -66,6 +67,21 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     control: form.control,
     name: "lessons",
   });
+
+  // Efecto para resetear el formulario si initialData cambia (especialmente para edición)
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        title: initialData.title || '',
+        description: initialData.description || '',
+        thumbnailFile: null, // No pre-llenar el archivo
+        lessons: initialData.lessons?.map(l => ({ id: l.id, title: l.title, content: l.content || '' })) || [{ title: '', content: '' }],
+        interactiveContent: initialData.interactiveContent || '',
+      });
+      setThumbnailPreview(initialData.thumbnailUrl || null);
+    }
+  }, [initialData, form]);
+
 
   const handleThumbnailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -117,7 +133,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const input: GenerateCourseOutlineInput = { courseTitle: title, courseDescription: description };
       const result = await generateCourseOutline(input);
       if (result.lessonTitles && result.lessonTitles.length > 0) {
-        const newLessons = result.lessonTitles.map(lessonTitle => ({ title: lessonTitle }));
+        const newLessons = result.lessonTitles.map(lessonTitle => ({ title: lessonTitle, content: '' })); // Añadir content vacío
         replace(newLessons); 
         toast({
           title: "Esquema de Lecciones Generado",
@@ -161,7 +177,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const result = await generateCourseThumbnail(input);
       if (result.thumbnailDataUri) {
         setThumbnailPreview(result.thumbnailDataUri);
-        form.setValue('thumbnailFile', null); // Si se genera con IA, el archivo local no es necesario
+        form.setValue('thumbnailFile', null); 
         toast({
           title: "Miniatura Generada por IA",
           description: "Se ha establecido la miniatura sugerida por la IA.",
@@ -189,19 +205,23 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const processSubmit = async (data: CourseFormValues) => {
     let finalThumbnailUrl = initialData?.thumbnailUrl;
 
-    // Si hay un thumbnailPreview y NO es el mismo que el initialData.thumbnailUrl
-    // (esto significa que o se subió un archivo nuevo, o se generó uno con IA, o se quitó uno existente)
     if (thumbnailPreview && thumbnailPreview !== initialData?.thumbnailUrl) {
         finalThumbnailUrl = thumbnailPreview;
     } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
-        // Si no hay preview (se eliminó uno existente) y había uno inicial, se quita
         finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; 
     } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
-        // Si nunca hubo preview, ni inicial, ni archivo subido
         finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
     }
     
-    await onSubmitCourse(data, finalThumbnailUrl);
+    // Asegurar que cada lección tenga un id, content puede ser string vacío
+    const lessonsWithDefaults = data.lessons.map(lesson => ({
+        ...lesson,
+        id: lesson.id || crypto.randomUUID(),
+        content: lesson.content || '', // Asegurar que content es una cadena
+        contentType: 'text' // Asumimos texto por defecto, esto podría ser más dinámico
+    }));
+
+    await onSubmitCourse({...data, lessons: lessonsWithDefaults}, finalThumbnailUrl);
   };
 
   return (
@@ -253,29 +273,42 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="flex items-start gap-3 p-3 border rounded-md bg-muted/30">
-                    <span className="font-semibold text-primary pt-2">{index + 1}.</span>
-                    <div className="flex-grow">
-                      <FormField
-                        control={form.control}
-                        name={`lessons.${index}.title`}
-                        render={({ field: lessonField }) => (
-                          <FormItem>
-                            <FormLabel className="sr-only">Título de la Lección {index + 1}</FormLabel>
-                            <FormControl><Input placeholder={`Título de la Lección ${index + 1}`} {...lessonField} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                  <div key={field.id} className="flex flex-col gap-3 p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-start gap-3">
+                      <span className="font-semibold text-primary pt-2">{index + 1}.</span>
+                      <div className="flex-grow">
+                        <FormField
+                          control={form.control}
+                          name={`lessons.${index}.title`}
+                          render={({ field: lessonTitleField }) => (
+                            <FormItem>
+                              <FormLabel>Título de la Lección {index + 1}</FormLabel>
+                              <FormControl><Input placeholder={`Título de la Lección ${index + 1}`} {...lessonTitleField} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      {fields.length > 1 && (
+                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-6" aria-label="Eliminar lección" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
+                              <Trash2 className="h-5 w-5" />
+                          </Button>
+                      )}
                     </div>
-                    {fields.length > 1 && (
-                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-0.5" aria-label="Eliminar lección" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
-                            <Trash2 className="h-5 w-5" />
-                        </Button>
-                    )}
+                    <FormField
+                      control={form.control}
+                      name={`lessons.${index}.content`}
+                      render={({ field: lessonContentField }) => (
+                        <FormItem>
+                          <FormLabel>Contenido de la Lección {index + 1} (Texto)</FormLabel>
+                          <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...lessonContentField} rows={4}/></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ title: '' })} className="w-full" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', content: '' })} className="w-full" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
@@ -383,3 +416,5 @@ export const simulateFileUpload = (file: File): Promise<string> => {
     }, 1500); 
   });
 };
+
+    
