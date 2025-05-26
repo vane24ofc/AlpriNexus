@@ -245,7 +245,7 @@ interface EnrolledCourseData {
   instructorName: string;
   progress: number;
   thumbnailUrl: string;
-  dataAiHint: string;
+  dataAiHint?: string; // Make optional
 }
 
 const StudentDashboardContent = () => {
@@ -255,6 +255,16 @@ const StudentDashboardContent = () => {
   
   const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
   const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+
+  // Hardcoded list of all available platform courses with more details
+    const allPlatformCoursesSample: Array<EnrolledCourseData & { lessons?: Array<{id: string}> }> = [ 
+        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'javascript programming', lessons: [{id:'l1-js'},{id:'l2-js'}, {id:'l3-js'}, {id:'l4-js'}]},
+        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'python data', lessons: [{id:'l1-py'},{id:'l2-py'}, {id:'l3-py'}, {id:'l4-py'}]},
+        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'ux design', lessons: [{id:'l1-ux'},{id:'l2-ux'}, {id:'l3-ux'}, {id:'l4-ux'}]},
+        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'mobile development', lessons: []},
+        { id: 'course-digital-marketing', title: 'Marketing Digital Estratégico para Negocios', description: 'Descubre cómo crear y ejecutar estrategias de marketing digital efectivas para hacer crecer tu negocio.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Laura Morales', status: 'approved', lessons: [{id: 'l1-dm', title: 'Intro DM'}], dataAiHint: 'digital marketing', progress: 0 },
+        { id: 'course-project-management', title: 'Gestión de Proyectos Ágil con Scrum', description: 'Domina Scrum y aprende a gestionar proyectos de forma ágil y eficiente para entregar valor continuamente.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Roberto Diaz', status: 'approved', lessons: [{id: 'l1-pm', title: 'Intro PM'}], dataAiHint: 'project management', progress: 0 },
+    ];
 
   useEffect(() => {
     setIsLoading(true);
@@ -276,14 +286,6 @@ const StudentDashboardContent = () => {
         } catch (e) { console.error("Error parsing completed IDs", e); }
     }
     
-    const allPlatformCoursesSample: any[] = [ 
-        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'javascript programming', lessons: [{id:'l1'},{id:'l2'}]},
-        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'python data', lessons: [{id:'l1'},{id:'l2'},{id:'l3'}]},
-        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'ux design', lessons: [{id:'l1'}]},
-        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'mobile development', lessons: []},
-    ];
-
-
     const coursesToDisplay = allPlatformCoursesSample
       .filter(course => enrolledIds.has(course.id))
       .map(course => {
@@ -298,11 +300,13 @@ const StudentDashboardContent = () => {
                 try {
                     const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
                     progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-                } catch (e) { progress = Math.floor(Math.random() * 99); }
+                } catch (e) { progress = Math.floor(Math.random() * 99); } // Fallback for parsing error
             } else if (course.lessons && course.lessons.length > 0) {
-                 progress = 0;
+                 progress = 0; // Default to 0 if no specific lesson progress found but lessons exist
             } else {
-                progress = Math.floor(Math.random() * 99);
+                // Fallback if course has no lessons (or lessons array is empty/undefined)
+                // This case might imply the course structure is incomplete or it's a different type of resource
+                progress = 0; // Or some other logic, e.g., consider it 100% if no lessons needed
             }
         }
         return { ...course, progress };
@@ -310,11 +314,14 @@ const StudentDashboardContent = () => {
     setEnrolledCourses(coursesToDisplay);
 
     if (coursesToDisplay.length > 0) {
+      // Prioritize incomplete courses with the most progress (or least progress, depending on desired logic)
+      // Here, we'll pick the one with the most progress that isn't 100%
       const incompleteCourses = coursesToDisplay.filter(course => course.progress < 100);
       if (incompleteCourses.length > 0) {
-        incompleteCourses.sort((a, b) => a.progress - b.progress);
+        incompleteCourses.sort((a, b) => b.progress - a.progress); // Sort by progress descending
         setCourseToContinue(incompleteCourses[0]);
       } else {
+        // If all are complete, pick the first one (or most recently completed)
         setCourseToContinue(coursesToDisplay[0]); 
       }
     } else {
@@ -551,9 +558,9 @@ function AdminDashboardWrapper() {
 
 
 export default function DashboardHomePage() {
-  const { currentSessionRole } = useSessionRole(); 
+  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
 
-  if (!currentSessionRole) {
+  if (isLoadingRole) { // Use isLoadingRole from context
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -561,6 +568,17 @@ export default function DashboardHomePage() {
       </div>
     );
   }
+  
+  if (!currentSessionRole) {
+     // This case should ideally not be reached if isLoadingRole is handled correctly
+     // and a default role is set in the context.
+     return (
+        <div className="flex h-screen flex-col items-center justify-center space-y-4">
+            <p className="text-lg text-destructive">Error al determinar el rol.</p>
+        </div>
+     );
+  }
+
 
   switch (currentSessionRole) {
     case 'administrador':
@@ -570,12 +588,8 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent />;
     default:
-      return (
-          <div className="space-y-6">
-            <h1 className="text-3xl font-bold tracking-tight">Bienvenido a NexusAlpri</h1>
-            <p>Tu panel de control se está cargando o no se ha reconocido tu rol.</p>
-          </div>
-      );
+      // Fallback for any unexpected role, though ideally currentSessionRole is always one of the defined Roles.
+      return <StudentDashboardContent />; 
   }
 }
 
@@ -587,4 +601,3 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
     
-
