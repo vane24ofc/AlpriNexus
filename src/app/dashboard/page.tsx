@@ -406,7 +406,7 @@ const StudentDashboardContent = () => {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {enrolledCourses.map((course) => (
             <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
-              <Image src={course.thumbnailUrl} alt={course.title} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint} />
+              <Image src={course.thumbnailUrl} alt={course.title} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint || "course thumbnail"} />
               <CardHeader>
                 <CardTitle className="text-lg leading-tight">{course.title}</CardTitle>
                 <CardDescription>Por {course.instructorName}</CardDescription>
@@ -560,7 +560,7 @@ function AdminDashboardWrapper() {
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole } = useSessionRole(); 
 
-  if (isLoadingRole) { // Use isLoadingRole from context
+  if (isLoadingRole) { 
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -570,8 +570,6 @@ export default function DashboardHomePage() {
   }
   
   if (!currentSessionRole) {
-     // This case should ideally not be reached if isLoadingRole is handled correctly
-     // and a default role is set in the context.
      return (
         <div className="flex h-screen flex-col items-center justify-center space-y-4">
             <p className="text-lg text-destructive">Error al determinar el rol.</p>
@@ -588,7 +586,6 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent />;
     default:
-      // Fallback for any unexpected role, though ideally currentSessionRole is always one of the defined Roles.
       return <StudentDashboardContent />; 
   }
 }
@@ -601,3 +598,4 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) {
   )
 }
     
+
