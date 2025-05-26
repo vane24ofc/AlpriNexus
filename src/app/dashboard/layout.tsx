@@ -37,65 +37,46 @@ export default function DashboardLayout({
   const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
+    // This effect runs only on the client
     setIsLoadingRole(true);
-    let determinedRole: Role = 'estudiante'; // Fallback inicial
+    let determinedRole: Role = 'estudiante'; // Fallback
 
-    if (typeof window !== 'undefined') {
-      const storedRole = localStorage.getItem('sessionRole') as Role | null;
+    const storedRole = localStorage.getItem('sessionRole') as Role | null;
 
-      // Prioridad 1: Ruta específica de rol
-      let roleFromPath: Role | null = null;
-      if (pathname.startsWith('/dashboard/admin')) {
-        roleFromPath = 'administrador';
-      } else if (pathname.startsWith('/dashboard/instructor')) {
-        roleFromPath = 'instructor';
-      } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
-        // No queremos que /dashboard/student/profile fuerce el rol a estudiante si un admin/instructor lo visita
-        roleFromPath = 'estudiante';
+    let roleFromPath: Role | null = null;
+    if (pathname.startsWith('/dashboard/admin')) {
+      roleFromPath = 'administrador';
+    } else if (pathname.startsWith('/dashboard/instructor')) {
+      roleFromPath = 'instructor';
+    } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
+      roleFromPath = 'estudiante';
+    }
+
+    if (roleFromPath) {
+      determinedRole = roleFromPath;
+      if (storedRole !== determinedRole) {
+        localStorage.setItem('sessionRole', determinedRole);
       }
-
-      if (roleFromPath) {
-        determinedRole = roleFromPath;
-        // Si el rol deducido de la ruta es diferente del almacenado, actualiza localStorage
-        if (storedRole !== determinedRole) {
-          localStorage.setItem('sessionRole', determinedRole);
-        }
-      } else if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-        // Prioridad 2: Rol almacenado, si la ruta es genérica (ej. /dashboard/settings)
-        determinedRole = storedRole;
-      } else {
-        // Prioridad 3: Por defecto a estudiante y guardarlo, si no hay ruta específica ni rol almacenado válido
-        localStorage.setItem('sessionRole', 'estudiante');
-        determinedRole = 'estudiante';
-      }
+    } else if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
+      determinedRole = storedRole;
+    } else {
+      localStorage.setItem('sessionRole', 'estudiante');
+      determinedRole = 'estudiante';
     }
     
-    // Solo actualizar el estado si el rol determinado es diferente del actual
-    // para evitar bucles de renderizado.
-    if (determinedRole !== currentSessionRole) {
-        setCurrentSessionRole(determinedRole);
-    }
+    setCurrentSessionRole(determinedRole);
     setIsLoadingRole(false);
-  }, [pathname]); // Removido currentSessionRole de las dependencias
+  }, [pathname]);
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  if (isLoadingRole && currentSessionRole === null) { // Mostrar cargador solo si realmente estamos cargando y el rol aún no está definido
-    return <FullPageLoader message="Determinando rol..." />;
+  if (isLoadingRole || !currentSessionRole) { // Ensure role is set before rendering main content
+    return <FullPageLoader message="Determinando rol y cargando panel..." />;
   }
   
-  if (!currentSessionRole && !isLoadingRole) {
-     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
-        <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
-        <Button onClick={() => typeof window !== 'undefined' && window.location.assign('/login')}>Ir a Login</Button>
-      </div>
-     );
-  }
-
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
