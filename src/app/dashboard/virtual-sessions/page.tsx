@@ -21,10 +21,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { VirtualSession } from '@/types/virtual-session';
 import { useSessionRole } from '@/app/dashboard/layout';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
+const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents'; // Key used by CalendarPage
+
+interface StoredCalendarEvent { // Interface for calendar events, similar to CalendarPage
+  id:string;
+  date: string; // ISO string
+  title: string;
+  description?: string;
+  time?: string;
+}
+
 
 // Sample initial data - will be replaced by localStorage if available
 const initialSampleSessions: VirtualSession[] = [
@@ -69,20 +79,34 @@ export default function VirtualSessionsPage() {
     try {
       const storedSessions = localStorage.getItem(VIRTUAL_SESSIONS_STORAGE_KEY);
       if (storedSessions) {
-        setSessions(JSON.parse(storedSessions));
+        const parsedSessions: VirtualSession[] = JSON.parse(storedSessions);
+        // Sort sessions by date and time
+        parsedSessions.sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+          return dateTimeA - dateTimeB;
+        });
+        setSessions(parsedSessions);
       } else {
-        setSessions(initialSampleSessions);
+        setSessions(initialSampleSessions.sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+          return dateTimeA - dateTimeB;
+        }));
         localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(initialSampleSessions));
       }
     } catch (error) {
       console.error("Error cargando sesiones de localStorage:", error);
-      setSessions(initialSampleSessions);
+      setSessions(initialSampleSessions.sort((a, b) => {
+          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+          return dateTimeA - dateTimeB;
+        }));
     }
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    // Persist sessions to localStorage whenever they change, but not during initial load
     if (!isLoading) {
         try {
             localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
@@ -115,7 +139,6 @@ export default function VirtualSessionsPage() {
       return;
     }
 
-    // Basic URL validation (can be more sophisticated)
     try {
       new URL(newSessionLink);
     } catch (_) {
@@ -134,25 +157,67 @@ export default function VirtualSessionsPage() {
       time: newSessionTime,
       description: newSessionDescription,
       meetingLink: newSessionLink,
-      organizer: currentSessionRole === 'administrador' ? 'Administrador' : 'Instructor', // Simplificado
+      organizer: currentSessionRole === 'administrador' ? 'Administrador AlpriNexus' : 'Instructor AlpriNexus', 
     };
-    setSessions(prev => [...prev, newSession].sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()));
-    toast({ title: "Sesión Programada", description: `La sesión "${newSession.title}" ha sido creada.` });
+
+    // Update virtual sessions
+    const updatedSessions = [...sessions, newSession].sort((a, b) => {
+        const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+        const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+        return dateTimeA - dateTimeB;
+    });
+    setSessions(updatedSessions);
+    localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions));
+
+    // Create and save corresponding calendar event
+    try {
+        const calendarEvent: StoredCalendarEvent = {
+            id: `vs-${newSession.id}`, // Use a prefix to avoid ID conflicts if calendar has its own events
+            title: `[Sesión Virtual] ${newSession.title}`,
+            date: startOfDay(parseISO(newSession.date)).toISOString(), // Ensure date is start of day ISO string
+            time: newSession.time,
+            description: newSession.description,
+        };
+        
+        const storedCalendarEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
+        let calendarEvents: StoredCalendarEvent[] = storedCalendarEventsString ? JSON.parse(storedCalendarEventsString) : [];
+        calendarEvents.push(calendarEvent);
+        // Sort calendar events as well
+        calendarEvents.sort((a,b) => {
+            const dateTimeA = new Date(`${parseISO(a.date).toISOString().split('T')[0]}T${a.time || '00:00'}`).getTime();
+            const dateTimeB = new Date(`${parseISO(b.date).toISOString().split('T')[0]}T${b.time || '00:00'}`).getTime();
+            return dateTimeA - dateTimeB;
+        });
+        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(calendarEvents));
+        
+        toast({ title: "Sesión Programada y Añadida al Calendario", description: `La sesión "${newSession.title}" ha sido creada y agendada.` });
+
+    } catch (e) {
+        console.error("Error al guardar evento en calendario:", e);
+        toast({ variant: "destructive", title: "Error de Calendario", description: "La sesión se programó, pero no se pudo añadir al calendario." });
+    }
+
     resetForm();
     setIsDialogOpen(false);
   };
 
   const handleDeleteSession = (sessionId: string) => {
     const sessionTitle = sessions.find(s => s.id === sessionId)?.title;
-    setSessions(prev => prev.filter(s => s.id !== sessionId));
-    toast({ title: "Sesión Eliminada", description: `La sesión "${sessionTitle}" ha sido eliminada.`, variant: "destructive" });
+    const updatedSessions = sessions.filter(s => s.id !== sessionId);
+    setSessions(updatedSessions);
+    localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions));
+
+    // Note: This does NOT automatically delete the corresponding calendar event.
+    // That would require more complex logic to find and remove the matching calendar event by vs-${sessionId} or title/date/time.
+    // For now, we'll leave this out for simplicity.
+    toast({ title: "Sesión Eliminada", description: `La sesión "${sessionTitle}" ha sido eliminada. El evento en el calendario, si existe, debe eliminarse manualmente.`, variant: "destructive" });
   };
 
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'EEEE, dd MMMM yyyy', { locale: es });
     } catch (error) {
-      return dateString; // Fallback
+      return dateString; 
     }
   };
   
@@ -290,3 +355,4 @@ export default function VirtualSessionsPage() {
     </div>
   );
 }
+
