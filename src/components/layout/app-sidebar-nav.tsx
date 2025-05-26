@@ -123,10 +123,10 @@ export function AppSidebarNav() {
 
 
   useEffect(() => {
-    if (isLoadingRole || !currentSessionRole) {
+    if (isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
       setOpenSubmenus(currentOpen => {
         if (Object.keys(currentOpen).length > 0) return {};
-        return currentOpen; // No change if already empty
+        return currentOpen;
       });
       return;
     }
@@ -139,7 +139,7 @@ export function AppSidebarNav() {
             const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActiveGroup;
             if (isActiveGroup) {
-              checkItems(item.children, currentPath); // Recursively check children
+              checkItems(item.children, currentPath); 
             }
           }
         });
@@ -167,10 +167,10 @@ export function AppSidebarNav() {
       if (needsUpdate) {
         return newCalculatedOpenState;
       }
-      return currentOpenSubmenus; // No actual change needed
+      return currentOpenSubmenus; 
     });
 
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]); // 'openSubmenus' is removed from dependencies
+  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -194,10 +194,13 @@ export function AppSidebarNav() {
         
         const isGroupActive = item.children.some(child => {
             if (!child.href) return false;
+            // Check if current path is exactly the child href or starts with child href + '/'
             return pathname === child.href || pathname.startsWith(child.href + '/');
         });
         
+        // The group button itself is active if its direct href is active OR if any of its children are active
         const isActiveForButton = (effectiveHref && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
+
 
         return (
           <SidebarMenuItem key={item.id}>
@@ -226,6 +229,7 @@ export function AppSidebarNav() {
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
+       // Special case for the main dashboard link to be active only on exact match
        if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
          isActive = pathname === dashboardPath;
       }
