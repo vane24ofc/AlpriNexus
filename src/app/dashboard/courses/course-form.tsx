@@ -160,7 +160,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     try {
       const input: GenerateCourseOutlineInput = { courseTitle: title, courseDescription: description };
       const result = await generateCourseOutline(input);
-      if (result.lessonTitles && result.lessonTitles.length > 0) {
+      
+      if (result && typeof result.lessonTitles !== 'undefined') {
         const newLessons = result.lessonTitles.map(lessonTitle => ({
             title: lessonTitle,
             contentType: 'text' as 'text' | 'video' | 'quiz',
@@ -176,8 +177,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       } else {
         toast({
           variant: "destructive",
-          title: "Respuesta de IA Inválida",
-          description: "La IA no pudo generar un esquema de lecciones o devolvió una lista vacía. Por favor, inténtalo de nuevo o añade lecciones manualmente.",
+          title: "Error de IA",
+          description: "La IA no devolvió un esquema de lecciones en el formato esperado. Inténtalo de nuevo.",
         });
       }
     } catch (error) {
@@ -244,7 +245,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
         finalThumbnailUrl = initialData.thumbnailUrl;
     } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
-        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; 
+        // Si no hay previsualización, ni dato inicial de thumbnail, ni archivo nuevo,
+        // se podría usar un placeholder por defecto o dejarlo como está si ya se generó con IA (thumbnailPreview)
+        finalThumbnailUrl = thumbnailPreview || "https://placehold.co/600x400.png?text=Curso"; 
     }
 
     const lessonsWithDefaults = data.lessons.map(lesson => ({
@@ -491,3 +494,4 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     </Form>
   );
 }
+
