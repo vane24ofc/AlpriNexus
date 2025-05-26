@@ -489,7 +489,8 @@ export default function StudentCourseViewPage() {
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-                <div className="relative w-32 h-32 mx-auto -mt-2 mb-0"> {/* SVG Container */}
+                {/* SVG Container */}
+                <div className="relative w-32 h-32 mx-auto -mt-2 mb-2"> {/* Ajustado mb-0 a mb-2 */}
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
@@ -512,10 +513,12 @@ export default function StudentCourseViewPage() {
                         <span className={`text-3xl font-semibold ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>{courseProgress}%</span>
                     </div>
                 </div>
-                <p className={`relative -translate-y-3 text-sm font-semibold mb-3 ${allLessonsCompleted ? "text-accent" : "text-muted-foreground"}`}>
+                {/* Status Text Paragraph - Sin translate-y, mb-3 */}
+                <p className={`relative text-sm font-semibold mb-3 ${allLessonsCompleted ? "text-accent" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}
                 </p>
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-4 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+                
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-4 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} /> {/* mb-4 */}
                 <Button className="w-full text-base py-3" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
@@ -536,3 +539,6 @@ export default function StudentCourseViewPage() {
 
     
 
+
+
+    
