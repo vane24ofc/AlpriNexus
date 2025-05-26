@@ -6,16 +6,19 @@ import UserForm from '@/app/dashboard/admin/users/user-form';
 import type { Role } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 
-interface NewUser {
+interface User {
   id: string;
   name: string;
   email: string;
   role: Role;
   joinDate: string;
   status: 'active' | 'inactive';
+  avatarUrl?: string;
 }
+
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 
 export default function CreateUserPage() {
   const { toast } = useToast();
@@ -26,26 +29,37 @@ export default function CreateUserPage() {
     setIsSubmitting(true);
     console.log("Datos del usuario a crear:", data);
 
-    // Simulación de creación de usuario
-    const newUser: NewUser = {
+    const newUser: User = {
       id: crypto.randomUUID(),
       name: data.fullName,
       email: data.email,
       role: data.role,
-      joinDate: new Date().toISOString().split('T')[0], // Fecha actual
+      joinDate: new Date().toISOString().split('T')[0],
       status: data.status,
+      avatarUrl: `https://placehold.co/40x40.png?text=${data.fullName.split(' ').map((n:string) => n[0]).join('').toUpperCase()}`
     };
 
-    // En una app real, aquí harías una llamada API para guardar el usuario.
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simular guardado
+    try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        let users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        users.push(newUser);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 
-    toast({
-      title: "Usuario Creado Exitosamente",
-      description: `El usuario "${newUser.name}" con el rol de ${newUser.role} ha sido creado.`,
-    });
-
-    setIsSubmitting(false);
-    router.push('/dashboard/admin/users'); // Redirigir a la lista de usuarios
+        toast({
+          title: "Usuario Creado Exitosamente",
+          description: `El usuario "${newUser.name}" con el rol de ${newUser.role} ha sido creado y guardado localmente.`,
+        });
+        router.push('/dashboard/admin/users');
+    } catch (error) {
+        console.error("Error saving new user to localStorage:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al Guardar",
+            description: "No se pudo guardar el nuevo usuario localmente."
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -60,3 +74,5 @@ export default function CreateUserPage() {
     </div>
   );
 }
+
+    

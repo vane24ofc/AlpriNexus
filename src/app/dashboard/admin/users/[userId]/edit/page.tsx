@@ -13,20 +13,12 @@ interface User {
   name: string;
   email: string;
   role: Role;
-  joinDate: string; // Keep for display, not editable in this form
+  joinDate: string; 
   avatarUrl?: string;
   status: 'active' | 'inactive';
-  // Password fields won't be pre-filled for security/simplicity in this example
 }
 
-// Sample users to simulate fetching data - in a real app, this would come from an API
-const sampleUsersForEdit: User[] = [
-  { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
-  { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
-  { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
-  { id: 'user4', name: 'Ana Otro-Estudiante', email: 'student2@example.com', role: 'estudiante', joinDate: '2023-05-01', avatarUrl: 'https://placehold.co/40x40.png?text=AE', status: 'inactive' },
-  { id: 'user5', name: 'Roberto Instructor-Jefe', email: 'head.instructor@example.com', role: 'instructor', joinDate: '2023-01-25', status: 'active' },
-];
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 
 export default function EditUserPage() {
   const { toast } = useToast();
@@ -40,50 +32,86 @@ export default function EditUserPage() {
 
   useEffect(() => {
     if (userId) {
-      // Simulate API call to fetch user data
-      setTimeout(() => {
-        const userToEdit = sampleUsersForEdit.find(u => u.id === userId);
-        if (userToEdit) {
-          // For editing, we don't pre-fill password fields for security.
-          // The form schema expects them, so provide empty strings.
-          setInitialUserData({
-            fullName: userToEdit.name,
-            email: userToEdit.email,
-            role: userToEdit.role,
-            status: userToEdit.status,
-            password: '', // Password fields should be re-entered if change is needed
-            confirmPassword: '',
-          });
+      setIsLoadingUser(true);
+      try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        if (storedUsers) {
+          const users: User[] = JSON.parse(storedUsers);
+          const userToEdit = users.find(u => u.id === userId);
+          if (userToEdit) {
+            setInitialUserData({
+              fullName: userToEdit.name,
+              email: userToEdit.email,
+              role: userToEdit.role,
+              status: userToEdit.status,
+              password: '', 
+              confirmPassword: '',
+            });
+          } else {
+            toast({
+              variant: "destructive",
+              title: "Usuario no encontrado",
+              description: "No se pudo encontrar el usuario para editar.",
+            });
+            router.push('/dashboard/admin/users');
+          }
         } else {
-          toast({
-            variant: "destructive",
-            title: "Usuario no encontrado",
-            description: "No se pudo encontrar el usuario para editar.",
-          });
-          router.push('/dashboard/admin/users');
+            toast({
+                variant: "destructive",
+                title: "Datos no encontrados",
+                description: "No hay usuarios guardados localmente para editar.",
+            });
+            router.push('/dashboard/admin/users');
         }
+      } catch (error) {
+        console.error("Error loading user for editing from localStorage:", error);
+        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el usuario para editar." });
+      } finally {
         setIsLoadingUser(false);
-      }, 500);
+      }
     }
   }, [userId, router, toast]);
 
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
     console.log("Datos del usuario a actualizar:", data);
-    // Note: Password change logic would be more complex in a real app.
-    // Here we just log, including the new password if entered.
+    
+    try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        let users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
+        const userIndex = users.findIndex(u => u.id === userId);
 
-    // Simulación de actualización de usuario
-    // In a real app, here you would make an API call to update the user.
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
+        if (userIndex > -1) {
+            const currentUserData = users[userIndex];
+            users[userIndex] = {
+                ...currentUserData,
+                name: data.fullName,
+                email: data.email,
+                role: data.role,
+                status: data.status,
+                // Password update logic would be more complex here,
+                // involving hashing if it were a real backend.
+                // For localStorage, we'd just store the new password if provided.
+            };
+            // If data.password is provided and valid, it would be handled here.
+            // For this simulation, we're not directly updating a password in localStorage
+            // unless UserForm explicitly returns it for submissionData.
 
-    toast({
-      title: "Usuario Actualizado Exitosamente",
-      description: `La información del usuario "${data.fullName}" ha sido actualizada.`,
-    });
-
-    setIsSubmitting(false);
-    router.push('/dashboard/admin/users'); // Redirigir a la lista de usuarios
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+            toast({
+              title: "Usuario Actualizado Exitosamente",
+              description: `La información del usuario "${data.fullName}" ha sido actualizada.`,
+            });
+        } else {
+            toast({ variant: "destructive", title: "Error de Actualización", description: "No se encontró el usuario para actualizar." });
+        }
+        router.push('/dashboard/admin/users');
+    } catch (error) {
+        console.error("Error updating user in localStorage:", error);
+        toast({ variant: "destructive", title: "Error al Guardar", description: "No se pudo guardar el usuario actualizado localmente." });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   if (isLoadingUser) {
@@ -120,3 +148,5 @@ export default function EditUserPage() {
     </div>
   );
 }
+
+    

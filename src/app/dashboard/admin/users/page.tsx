@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
-import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search } from 'lucide-react';
+import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Role } from '@/app/dashboard/layout';
@@ -35,7 +35,9 @@ interface User {
   status: 'active' | 'inactive';
 }
 
-const sampleUsers: User[] = [
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
+
+const initialSampleUsers: User[] = [
   { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
   { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
   { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
@@ -55,15 +57,48 @@ export default function AdminUsersPage() {
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get('search') || '';
   
-  const [users, setUsers] = useState<User[]>(sampleUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const { toast } = useToast();
   const [userToModify, setUserToModify] = useState<User | null>(null);
   const [actionType, setActionType] = useState<'delete' | 'changeRole' | null>(null);
   const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Sincronizar el término de búsqueda si cambia en la URL
+    setIsLoading(true);
+    try {
+      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+      if (storedUsers) {
+        setUsers(JSON.parse(storedUsers));
+      } else {
+        setUsers(initialSampleUsers);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+      }
+    } catch (error) {
+      console.error("Error loading users from localStorage:", error);
+      setUsers(initialSampleUsers); 
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && users.length > 0) {
+        try {
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+        } catch (error) {
+            console.error("Error saving users to localStorage:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de Guardado Local",
+                description: "No se pudieron guardar los cambios de los usuarios localmente."
+            });
+        }
+    }
+  }, [users, isLoading, toast]);
+
+  useEffect(() => {
     const urlSearchTerm = searchParams.get('search') || '';
     if (urlSearchTerm !== searchTerm) {
       setSearchTerm(urlSearchTerm);
@@ -120,6 +155,15 @@ export default function AdminUsersPage() {
     closeDialog();
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando usuarios...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -151,6 +195,7 @@ export default function AdminUsersPage() {
                 className="pl-10 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -280,6 +325,8 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+    
+
     
 
     
