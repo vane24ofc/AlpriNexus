@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle, Award } from 'lucide-react';
+import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle, Award, ClipboardCheck } from 'lucide-react';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -117,10 +117,10 @@ export default function StudentCourseViewPage() {
                     selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
               }
-              if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { // Also ready if answered but not yet marked as lesson completed
+              if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { 
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
-            } else if (initialCompleted.has(lesson.id)) {
+            } else if (isLessonCompleted) { // For text/video, if completed, it's also ready
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
@@ -271,7 +271,7 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; // Ejemplo, podría venir de lesson.quizOptions
+    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; 
 
     switch (contentType) {
       case 'video':
@@ -420,21 +420,25 @@ export default function StudentCourseViewPage() {
                 >
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
-                    let isEngagementMetForButton = lessonsReadyForCompletion.has(lesson.id);
+                    const isReadyForCompletion = lessonsReadyForCompletion.has(lesson.id);
+                    const buttonDisabled = isCompleted || !isReadyForCompletion;
 
-                    if (lesson.contentType === 'quiz') {
-                       isEngagementMetForButton = (quizState[lesson.id]?.answered || isCompleted);
-                    } else if (isCompleted) {
-                       isEngagementMetForButton = true;
+                    let LessonIcon = FileText;
+                    let iconClassName = "text-primary/70";
+
+                    if (isCompleted) {
+                        LessonIcon = CheckCircle;
+                        iconClassName = "text-green-500";
+                    } else if (isReadyForCompletion) {
+                        LessonIcon = ClipboardCheck;
+                        iconClassName = "text-blue-500";
                     }
-
-                    const buttonDisabled = isCompleted || !isEngagementMetForButton;
 
                     return (
                         <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id} className="border-border">
                         <AccordionTrigger className="text-lg hover:no-underline px-3 py-4 hover:bg-muted/50 rounded-t-md data-[state=open]:bg-muted/60 data-[state=open]:rounded-b-none">
                             <div className="flex items-center text-left flex-1 gap-2">
-                            {isCompleted ? <CheckCircle className="mr-2 h-5 w-5 text-green-500 flex-shrink-0" /> : <FileText className="mr-2 h-5 w-5 text-primary/70 flex-shrink-0" />}
+                            <LessonIcon className={`mr-2 h-5 w-5 ${iconClassName} flex-shrink-0`} />
                             <span className={`text-primary font-semibold mr-1 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{index + 1}.</span>
                             <span className={`${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{lesson.title}</span>
                             </div>
@@ -493,7 +497,7 @@ export default function StudentCourseViewPage() {
             <CardHeader style={{ padding: '16px 20px 8px' }}>
               <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent style={{ textAlign: 'center', paddingTop: '24px', paddingBottom: '20px', paddingLeft: '20px', paddingRight: '20px' }}>
+            <CardContent className="text-center pt-6">
                 {/* SVG Container */}
                 <div className="relative w-32 h-32 mx-auto -mt-4">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
@@ -514,7 +518,7 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
-                    {/* Text for percentage */}
+                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
@@ -530,8 +534,7 @@ export default function StudentCourseViewPage() {
                 <Button 
                     className="w-full text-base py-2.5"
                     onClick={handleCourseAction}
-                    variant={allLessonsCompleted ? "default" : "default"} // Mantener default o ajustar según preferencia
-                    // Cambiar color de fondo si está completado, manteniendo texto blanco
+                    variant={allLessonsCompleted ? "default" : "default"}
                     style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
                 >
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
@@ -544,7 +547,3 @@ export default function StudentCourseViewPage() {
   );
 }
     
-
-    
-
-
