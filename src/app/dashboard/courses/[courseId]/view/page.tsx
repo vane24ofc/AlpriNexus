@@ -98,11 +98,14 @@ export default function StudentCourseViewPage() {
 
           foundCourse.lessons.forEach(lesson => {
             if (lesson.contentType === 'quiz') {
-              initialQuizState[lesson.id] = { started: false, answered: false, selectedOption: null };
-              if (initialCompleted.has(lesson.id)) {
+              const isLessonCompleted = initialCompleted.has(lesson.id);
+              initialQuizState[lesson.id] = { 
+                started: isLessonCompleted, // If lesson is complete, assume quiz was started for UI consistency
+                answered: isLessonCompleted, // And answered
+                selectedOption: isLessonCompleted ? 'Simulado' : null // Placeholder for completed quiz
+              };
+              if (isLessonCompleted) {
                 initialReadyForCompletion.add(lesson.id);
-                 // Si la lección está completa, asumimos que el quiz fue respondido para la UI
-                initialQuizState[lesson.id] = { started: true, answered: true, selectedOption: 'Simulado' };
               }
             } else {
                  if (initialCompleted.has(lesson.id)) {
@@ -205,8 +208,8 @@ export default function StudentCourseViewPage() {
     setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
     setLessonsReadyForCompletion(prev => new Set(prev).add(lessonId));
     toast({
-        title: "Respuesta Enviada (Simulación)",
-        description: `Has seleccionado la ${option}.`,
+        title: "Respuesta Registrada",
+        description: `Has seleccionado la ${option}. ¡Buen trabajo!`,
     });
   };
   
@@ -240,6 +243,7 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text'; 
     const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
+    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; // Example options
 
     switch (contentType) {
       case 'video':
@@ -275,37 +279,35 @@ export default function StudentCourseViewPage() {
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
-            <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
             {!currentQuizState.started ? (
-              <Button 
-                variant="outline" 
-                onClick={() => handleStartQuiz(lesson.id)}
-                disabled={completedLessons.has(lesson.id)} // Disable if lesson is already marked complete
-              >
-                Comenzar Quiz
-              </Button>
+              <>
+                <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => handleStartQuiz(lesson.id)}
+                  disabled={completedLessons.has(lesson.id)}
+                >
+                  Comenzar Quiz
+                </Button>
+              </>
             ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Pregunta de ejemplo: {lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Button
-                    variant={currentQuizState.selectedOption === 'Opción A' ? 'default' : 'outline'}
-                    onClick={() => handleAnswerQuiz(lesson.id, 'Opción A')}
-                    disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
-                    className="flex-1"
-                  >
-                    Opción A
-                  </Button>
-                  <Button
-                    variant={currentQuizState.selectedOption === 'Opción B' ? 'default' : 'outline'}
-                    onClick={() => handleAnswerQuiz(lesson.id, 'Opción B')}
-                    disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
-                    className="flex-1"
-                  >
-                    Opción B
-                  </Button>
+              <div className="space-y-3">
+                <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
+                <div className="flex flex-col gap-2">
+                  {quizOptions.map((option, index) => (
+                    <Button
+                      key={index}
+                      variant={currentQuizState.selectedOption === option ? 'default' : 'outline'}
+                      onClick={() => handleAnswerQuiz(lesson.id, option)}
+                      disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
+                      className="w-full justify-start"
+                    >
+                      {currentQuizState.selectedOption === option && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {option}
+                    </Button>
+                  ))}
                 </div>
-                {currentQuizState.answered && <p className="text-xs text-green-600 mt-2">Respuesta enviada. ¡Buen trabajo!</p>}
+                {currentQuizState.answered && <p className="text-xs text-accent mt-2">Tu respuesta ha sido registrada. ¡Buen trabajo!</p>}
               </div>
             )}
           </div>
@@ -391,11 +393,10 @@ export default function StudentCourseViewPage() {
                     const isCompleted = completedLessons.has(lesson.id);
                     let isEngagementMetForButton = lessonsReadyForCompletion.has(lesson.id);
                     
-                    // For quizzes, engagement is met if the quiz has been answered or if the lesson is already marked complete.
                     if (lesson.contentType === 'quiz') {
-                       isEngagementMetForButton = quizState[lesson.id]?.answered || isCompleted;
+                       isEngagementMetForButton = (quizState[lesson.id]?.answered || isCompleted);
                     } else if (isCompleted) {
-                       isEngagementMetForButton = true; // If already completed, engagement is met for text/video.
+                       isEngagementMetForButton = true; 
                     }
                     
                     const buttonDisabled = isCompleted || !isEngagementMetForButton;
