@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle } from "lucide-react";
+import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users } from "lucide-react"; // Added Users here
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import {
