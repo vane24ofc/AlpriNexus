@@ -90,7 +90,7 @@ export default function AdminMetricsPage() {
     setIsGeneratingReport(true);
     setIsAiLoadingReportText(true);
     setReportText(null); 
-    setIsPreviewReportOpen(true); // Open dialog immediately to show loading state
+    setIsPreviewReportOpen(true); 
 
     toast({
       title: "Generando Informe...",
@@ -121,7 +121,6 @@ export default function AdminMetricsPage() {
     } finally {
       setIsAiLoadingReportText(false);
       setIsGeneratingReport(false);
-      // Dialog is already open
     }
   };
 
@@ -335,14 +334,14 @@ export default function AdminMetricsPage() {
       </Card>
 
       <Dialog open={isPreviewReportOpen} onOpenChange={setIsPreviewReportOpen}>
-        <DialogContent className="max-w-3xl h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0">
             <DialogTitle>Vista Previa del Informe de Actividad</DialogTitle>
             <DialogDescription>
               Este es un ejemplo de cómo se vería el informe generado. El resumen y las conclusiones son generados por IA.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-grow overflow-y-auto p-4 border rounded-md bg-card text-card-foreground">
+          <div className="flex-grow overflow-y-auto p-6 border-y bg-card text-card-foreground">
             {isAiLoadingReportText && !reportText ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -350,34 +349,34 @@ export default function AdminMetricsPage() {
               </div>
             ) : (
             <>
-            <div className="text-center mb-6">
+            <div className="text-center mb-8">
               <Image 
                 src="/width_800.png" 
                 alt="NexusAlpri Logo" 
-                width={150} 
-                height={150 * (326/413)} // Mantener aspect ratio
-                className="mx-auto mb-2"
+                width={120} 
+                height={120 * (326/413)} 
+                className="mx-auto mb-4"
                 data-ai-hint="company logo"
               />
-              <h2 className="text-xl font-semibold text-foreground">Informe de Actividad de la Plataforma AlpriNexus</h2>
-              <p className="text-sm text-muted-foreground">Fecha de Generación: {currentDate}</p>
+              <h2 className="text-2xl font-semibold text-foreground">Informe de Actividad de la Plataforma AlpriNexus</h2>
+              <p className="text-md text-muted-foreground">Fecha de Generación: {currentDate}</p>
             </div>
 
             <section className="mb-6">
-              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">1. Resumen Ejecutivo</h3>
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-3 text-primary">1. Resumen Ejecutivo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || defaultReportText.executiveSummary)}
               </p>
             </section>
 
             <section className="mb-6">
-              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">2. Métricas Clave de Usuarios</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-2">
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-3 text-primary">2. Métricas Clave de Usuarios</h3>
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-4">
                 <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'totalUsers')?.value}</span> ({stats.find(s => s.key === 'totalUsers')?.trend})</li>
                 <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats.find(s => s.key === 'newStudentsMonthly')?.value}</span> ({stats.find(s => s.key === 'newStudentsMonthly')?.trend})</li>
                 <li>Instructores Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeInstructors')?.value}</span> ({stats.find(s => s.key === 'activeInstructors')?.trend})</li>
                 <li>Distribución de Roles:
-                  <ul className="list-['-_'] list-inside ml-4">
+                  <ul className="list-['-_'] list-inside ml-4 mt-1">
                     {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value}</li>)}
                   </ul>
                 </li>
@@ -385,34 +384,42 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-6">
-              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">3. Actividad de Cursos</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-2">
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-3 text-primary">3. Actividad de Cursos</h3>
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-4">
                 <li>Cursos Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeCourses')?.value}</span> ({stats.find(s => s.key === 'activeCourses')?.trend})</li>
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'completionRate')?.value}</span> ({stats.find(s => s.key === 'completionRate')?.trend})</li>
                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'coursesInReview')?.value}</span> ({stats.find(s => s.key === 'coursesInReview')?.trend})</li>
                 <li>Cursos más populares (Inscritos / Completados):
-                  <ul className="list-['-_'] list-inside ml-4">
+                  <ul className="list-['-_'] list-inside ml-4 mt-1">
                     {courseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)}
                   </ul>
                 </li>
               </ul>
             </section>
 
-            <section>
-              <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">4. Conclusiones y Recomendaciones</h3>
+            <section className="mb-6">
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-3 text-primary">4. Conclusiones y Recomendaciones</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                  {isAiLoadingReportText && !reportText?.conclusionsAndRecommendations ? "Generando..." : (reportText?.conclusionsAndRecommendations || defaultReportText.conclusionsAndRecommendations)}
               </p>
             </section>
             
-            <div className="mt-8 text-xs text-muted-foreground text-center">
-              <p>&copy; {new Date().getFullYear()} AlpriNexus - Alprigrama S.A.S. Todos los derechos reservados.</p>
+            <div className="mt-10 pt-6 border-t border-border text-xs text-muted-foreground text-center flex flex-col items-center">
+                <Image
+                    src="/Logo-Manchas-SAS (2).png"
+                    alt="Alprigrama S.A.S"
+                    width={100}
+                    height={100 * (742/800)} // Mantener aspect ratio
+                    className="mb-2 opacity-70"
+                    data-ai-hint="brand watermark logo"
+                />
+              <p className="mt-1">&copy; {new Date().getFullYear()} AlpriNexus - Alprigrama S.A.S. Todos los derechos reservados.</p>
               <p>Este es un informe generado automáticamente. La información es confidencial.</p>
             </div>
             </>
             )}
           </div>
-          <DialogFooter className="pt-4 border-t">
+          <DialogFooter className="p-6 pt-4">
             <Button variant="outline" onClick={() => setIsPreviewReportOpen(false)}>Cerrar Vista Previa</Button>
             <Button onClick={handleDownloadSimulatedReport} disabled={isAiLoadingReportText}>
                 <Download className="mr-2 h-4 w-4" />
@@ -425,3 +432,4 @@ export default function AdminMetricsPage() {
   );
 }
     
+
