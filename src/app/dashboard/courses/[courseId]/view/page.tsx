@@ -82,10 +82,6 @@ export default function StudentCourseViewPage() {
         if (foundCourse) {
           setCourse(foundCourse);
           const initialCompleted = new Set<string>();
-          // For demo, let's mark the first lesson as completed if there's more than one
-          // if (foundCourse.lessons && foundCourse.lessons.length > 1) {
-          //   initialCompleted.add(foundCourse.lessons[0].id);
-          // }
           setCompletedLessons(initialCompleted);
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
@@ -137,7 +133,6 @@ export default function StudentCourseViewPage() {
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
-      // Should not happen if allLessonsCompleted is false, but as a fallback
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -150,17 +145,19 @@ export default function StudentCourseViewPage() {
   };
 
   const renderLessonContent = (lesson: Lesson) => {
-    const contentType = lesson.contentType || 'text'; // Default a text
+    const contentType = lesson.contentType || 'text'; 
     switch (contentType) {
       case 'video':
+        // Basic check for YouTube embed URL (can be improved)
+        const isYouTubeEmbed = lesson.videoUrl && lesson.videoUrl.includes("youtube.com/embed/");
         return (
           <div className="space-y-3">
-            {lesson.videoUrl ? (
+            {isYouTubeEmbed ? (
               <div className="aspect-video bg-muted rounded-md overflow-hidden shadow-inner">
                 <iframe
                   width="100%"
                   height="100%"
-                  src={lesson.videoUrl.replace("watch?v=", "embed/")} // Basic transformation for YouTube embed URLs
+                  src={lesson.videoUrl} 
                   title={`Video: ${lesson.title}`}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -171,7 +168,7 @@ export default function StudentCourseViewPage() {
             ) : (
               <div className="p-4 bg-muted rounded-md flex flex-col items-center justify-center text-muted-foreground aspect-video">
                 <Youtube className="h-12 w-12 mb-2" />
-                <span>Video no disponible o URL inválida.</span>
+                <span>{lesson.videoUrl ? "URL de video no válida para incrustar." : "Video no disponible."}</span>
               </div>
             )}
             {lesson.content && <p className="text-sm text-muted-foreground mt-2">{lesson.content}</p>}
@@ -367,3 +364,4 @@ export default function StudentCourseViewPage() {
   );
 }
 
+    
