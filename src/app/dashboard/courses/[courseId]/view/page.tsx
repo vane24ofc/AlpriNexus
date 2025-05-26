@@ -483,23 +483,23 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Progreso del Curso</CardTitle>
+            <CardHeader style={{ padding: '16px 20px 8px' }}>
+              <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-6"> {/* Added pt-6 for more top space */}
-                {/* SVG Container - Normal flow, centered, with negative top margin to pull it up slightly */}
+            <CardContent style={{ textAlign: 'center', paddingTop: '24px', paddingBottom: '20px', paddingLeft: '20px', paddingRight: '20px' }}>
+                {/* SVG Container */}
                 <div className="relative w-32 h-32 mx-auto -mt-4">
-                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                         <path
                         className="text-muted/30"
-                        strokeWidth="4" 
+                        strokeWidth="4"
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="4" 
+                        strokeWidth="4"
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -507,7 +507,7 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
-                    {/* Text for percentage, positioned absolutely to overlay the SVG, with z-10 */}
+                    {/* Text for percentage */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
@@ -520,7 +520,10 @@ export default function StudentCourseViewPage() {
                 </p>
 
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
-                <Button className="w-full text-base py-2.5" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
+                <Button 
+                    className={`w-full text-base py-2.5 ${allLessonsCompleted ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                    onClick={handleCourseAction}
+                >
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
             </CardContent>
@@ -533,3 +536,4 @@ export default function StudentCourseViewPage() {
     
 
     
+
