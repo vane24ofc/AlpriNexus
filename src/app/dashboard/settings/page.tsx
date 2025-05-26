@@ -6,12 +6,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function SettingsPage() {
   const { currentSessionRole } = useSessionRole();
@@ -28,12 +38,21 @@ export default function SettingsPage() {
     appUpdates: false,
   });
   
-  // Theme state will be managed by RootLayout and localStorage directly for simplicity in this step
   const [currentTheme, setCurrentTheme] = useState('dark');
   const [isSaving, setIsSaving] = useState(false);
 
+  // State for password change dialog
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+
   useEffect(() => {
-    // Simular carga de datos del usuario basado en el rol
     if (currentSessionRole) {
       setUserData({
         name: `${currentSessionRole.charAt(0).toUpperCase() + currentSessionRole.slice(1)} Usuario`,
@@ -46,7 +65,6 @@ export default function SettingsPage() {
       });
     }
 
-    // Load current theme from localStorage
     const storedTheme = localStorage.getItem('nexusAlpriTheme') || 'dark';
     setCurrentTheme(storedTheme);
   }, [currentSessionRole]);
@@ -72,7 +90,7 @@ export default function SettingsPage() {
     setIsSaving(true);
     console.log("Datos de usuario actualizados:", userData);
     console.log("Preferencias de notificación:", notificationPrefs);
-    console.log("Tema de apariencia:", currentTheme); // currentTheme is from component state
+    console.log("Tema de apariencia:", currentTheme);
 
     setTimeout(() => {
       toast({
@@ -80,6 +98,35 @@ export default function SettingsPage() {
         description: "Tus preferencias han sido actualizadas (simulado).",
       });
       setIsSaving(false);
+    }, 1000);
+  };
+
+  const handlePasswordChangeSubmit = () => {
+    setPasswordError('');
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      setPasswordError('Todos los campos de contraseña son obligatorios.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError('La nueva contraseña y la confirmación no coinciden.');
+      return;
+    }
+
+    // Simulate API call
+    console.log("Simulando cambio de contraseña...");
+    setTimeout(() => {
+      toast({
+        title: "Contraseña Actualizada (Simulado)",
+        description: "Tu contraseña ha sido actualizada exitosamente.",
+      });
+      setIsPasswordDialogOpen(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
     }, 1000);
   };
 
@@ -168,8 +215,96 @@ export default function SettingsPage() {
                <CardDescription>Gestiona la seguridad de tu cuenta.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Button variant="outline" disabled>Cambiar Contraseña (Próximamente)</Button>
-                <p className="text-xs text-muted-foreground mt-2">Se recomienda cambiar la contraseña periódicamente.</p>
+              <AlertDialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline">Cambiar Contraseña</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cambiar Contraseña</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Introduce tu contraseña actual y la nueva contraseña.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="currentPassword">Contraseña Actual</Label>
+                      <div className="relative">
+                        <Input 
+                          id="currentPassword" 
+                          type={showCurrentPassword ? "text" : "password"} 
+                          value={currentPassword} 
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="Introduce tu contraseña actual"
+                          className="pr-10"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                          tabIndex={-1}
+                        >
+                          {showCurrentPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="newPassword">Nueva Contraseña</Label>
+                       <div className="relative">
+                        <Input 
+                          id="newPassword" 
+                          type={showNewPassword ? "text" : "password"} 
+                          value={newPassword} 
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Mínimo 6 caracteres"
+                          className="pr-10"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          tabIndex={-1}
+                        >
+                          {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="confirmNewPassword">Confirmar Nueva Contraseña</Label>
+                      <div className="relative">
+                        <Input 
+                          id="confirmNewPassword" 
+                          type={showConfirmPassword ? "text" : "password"} 
+                          value={confirmNewPassword} 
+                          onChange={(e) => setConfirmNewPassword(e.target.value)}
+                          placeholder="Repite la nueva contraseña"
+                          className="pr-10"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          tabIndex={-1}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </Button>
+                      </div>
+                    </div>
+                    {passwordError && <p className="text-sm text-destructive">{passwordError}</p>}
+                  </div>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => { setPasswordError(''); setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword(''); }}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handlePasswordChangeSubmit}>Guardar Nueva Contraseña</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <p className="text-xs text-muted-foreground mt-2">Se recomienda cambiar la contraseña periódicamente.</p>
             </CardContent>
           </Card>
 
@@ -187,7 +322,6 @@ export default function SettingsPage() {
                 <SelectContent>
                   <SelectItem value="light">Claro</SelectItem>
                   <SelectItem value="dark">Oscuro</SelectItem>
-                  {/* <SelectItem value="system" disabled>Sistema (Próximamente)</SelectItem> */}
                 </SelectContent>
               </Select>
             </CardContent>
