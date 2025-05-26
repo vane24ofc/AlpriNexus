@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { Role } from '@/app/dashboard/layout';
-import { Eye, EyeOff, Loader2, Save, UserPlus, Shield, BookUser, GraduationCap, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Save, UserPlus, Shield, BookUser, GraduationCap, CheckCircle, XCircle, User, Mail } from 'lucide-react';
 
 const userFormBaseSchema = z.object({
   fullName: z.string().min(2, { message: "El nombre completo debe tener al menos 2 caracteres." }),
@@ -132,7 +132,12 @@ export default function UserForm({ initialData = {}, onSubmitUser, isSubmitting,
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nombre Completo <span className="text-primary">*</span></FormLabel>
-                    <FormControl><Input placeholder="Ej: Ana López" {...field} /></FormControl>
+                    <FormControl>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <Input placeholder="Ej: Ana López" {...field} className="pl-10" />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -143,7 +148,12 @@ export default function UserForm({ initialData = {}, onSubmitUser, isSubmitting,
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Correo Electrónico <span className="text-primary">*</span></FormLabel>
-                    <FormControl><Input type="email" placeholder="Ej: ana.lopez@ejemplo.com" {...field} /></FormControl>
+                    <FormControl>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                        <Input type="email" placeholder="Ej: ana.lopez@ejemplo.com" {...field} className="pl-10" />
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
