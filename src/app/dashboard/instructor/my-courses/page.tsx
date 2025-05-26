@@ -1,14 +1,15 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen } from 'lucide-react';
+import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -22,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
 
 // Simulación de cursos creados por el instructor actual
 const sampleInstructorCourses: Course[] = [
@@ -42,8 +44,31 @@ interface StatusInfo {
 
 export default function MyCoursesPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get('search') || '';
+  
   const [courses, setCourses] = useState<Course[]>(sampleInstructorCourses);
   const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+
+  useEffect(() => {
+    const urlSearchTerm = searchParams.get('search') || '';
+    if (urlSearchTerm !== searchTerm) {
+      setSearchTerm(urlSearchTerm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const filteredCourses = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return courses;
+    }
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    return courses.filter(course =>
+      course.title.toLowerCase().includes(lowercasedSearchTerm) ||
+      course.description.toLowerCase().includes(lowercasedSearchTerm)
+    );
+  }, [courses, searchTerm]);
 
   const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
@@ -78,9 +103,22 @@ export default function MyCoursesPage() {
           <CardDescription>Gestiona los cursos que has creado y enviado para revisión.</CardDescription>
         </CardHeader>
         <CardContent>
-          {courses.length === 0 ? (
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar por título o descripción..."
+                className="pl-10 w-full md:w-1/2 lg:w-1/3"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {filteredCourses.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              Aún no has creado ningún curso. ¡Empieza creando uno nuevo!
+              {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!"}
             </p>
           ) : (
             <Table>
@@ -94,7 +132,7 @@ export default function MyCoursesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {courses.map((course) => {
+                {filteredCourses.map((course) => {
                   const statusInfo = getStatusInfo(course.status);
                   const StatusIcon = statusInfo.icon;
                   return (
@@ -164,3 +202,6 @@ export default function MyCoursesPage() {
     </div>
   );
 }
+
+
+    
