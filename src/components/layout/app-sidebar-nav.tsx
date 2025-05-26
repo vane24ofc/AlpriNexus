@@ -15,8 +15,8 @@ import {
   LifeBuoy,
   ChevronDown,
   ChevronRight,
-  Shield, 
-  User as UserIconLucide, 
+  Shield,
+  User as UserIconLucide,
   CalendarDays,
   Library,
   PlusCircle,
@@ -37,16 +37,16 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useSessionRole, type Role } from '@/app/dashboard/layout'; 
+import { useSessionRole, type Role } from '@/app/dashboard/layout';
 
 interface NavItem {
   id: string;
-  href?: string; 
+  href?: string;
   label: string;
   icon: React.ElementType;
-  roles?: Role[]; 
+  roles?: Role[];
   children?: NavItem[];
   badge?: string;
 }
@@ -56,7 +56,7 @@ const navItems: NavItem[] = [
   {
     id: 'nav-gestion-group',
     label: 'Gestión',
-    icon: Shield, 
+    icon: Shield,
     roles: ['administrador'],
     children: [
       { id: 'nav-admin-users', href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users, roles: ['administrador'] },
@@ -70,8 +70,8 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] }, 
-      { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] }, 
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] },
+      { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] },
     ],
   },
   {
@@ -84,7 +84,7 @@ const navItems: NavItem[] = [
     ],
   },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] }, 
+  { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -92,19 +92,18 @@ const navItems: NavItem[] = [
 
 export function AppSidebarNav() {
   const pathname = usePathname();
-  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const { currentSessionRole, isLoadingRole } = useSessionRole();
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
-  const manualToggleRef = useRef<Record<string, boolean>>({});
-  
-  const dashboardPath = '/dashboard'; 
+
+  const dashboardPath = '/dashboard';
 
   const filteredNavItems = useMemo(() => {
-    if (!currentSessionRole) return []; 
+    if (isLoadingRole || !currentSessionRole) return [];
 
     return navItems.reduce((acc, item) => {
       if (!item.roles || item.roles.includes(currentSessionRole)) {
         let newItem = { ...item };
-        
+
         if (item.children) {
           newItem.children = item.children.filter(child => {
             return !child.roles || child.roles.includes(currentSessionRole!);
@@ -112,7 +111,7 @@ export function AppSidebarNav() {
           if (newItem.children.length > 0) {
             acc.push(newItem);
           } else if (newItem.href) {
-             acc.push({...newItem, children: undefined});
+            acc.push({ ...newItem, children: undefined });
           }
         } else {
           acc.push(newItem);
@@ -120,59 +119,69 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  }, [currentSessionRole]);
+  }, [currentSessionRole, isLoadingRole]);
 
-  const toggleSubmenu = (itemId: string) => {
-    setOpenSubmenus(prev => {
-      const newManualState = !(prev[itemId] || false);
-      manualToggleRef.current[itemId] = newManualState;
-      return { ...prev, [itemId]: newManualState };
-    });
-  };
-  
   useEffect(() => {
-    setOpenSubmenus(prevOpenState => {
-      let newOpenState: Record<string, boolean> = {};
-      let hasChanged = false;
-  
-      filteredNavItems.forEach(item => {
-        if (item.children && item.children.length > 0) {
-          const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-          
-          let shouldBeOpen: boolean;
-          if (manualToggleRef.current[item.id] !== undefined) {
-            shouldBeOpen = manualToggleRef.current[item.id]!;
-          } else {
-            shouldBeOpen = isChildActive || (prevOpenState[item.id] || false);
+    const calculateNewOpenState = (): Record<string, boolean> => {
+      const state: Record<string, boolean> = {};
+      const checkItems = (items: NavItem[], currentPath: string) => {
+        items.forEach(item => {
+          if (item.children && item.children.length > 0) {
+            const isActive = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
+            state[item.id] = isActive;
+            if (isActive) {
+              checkItems(item.children, currentPath); // Recurse for nested active groups
+            }
           }
-          
-          newOpenState[item.id] = shouldBeOpen;
-          if ((prevOpenState[item.id] || false) !== shouldBeOpen) {
-            hasChanged = true;
-          }
-        }
-      });
-  
-      // Limpiar entradas de manualToggleRef si ya no son relevantes o se han procesado
-      const currentSubmenuIds = new Set(filteredNavItems.filter(item => item.children && item.children.length > 0).map(item => item.id));
-      for (const id in manualToggleRef.current) {
-        if (!currentSubmenuIds.has(id)) {
-          delete manualToggleRef.current[id];
+        });
+      };
+      checkItems(filteredNavItems, pathname);
+      return state;
+    };
+
+    const newCalculatedOpenState = calculateNewOpenState();
+
+    // Only update if the state truly differs to prevent unnecessary re-renders
+    let changed = false;
+    const currentOpenKeys = Object.keys(openSubmenus);
+    const newOpenKeys = Object.keys(newCalculatedOpenState);
+
+    if (currentOpenKeys.length !== newOpenKeys.length) {
+      changed = true;
+    } else {
+      for (const key of newOpenKeys) {
+        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
+          changed = true;
+          break;
         }
       }
-      
-      const prevKeysCount = Object.keys(prevOpenState).length;
-      const newKeysCount = Object.keys(newOpenState).length;
-      if (prevKeysCount !== newKeysCount) hasChanged = true;
+    }
+    // Also check if any keys were removed from openSubmenus that are not in newCalculatedOpenState
+    if (!changed) {
+        for (const key of currentOpenKeys) {
+            if (!(key in newCalculatedOpenState) && openSubmenus[key] === true) { // A previously open key is no longer supposed to be open
+                changed = true;
+                break;
+            }
+        }
+    }
 
-      return hasChanged ? newOpenState : prevOpenState;
-    });
-  }, [pathname, filteredNavItems]);
 
+    if (changed) {
+      setOpenSubmenus(newCalculatedOpenState);
+    }
+  }, [pathname, filteredNavItems, openSubmenus]); // Include openSubmenus for comparison
 
-  const renderNavItems = (items: NavItem[], isSubmenu = false) => {
+  const toggleSubmenu = (itemId: string) => {
+    setOpenSubmenus(prev => ({
+      ...prev,
+      [itemId]: !(prev[itemId] || false),
+    }));
+  };
+
+  const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
-      if (item.id !== 'nav-panel-principal' && item.children && item.children.length === 0 && !item.href) {
+      if (item.children && item.children.length === 0 && !item.href) {
         return null;
       }
 
@@ -181,7 +190,6 @@ export function AppSidebarNav() {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.id] || false;
-
         const isGroupActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
         const isActiveForButton = (effectiveHref && pathname === effectiveHref) ? true : isGroupActive;
 
@@ -208,17 +216,16 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref) return null; 
+      if (!effectiveHref) return null;
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref;
       if (effectiveHref !== dashboardPath && pathname.startsWith(effectiveHref + '/')) {
-          isActive = true;
+        isActive = true;
       }
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-         isActive = pathname === dashboardPath; 
+         isActive = pathname === dashboardPath;
       }
-
 
       return (
         <SidebarMenuItem key={item.id}>
@@ -251,16 +258,21 @@ export function AppSidebarNav() {
             <SidebarHeader>
                  <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
                     <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-                    <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
+                    <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
                 </Link>
             </SidebarHeader>
             <SidebarContent className="p-2">
                 <SidebarMenu>
-                    {Array.from({ length: 5 }).map((_, index) => (
+                    {Array.from({ length: 7 }).map((_, index) => ( // Increased skeleton items
                         <SidebarMenuSkeleton key={`skeleton-${index}`} showIcon={true} />
                     ))}
                 </SidebarMenu>
             </SidebarContent>
+            <SidebarFooter className="group-data-[collapsible=icon]:hidden">
+              <div className="text-xs text-muted-foreground p-2 text-center">
+                Copyright Alprigrama S.A.S © {new Date().getFullYear()} Todos los derechos reservados.
+              </div>
+            </SidebarFooter>
         </Sidebar>
     );
   }
@@ -270,27 +282,27 @@ export function AppSidebarNav() {
       <SidebarHeader>
         <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-          <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
+          <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
         </Link>
       </SidebarHeader>
       <SidebarContent className="p-2">
         <SidebarMenu>
           {renderNavItems(filteredNavItems)}
         </SidebarMenu>
-        
+
         <SidebarGroup className="mt-auto group-data-[collapsible=icon]:px-0">
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Soporte</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem key="nav-help">
-                <SidebarMenuButton asChild tooltip="Ayuda y Soporte">
+            <SidebarMenuItem key="nav-help-link">
+                <SidebarMenuButton asChild tooltip="Ayuda y Soporte" isActive={pathname === '/dashboard/help'}>
                     <Link href="/dashboard/help">
                         <LifeBuoy />
                         <span className="group-data-[collapsible=icon]:hidden">Ayuda y Soporte</span>
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
-             <SidebarMenuItem key="nav-feedback">
-                <SidebarMenuButton asChild tooltip="Enviar Comentarios">
+             <SidebarMenuItem key="nav-feedback-link">
+                <SidebarMenuButton asChild tooltip="Enviar Comentarios" isActive={pathname === '/dashboard/feedback'}>
                     <Link href="/dashboard/feedback">
                         <MessageSquare />
                         <span className="group-data-[collapsible=icon]:hidden">Enviar Comentarios</span>
@@ -302,8 +314,7 @@ export function AppSidebarNav() {
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
-        Copyright Alprigrama S.A.S
-          © {new Date().getFullYear()} Todos los derechos reservados.
+          Copyright Alprigrama S.A.S © {new Date().getFullYear()} Todos los derechos reservados.
         </div>
       </SidebarFooter>
     </Sidebar>
