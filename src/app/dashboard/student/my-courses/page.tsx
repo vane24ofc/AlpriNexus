@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, Zap, Award, CheckCircle } from 'lucide-react';
+import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; // Added Loader2
 import type { Course } from '@/types/course'; 
 import { allPlatformCourses } from '@/app/dashboard/courses/explore/page'; 
 
