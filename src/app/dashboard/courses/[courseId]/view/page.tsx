@@ -76,7 +76,7 @@ export default function StudentCourseViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-  
+
   const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
@@ -110,10 +110,10 @@ export default function StudentCourseViewPage() {
                     }
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
-                 initialQuizStateFromStorage[lesson.id] = { 
-                    started: isLessonCompleted, 
-                    answered: isLessonCompleted, 
-                    selectedOption: isLessonCompleted ? 'Simulado' : null 
+                 initialQuizStateFromStorage[lesson.id] = {
+                    started: isLessonCompleted,
+                    answered: isLessonCompleted,
+                    selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
               }
               if (isLessonCompleted) {
@@ -159,7 +159,7 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const allLessonsCompleted = useMemo(() => {
-    if (!course || !course.lessons || course.lessons.length === 0) return false; 
+    if (!course || !course.lessons || course.lessons.length === 0) return false;
     return completedLessons.size === course.lessons.length;
   }, [course, completedLessons]);
 
@@ -172,7 +172,7 @@ export default function StudentCourseViewPage() {
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
-        
+
         localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
 
         if (course && newSet.size === course.lessons.length) {
@@ -231,7 +231,7 @@ export default function StudentCourseViewPage() {
         description: `Has seleccionado la ${option}. ¡Buen trabajo!`,
     });
   };
-  
+
   const handleAccordionChange = (value: string | undefined) => {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
     const currentActiveLessonIdKey = value?.replace('lesson-', '');
@@ -242,9 +242,9 @@ export default function StudentCourseViewPage() {
         delete engagementTimersRef.current[prevActiveLessonIdKey];
       }
     }
-  
+
     setActiveAccordionItem(value);
-  
+
     if (value && currentActiveLessonIdKey) {
       const lesson = course?.lessons.find(l => l.id === currentActiveLessonIdKey);
       if (lesson && (lesson.contentType === 'text' || lesson.contentType === 'video')) {
@@ -252,10 +252,10 @@ export default function StudentCourseViewPage() {
           engagementTimersRef.current[lesson.id] = setTimeout(() => {
             setLessonsReadyForCompletion(prev => {
                 const newSet = new Set(prev);
-                newSet.add(lesson.id); 
+                newSet.add(lesson.id);
                 return newSet;
             });
-            delete engagementTimersRef.current[lesson.id]; 
+            delete engagementTimersRef.current[lesson.id];
           }, ENGAGEMENT_DURATION);
         }
       }
@@ -264,9 +264,9 @@ export default function StudentCourseViewPage() {
 
 
   const renderLessonContent = (lesson: Lesson) => {
-    const contentType = lesson.contentType || 'text'; 
+    const contentType = lesson.contentType || 'text';
     const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; 
+    const quizOptions = ['Opción A', 'Opción B', 'Opción C'];
 
     switch (contentType) {
       case 'video':
@@ -278,7 +278,7 @@ export default function StudentCourseViewPage() {
                 <iframe
                   width="100%"
                   height="100%"
-                  src={lesson.videoUrl} 
+                  src={lesson.videoUrl}
                   title={`Video: ${lesson.title}`}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -305,8 +305,8 @@ export default function StudentCourseViewPage() {
             {!currentQuizState.started ? (
               <>
                 <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => handleStartQuiz(lesson.id)}
                   disabled={completedLessons.has(lesson.id)}
                   className="bg-card hover:bg-card/90"
@@ -416,13 +416,13 @@ export default function StudentCourseViewPage() {
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
                     let isEngagementMetForButton = lessonsReadyForCompletion.has(lesson.id);
-                    
+
                     if (lesson.contentType === 'quiz') {
                        isEngagementMetForButton = (quizState[lesson.id]?.answered || isCompleted);
                     } else if (isCompleted) {
-                       isEngagementMetForButton = true; 
+                       isEngagementMetForButton = true;
                     }
-                    
+
                     const buttonDisabled = isCompleted || !isEngagementMetForButton;
 
                     return (
@@ -490,18 +490,18 @@ export default function StudentCourseViewPage() {
             </CardHeader>
             <CardContent className="text-center pt-4">
                 {/* SVG Container */}
-                <div className="relative w-32 h-32 mx-auto -mt-2"> 
+                <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="3" 
+                        strokeWidth="4"
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="3" 
+                        strokeWidth="4"
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -511,17 +511,17 @@ export default function StudentCourseViewPage() {
                     </svg>
                     {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-2xl font-medium ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
+                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
                 {/* Status Text Paragraph */}
-                <p className={`text-sm ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"} mt-1 mb-1`}>
+                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
-                
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-2 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
                 <Button className="w-full text-base py-2.5" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
@@ -535,4 +535,3 @@ export default function StudentCourseViewPage() {
     
 
     
-
