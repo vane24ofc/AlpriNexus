@@ -483,23 +483,23 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-4 relative"> {/* Añadido relative para el posicionamiento absoluto del bloque del círculo */}
-                {/* Bloque del Círculo y Porcentaje - Posicionado Absolutamente */}
-                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-32 h-32">
+            <CardContent className="text-center pt-4 relative">
+                {/* SVG Container */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="2.5"
+                        strokeWidth="2.5" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="2.5"
+                        strokeWidth="2.5" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -507,14 +507,15 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
+                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
+                        <span className={`text-2xl font-medium ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                {/* Texto de Estado - Con margen superior para dejar espacio al círculo absoluto */}
-                <p className={`text-sm font-normal mt-36 mb-2 ${allLessonsCompleted ? "text-foreground font-semibold" : "text-muted-foreground font-medium"}`}>
+                {/* Status Text Paragraph, with mt-33 to position it below the absolutely positioned circle */}
+                <p className={`text-sm mt-33 mb-2 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
@@ -534,3 +535,6 @@ export default function StudentCourseViewPage() {
     
 
 
+
+
+    
