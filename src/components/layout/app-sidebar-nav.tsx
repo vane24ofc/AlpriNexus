@@ -34,6 +34,7 @@ import {
   SidebarSeparator,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -41,7 +42,7 @@ import { cn } from '@/lib/utils';
 import { useSessionRole, type Role } from '@/app/dashboard/layout'; 
 
 interface NavItem {
-  id: string; // Added for stable keys
+  id: string;
   href?: string; 
   label: string;
   icon: React.ElementType;
@@ -66,10 +67,10 @@ const navItems: NavItem[] = [
   {
     id: 'nav-instructor-tools-group',
     label: 'Herramientas de Instructor',
-    icon: BookOpen, // Main group icon
+    icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] }, // Admin can also create
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] },
       { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] }, 
     ],
   },
@@ -91,7 +92,7 @@ const navItems: NavItem[] = [
 
 export function AppSidebarNav() {
   const pathname = usePathname();
-  const { currentSessionRole } = useSessionRole(); 
+  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   const manualToggleRef = useRef<Record<string, boolean>>({});
   
@@ -109,9 +110,14 @@ export function AppSidebarNav() {
             if (child.roles && !child.roles.includes(currentSessionRole!)) {
               return false;
             }
+            // Ensure child has href to be considered, unless it's a group with further children
+            if (!child.href && (!child.children || child.children.length === 0)) {
+                 //return false; // Potential: filter out children that are not links and have no sub-children
+            }
             return true;
           });
 
+          // If after filtering, the group has no children AND it's not a direct link itself (and not panel principal)
           if (newItem.children.length === 0 && !newItem.href && item.id !== 'nav-panel-principal') { 
             return acc; 
           }
@@ -120,7 +126,7 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  }, [currentSessionRole, dashboardPath]);
+  }, [currentSessionRole]);
 
   const toggleSubmenu = (itemId: string) => {
     setOpenSubmenus(prev => {
@@ -132,53 +138,69 @@ export function AppSidebarNav() {
   
   useEffect(() => {
     const newOpenState: Record<string, boolean> = {};
-    let stateChanged = false;
+    let stateChangedBasedOnPath = false;
 
     filteredNavItems.forEach(item => {
       if (item.children && item.children.length > 0) {
-        const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href));
-        const isParentItselfActive = item.href && pathname === item.href; // Though item.href is usually undefined for groups
-        const shouldBeOpenByRoute = isChildActive || isParentItselfActive;
+        const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
+        const shouldBeOpenByRoute = isChildActive;
 
         if (manualToggleRef.current[item.id]) {
-          // If manually toggled, respect that state for this cycle
           newOpenState[item.id] = openSubmenus[item.id] || false;
         } else if (shouldBeOpenByRoute) {
           newOpenState[item.id] = true;
+          if (openSubmenus[item.id] !== true) stateChangedBasedOnPath = true;
         } else {
-          newOpenState[item.id] = false; // Default to closed if not active by route and not manually toggled
-        }
-
-        if (openSubmenus[item.id] !== newOpenState[item.id]) {
-          stateChanged = true;
+          // If not manually toggled and no child is active, it should be closed.
+          newOpenState[item.id] = false;
+          if (openSubmenus[item.id] !== false) stateChangedBasedOnPath = true;
         }
       }
     });
     
-    // Only update if the computed state is different from the current one
-    if (stateChanged) {
-        // We need to construct the full new state, including items not iterated if they were previously open
-        const finalNewState = {...openSubmenus, ...newOpenState};
-        // Filter out keys that are no longer in filteredNavItems (e.g. due to role change)
-        const relevantKeys = new Set(filteredNavItems.map(i => i.id));
-        const cleanedFinalState: Record<string, boolean> = {};
-        for (const key in finalNewState) {
-            if (relevantKeys.has(key) && finalNewState[key] !== undefined) {
-                 cleanedFinalState[key] = finalNewState[key];
+    // More robust check if state needs updating
+    let needsUpdate = false;
+    const currentOpenKeys = Object.keys(openSubmenus);
+    const newOpenKeys = Object.keys(newOpenState);
+
+    if (currentOpenKeys.length !== newOpenKeys.length) {
+        needsUpdate = true;
+    } else {
+        for (const key of newOpenKeys) {
+            if (openSubmenus[key] !== newOpenState[key]) {
+                needsUpdate = true;
+                break;
             }
         }
-       
-        if(JSON.stringify(cleanedFinalState) !== JSON.stringify(openSubmenus)){
-            setOpenSubmenus(cleanedFinalState);
+    }
+    // Also consider if some keys were removed from newOpenState but exist in openSubmenus
+    if (!needsUpdate) {
+        for (const key of currentOpenKeys) {
+            if (!(key in newOpenState) && openSubmenus[key] === true) { // A previously open menu is no longer relevant
+                needsUpdate = true;
+                break;
+            }
         }
     }
-    manualToggleRef.current = {}; // Reset manual toggle tracking after each path change effect
 
-  }, [pathname, filteredNavItems, openSubmenus]);
+
+    if (needsUpdate) {
+        // Construct the final state ensuring all relevant keys from filteredNavItems are present.
+        const finalState: Record<string, boolean> = {};
+        filteredNavItems.forEach(item => {
+            if (item.children && item.children.length > 0) {
+                finalState[item.id] = newOpenState[item.id] || false;
+            }
+        });
+        setOpenSubmenus(finalState);
+    }
+    manualToggleRef.current = {}; // Reset manual toggle state after path change effect
+  }, [pathname, filteredNavItems]); // Removed openSubmenus from dependencies
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
+      // Do not render a group if it has no children and is not a link itself
       if (item.id !== 'nav-panel-principal' && item.children && item.children.length === 0 && !item.href) {
         return null;
       }
@@ -218,14 +240,11 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      // More specific check for active state: exact match or prefix match if it's not the dashboard root
       let isActive = pathname === effectiveHref || (effectiveHref !== dashboardPath && pathname.startsWith(effectiveHref + '/'));
       
-      // Special handling for the main "Panel Principal" link
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-         isActive = pathname === dashboardPath; // Active only if exactly /dashboard
+         isActive = pathname === dashboardPath; 
       }
-
 
       return (
         <SidebarMenuItem key={item.id}>
@@ -251,6 +270,26 @@ export function AppSidebarNav() {
       );
     });
   };
+
+  if (isLoadingRole) {
+    return (
+        <Sidebar collapsible="icon">
+            <SidebarHeader>
+                 <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+                    <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
+                    <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
+                </Link>
+            </SidebarHeader>
+            <SidebarContent className="p-2">
+                <SidebarMenu>
+                    {Array.from({ length: 5 }).map((_, index) => (
+                        <SidebarMenuSkeleton key={index} showIcon={true} />
+                    ))}
+                </SidebarMenu>
+            </SidebarContent>
+        </Sidebar>
+    );
+  }
 
   return (
     <Sidebar collapsible="icon">
@@ -297,4 +336,3 @@ export function AppSidebarNav() {
   );
 }
 
-    
