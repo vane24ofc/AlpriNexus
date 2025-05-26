@@ -30,7 +30,7 @@ interface UploadedFile {
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe },
   { value: 'instructors', label: 'Instructores y Administradores', icon: Users },
-  { value: 'private', label: 'Solo para mí (o solo Admins para Rec. Empresa)', icon: Eye },
+  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye },
 ];
 
 const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
@@ -61,8 +61,8 @@ export function FileUploader() {
       file,
       id: Math.random().toString(36).substring(7),
       progress: 0,
-      status: 'pending', // Initial status
-      visibility: selectedVisibility,
+      status: 'pending',
+      visibility: selectedVisibility, // Always use selectedVisibility
       category: isInstructor ? 'learning' : selectedCategory,
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
@@ -82,7 +82,7 @@ export function FileUploader() {
         
         let currentProgress = 0;
         const interval = setInterval(() => {
-          currentProgress += Math.floor(Math.random() * 20) + 20; // Faster progress
+          currentProgress += Math.floor(Math.random() * 20) + 20; 
           if (currentProgress >= 100) {
             clearInterval(interval);
             setFiles(prev =>
@@ -95,8 +95,13 @@ export function FileUploader() {
                 } : f
               )
             );
-            // Check if all files are done
-            if (files.every(f => f.status === 'success' || f.status === 'error' || (f.id !== uploadedFile.id && (f.status === 'success' || f.status === 'error')) )) {
+            
+            const allDoneProcessing = files.every(f => 
+              (f.id === uploadedFile.id && (f.status === 'success' || f.status === 'error')) || // current file is done
+              (f.id !== uploadedFile.id && (f.status === 'success' || f.status === 'error' || f.status === 'pending')) // other files are either done or weren't part of this batch
+            );
+
+            if (allDoneProcessing && files.filter(f => f.status === 'uploading').length === 0) {
                 setIsSimulatingUpload(false);
             }
           } else {
@@ -104,7 +109,7 @@ export function FileUploader() {
               prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: currentProgress } : f))
             );
           }
-        }, 100 + Math.random() * 200); // Shorter intervals
+        }, 100 + Math.random() * 200); 
       }
     });
     toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
@@ -202,42 +207,28 @@ export function FileUploader() {
             </div>
           )}
           
-          {/* Hide visibility selector if admin selected 'company' as category */}
-          {!(isAdmin && selectedCategory === 'company') && (
-            <div className="space-y-2">
-                <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
-                <Select 
-                    value={selectedVisibility} 
-                    onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}
-                    disabled={isSimulatingUpload}
-                >
-                <SelectTrigger id="visibility-select">
-                    <SelectValue placeholder="Seleccionar visibilidad" />
-                </SelectTrigger>
-                <SelectContent>
-                    {visibilityOptions.map(opt => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center">
-                        <opt.icon className="w-4 h-4 mr-2" />
-                        {opt.label}
-                        </div>
-                    </SelectItem>
-                    ))}
-                </SelectContent>
-                </Select>
-            </div>
-          )}
-          {/* Show a note if admin selected 'company' */}
-           {isAdmin && selectedCategory === 'company' && (
-            <div className="space-y-2 md:col-span-1"> {/* Adjust span if needed */}
-                 <Label className="text-base font-medium">Visibilidad:</Label>
-                 <p className="text-sm text-muted-foreground p-2 border rounded-md bg-muted flex items-center">
-                    <Eye className="w-4 h-4 mr-2"/>
-                    Solo Administradores (Automático para Recursos de Empresa)
-                </p>
-            </div>
-            )}
-
+          <div className="space-y-2">
+              <Label htmlFor="visibility-select" className="text-base font-medium">Visibilidad para los nuevos archivos:</Label>
+              <Select 
+                  value={selectedVisibility} 
+                  onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}
+                  disabled={isSimulatingUpload}
+              >
+              <SelectTrigger id="visibility-select">
+                  <SelectValue placeholder="Seleccionar visibilidad" />
+              </SelectTrigger>
+              <SelectContent>
+                  {visibilityOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex items-center">
+                      <opt.icon className="w-4 h-4 mr-2" />
+                      {opt.label}
+                      </div>
+                  </SelectItem>
+                  ))}
+              </SelectContent>
+              </Select>
+          </div>
         </div>
 
         <div
@@ -274,7 +265,7 @@ export function FileUploader() {
                            Categoría: {getCategoryLabel(uploadedFile.category)}
                         </Badge>
                         <Badge variant="secondary" className="text-xs capitalize">
-                           Visibilidad: {getVisibilityLabel(uploadedFile.category === 'company' && isAdmin ? 'private' : uploadedFile.visibility)}
+                           Visibilidad: {getVisibilityLabel(uploadedFile.visibility)}
                         </Badge>
                       </div>
                       {uploadedFile.status === 'uploading' && (
@@ -299,7 +290,7 @@ export function FileUploader() {
                     {uploadedFile.status === 'uploading' && uploadedFile.progress < 100 && !isSimulatingUpload && (
                        <Loader2 className="w-5 h-5 text-muted-foreground animate-spin shrink-0" />
                     )}
-                    {uploadedFile.status !== 'uploading' || isSimulatingUpload && (
+                    {uploadedFile.status !== 'uploading' || isSimulatingUpload && ( // condition was complex, simplified a bit to show X if not actively uploading
                       <Button 
                         variant="ghost" 
                         size="icon" 

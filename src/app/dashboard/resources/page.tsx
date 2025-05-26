@@ -1,15 +1,14 @@
 
 "use client";
 
-import React, { useMemo } from 'react'; // Removed useState
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react'; // Removed Search
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react'; 
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
-// Removed Input import as it's no longer used
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 
@@ -29,6 +28,8 @@ const sampleCompanyResources: ResourceFile[] = [
   { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public' },
   { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public'},
   { id: 'cr5', name: 'Presentación de Ventas Global.pptx', type: 'Presentación', size: '4.5 MB', uploadDate: '2024-02-01', url: '#', visibility: 'instructors'},
+  { id: 'cr6', name: 'Manual de Bienvenida para Nuevos Empleados.pdf', type: 'PDF', size: '1.8 MB', uploadDate: '2024-03-01', url: '#', visibility: 'public' },
+  { id: 'cr7', name: 'Protocolos de Seguridad IT.docx', type: 'Documento', size: '750 KB', uploadDate: '2024-02-15', url: '#', visibility: 'private' },
 ];
 
 const sampleLearningResources: ResourceFile[] = [
@@ -41,22 +42,22 @@ const sampleLearningResources: ResourceFile[] = [
 ];
 
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
-  public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600' },
-  instructors: { label: 'Instructores', icon: Users, badgeClass: 'bg-blue-500 hover:bg-blue-600' },
-  private: { label: 'Privado', icon: Eye, badgeClass: 'bg-gray-500 hover:bg-gray-600' },
+  public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
+  instructors: { label: 'Instructores', icon: Users, badgeClass: 'bg-blue-500 hover:bg-blue-600 text-white' },
+  private: { label: 'Privado', icon: Eye, badgeClass: 'bg-gray-500 hover:bg-gray-600 text-white' },
 };
 
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole(); 
-  // const [searchTerm, setSearchTerm] = useState(''); // Removed search term state
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
   const filterFilesByVisibility = (files: ResourceFile[], role: typeof currentSessionRole) => {
     return files.filter(file => {
-      if (role === 'administrador') return true;
+      if (role === 'administrador') return true; // Admins see all files in a category
       if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private';
+      // Students only see public files
       return file.visibility === 'public';
     });
   };
@@ -70,7 +71,7 @@ export default function ResourcesPage() {
   }, [currentSessionRole]);
 
 
-  const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType, showVisibilityCol: boolean = false) => (
+  const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center">
@@ -87,7 +88,7 @@ export default function ResourcesPage() {
                 <TableHead className="w-[50px] hidden md:table-cell"></TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                {showVisibilityCol && <TableHead className="hidden md:table-cell">Visibilidad</TableHead>}
+                <TableHead className="hidden md:table-cell">Visibilidad</TableHead>
                 <TableHead className="hidden lg:table-cell">Fecha de Subida</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -104,16 +105,14 @@ export default function ResourcesPage() {
                     </TableCell>
                     <TableCell className="font-medium">{file.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">{file.type}</TableCell>
-                    {showVisibilityCol && (
-                      <TableCell className="hidden md:table-cell">
-                        {displayInfo && VisibilityIcon && (
-                          <Badge variant="secondary" className={`text-xs text-white ${displayInfo.badgeClass}`}>
-                            <VisibilityIcon className="mr-1 h-3 w-3" />
-                            {displayInfo.label}
-                          </Badge>
-                        )}
-                      </TableCell>
-                    )}
+                    <TableCell className="hidden md:table-cell">
+                      {displayInfo && VisibilityIcon && (
+                        <Badge variant="secondary" className={`text-xs ${displayInfo.badgeClass}`}>
+                          <VisibilityIcon className="mr-1 h-3 w-3" />
+                          {displayInfo.label}
+                        </Badge>
+                      )}
+                    </TableCell>
                     <TableCell className="hidden lg:table-cell">{file.uploadDate}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -154,7 +153,6 @@ export default function ResourcesPage() {
               : "Visualiza y descarga los archivos y recursos disponibles."}
           </CardDescription>
         </CardHeader>
-        {/* Search input removed from here */}
       </Card>
 
       {canUpload && (
@@ -164,20 +162,17 @@ export default function ResourcesPage() {
       {renderResourceTable(
         companyResourcesForRole, 
         "Recursos de la Empresa", 
-        currentSessionRole === 'administrador' 
-          ? "Archivos importantes y documentos internos de la organización. Gestiona la visibilidad según sea necesario."
-          : "Documentos y recursos generales de la empresa disponibles para ti.",
-        Shield,
-        true 
+        "Documentos y archivos importantes de la organización. Su visibilidad es controlada por los administradores.",
+        Shield
       )}
       
       {renderResourceTable(
         learningResourcesForRole,
         "Archivos de Aprendizaje",
-        "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada.",
-        BookOpen,
-        true 
+        "Materiales de estudio, videos, y documentos para los cursos.",
+        BookOpen
       )}
     </div>
   );
 }
+
