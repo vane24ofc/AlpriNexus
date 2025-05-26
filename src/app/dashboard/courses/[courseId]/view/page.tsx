@@ -111,16 +111,16 @@ export default function StudentCourseViewPage() {
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
                  initialQuizStateFromStorage[lesson.id] = {
-                    started: isLessonCompleted, 
-                    answered: isLessonCompleted, 
+                    started: isLessonCompleted,
+                    answered: isLessonCompleted,
                     selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
               }
-              if (isLessonCompleted) { 
+              if (isLessonCompleted) {
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
             } else if (initialCompleted.has(lesson.id)) {
-                 initialReadyForCompletionFromStorage.add(lesson.id); 
+                 initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
           setQuizState(initialQuizStateFromStorage);
@@ -214,11 +214,11 @@ export default function StudentCourseViewPage() {
     setQuizState(prev => ({ ...prev, [lessonId]: { started: true, answered: false, selectedOption: null } }));
     localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify({ started: true, answered: false, selectedOption: null }));
   };
-  
+
   const handleAnswerQuiz = (lessonId: string, option: string) => {
     setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
     localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify({ ...quizState[lessonId], answered: true, selectedOption: option }));
-  
+
     setLessonsReadyForCompletion(prev => {
         const newSet = new Set(prev);
         newSet.add(lessonId);
@@ -226,7 +226,7 @@ export default function StudentCourseViewPage() {
     });
     toast({
         title: "Respuesta Registrada",
-        description: `Has seleccionado la ${option}. ¡Buen trabajo!`,
+        description: `Has seleccionado ${option}. ¡Buen trabajo!`,
     });
   };
 
@@ -483,23 +483,23 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-            <CardHeader className="pb-3">
+            <CardHeader>
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-4 relative">
-                {/* SVG Container */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32">
+            <CardContent className="text-center pt-6"> {/* Added pt-6 for more top space */}
+                {/* SVG Container - Normal flow, centered, with negative top margin to pull it up slightly */}
+                <div className="relative w-32 h-32 mx-auto -mt-4">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="2.5" 
+                        strokeWidth="4" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="2.5" 
+                        strokeWidth="4" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -507,19 +507,19 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
-                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-2xl font-medium ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
+                    {/* Text for percentage, positioned absolutely to overlay the SVG, with z-10 */}
+                    <div className="absolute inset-0 z-10 flex items-center justify-center">
+                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                {/* Status Text Paragraph, with mt-33 to position it below the absolutely positioned circle */}
-                <p className={`text-sm mt-33 mb-2 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"}`}>
+                {/* Status Text Paragraph */}
+                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
                 <Button className="w-full text-base py-2.5" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
@@ -531,10 +531,5 @@ export default function StudentCourseViewPage() {
   );
 }
     
-
-    
-
-
-
 
     
