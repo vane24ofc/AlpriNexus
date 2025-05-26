@@ -2,8 +2,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { useParams, useRouter }
-from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,82 +12,56 @@ import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
 
-// Sample courses to simulate fetching data
-const sampleCourses: Course[] = [
-  {
-    id: 'course-js-adv',
-    title: 'JavaScript Avanzado: Patrones y Prácticas Modernas',
-    description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento para construir aplicaciones robustas y escalables.',
-    thumbnailUrl: 'https://placehold.co/800x450.png',
-    dataAiHint: 'javascript patterns',
-    instructorName: 'Dr. Evelyn Woods',
-    status: 'approved',
-    lessons: [
-      {id: 'l1-js', title: 'Introducción a ESNext', contentType: 'text', content: 'Exploraremos las últimas características de ECMAScript, como let/const, arrow functions, template literals, y más. Veremos cómo estas adiciones mejoran la legibilidad y mantenibilidad del código JavaScript. Este contenido es lo suficientemente largo como para necesitar algo de lectura antes de marcar como completado.'},
-      {id: 'l2-js', title: 'Programación Asíncrona Profunda', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Este módulo cubre promesas, async/await, y cómo manejar operaciones asíncronas de manera efectiva. También discutiremos el event loop y cómo funciona en JavaScript.'},
-      {id: 'l3-js', title: 'Patrones de Diseño en JS', contentType: 'text', content: 'Aprende patrones comunes como Singleton, Factory, Observer y Module, y cómo aplicarlos en JavaScript para crear soluciones más robustas y reutilizables.'},
-      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', contentType: 'quiz', quizPlaceholder: '¿Cuál es la principal ventaja de usar "async/await" sobre las promesas puras para manejar código asíncrono en JavaScript?', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
-    ],
-    interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">Material complementario disponible abajo.</p>'
-  },
-  {
-    id: 'course-python-ds',
-    title: 'Python para Ciencia de Datos: De Cero a Héroe',
-    description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos, incluyendo manipulación de datos con Pandas, visualización con Matplotlib y Seaborn, y una introducción al machine learning con Scikit-learn.',
-    thumbnailUrl: 'https://placehold.co/800x450.png',
-    dataAiHint: 'python data science',
-    instructorName: 'Prof. Ian Stone',
-    status: 'approved',
-    lessons: [
-      {id: 'l1-py', title: 'Fundamentos de Python', contentType: 'text', content: 'Comenzaremos con los conceptos básicos de Python, incluyendo tipos de datos, variables, operadores, estructuras de control (if/else, bucles) y funciones.'},
-      {id: 'l2-py', title: 'Pandas para Manipulación de Datos', contentType: 'text', content: 'Introducción a la librería Pandas para la carga, limpieza, transformación y análisis de datos tabulares.'},
-      {id: 'l3-py', title: 'Visualización de Datos con Matplotlib', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/NgsQjG1qN4k', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'},
-      {id: 'l4-py', title: 'Intro a Machine Learning con Scikit-learn', contentType: 'quiz', quizPlaceholder: '¿Qué librería de Python se utiliza comúnmente para construir modelos de Machine Learning?', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
-    ],
-    interactiveContent: '<div><p class="text-center p-2">Este curso incluye un Jupyter Notebook interactivo.</p><button class="w-full bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">Descargar Notebook (Simulado)</button></div>'
-  },
-   {
-    id: 'course-ux-design',
-    title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)',
-    description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información, wireframing, prototipado y pruebas de usabilidad para crear productos digitales intuitivos y centrados en el usuario.',
-    thumbnailUrl: 'https://placehold.co/800x450.png',
-    dataAiHint: 'ux design principles',
-    instructorName: 'Ana Lima',
-    status: 'approved',
-    lessons: [
-      {id: 'l1-ux', title: '¿Qué es UX?', contentType: 'text', content: 'Definición de Experiencia de Usuario, su importancia y los diferentes roles dentro del campo del diseño UX.'},
-      {id: 'l2-ux', title: 'Investigación de Usuarios', contentType: 'text', content: 'Métodos para entender a tus usuarios, sus necesidades y comportamientos, incluyendo entrevistas, encuestas y personas.'},
-      {id: 'l3-ux', title: 'Wireframing y Prototipado', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/6301pG42H7E', content: 'Cómo crear wireframes de baja y alta fidelidad, y prototipos interactivos para probar tus diseños.'},
-      {id: 'l4-ux', title: 'Pruebas de Usabilidad', contentType: 'quiz', quizPlaceholder: '¿Cuál es el objetivo principal de una prueba de usabilidad?', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
-    ],
-  },
-];
-
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 const ENGAGEMENT_DURATION = 3000; // 3 segundos para simular compromiso
+
+// Fallback if course not found in localStorage
+const fallbackSampleCourse: Course = {
+    id: 'fallback-course',
+    title: 'Curso de Ejemplo No Encontrado',
+    description: 'Este es un curso de ejemplo que se muestra si el curso solicitado no se encuentra en el almacenamiento local.',
+    thumbnailUrl: 'https://placehold.co/800x450.png',
+    dataAiHint: 'placeholder example',
+    instructorName: 'Sistema AlpriNexus',
+    status: 'approved',
+    lessons: [
+      {id: 'l1-fallback', title: 'Lección de Ejemplo 1', contentType: 'text', content: 'Contenido de la lección de ejemplo.'},
+      {id: 'l2-fallback', title: 'Lección de Ejemplo 2 (Video)', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Descripción del video de ejemplo.'}
+    ],
+    interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">No hay contenido interactivo para este curso de ejemplo.</p>'
+};
 
 export default function StudentCourseViewPage() {
   const router = useRouter();
   const params = useParams();
   const { toast } = useToast();
   const courseId = params.courseId as string;
+  
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-
   const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
-
   useEffect(() => {
     if (courseId) {
       setIsLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        const foundCourse = sampleCourses.find(c => c.id === courseId);
+      setTimeout(() => { // Simulate API call latency
+        let foundCourse: Course | undefined;
+        try {
+          const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+          if (storedCourses) {
+            const allCourses: Course[] = JSON.parse(storedCourses);
+            foundCourse = allCourses.find(c => c.id === courseId);
+          }
+        } catch (error) {
+          console.error("Error loading course from localStorage:", error);
+        }
+
         if (foundCourse) {
           setCourse(foundCourse);
           const storedCompletedKey = `${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`;
@@ -112,7 +85,7 @@ export default function StudentCourseViewPage() {
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
                  initialQuizStateFromStorage[lesson.id] = {
-                    started: isLessonCompleted, // If lesson is marked completed, assume quiz was started/answered
+                    started: isLessonCompleted, 
                     answered: isLessonCompleted,
                     selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
@@ -120,13 +93,12 @@ export default function StudentCourseViewPage() {
               if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { 
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
-            } else if (isLessonCompleted) { // For text/video, if completed, it's also ready
+            } else if (isLessonCompleted) { 
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
           setQuizState(initialQuizStateFromStorage);
           setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
-
 
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             const allDone = initialCompleted.size === foundCourse.lessons.length;
@@ -141,9 +113,16 @@ export default function StudentCourseViewPage() {
           toast({
             variant: "destructive",
             title: "Curso no encontrado",
-            description: "No se pudo encontrar el curso solicitado. Serás redirigido.",
+            description: "No se pudo encontrar el curso solicitado. Mostrando contenido de ejemplo.",
           });
-          router.push('/dashboard/student/my-courses');
+          setCourse(fallbackSampleCourse); // Use fallback if not found
+          // Initialize states for fallback course
+          setCompletedLessons(new Set());
+          setQuizState({});
+          setLessonsReadyForCompletion(new Set());
+          if (fallbackSampleCourse.lessons.length > 0) {
+            setActiveAccordionItem(`lesson-${fallbackSampleCourse.lessons[0].id}`);
+          }
         }
         setIsLoading(false);
       }, 500);
@@ -152,7 +131,7 @@ export default function StudentCourseViewPage() {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, router, toast]);
+  }, [courseId, toast]); // Removed router from dependencies as it's stable
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -168,7 +147,8 @@ export default function StudentCourseViewPage() {
     setCompletedLessons(prev => {
       const newSet = new Set(prev);
       if (newSet.has(lessonId)) {
-        // newSet.delete(lessonId); // Descomentar para permitir desmarcar
+        // Allow unchecking for simulation if needed, or keep it as one-way completion
+        // newSet.delete(lessonId); 
       } else {
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
@@ -188,7 +168,6 @@ export default function StudentCourseViewPage() {
       return newSet;
     });
   };
-
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
@@ -260,13 +239,14 @@ export default function StudentCourseViewPage() {
                 newSet.add(lesson.id);
                 return newSet;
             });
-            delete engagementTimersRef.current[lesson.id];
+            if (engagementTimersRef.current[lesson.id]) { // Check if still exists before deleting
+                delete engagementTimersRef.current[lesson.id];
+            }
           }, ENGAGEMENT_DURATION);
         }
       }
     }
   };
-
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
@@ -360,7 +340,7 @@ export default function StudentCourseViewPage() {
     );
   }
 
-  if (!course) {
+  if (!course) { // Should ideally not happen with fallback, but good to keep
     return (
       <div className="text-center py-10">
         <h1 className="text-2xl font-semibold">Curso no encontrado</h1>
@@ -494,23 +474,23 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-            <CardHeader style={{ padding: '16px 20px 8px' }}>
-              <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
+             <CardHeader style={{ padding: '16px 20px 8px' }}>
+                <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-6">
+            <CardContent className="text-center pt-4">
                 {/* SVG Container */}
-                <div className="relative w-32 h-32 mx-auto -mt-4">
+                <div className="relative w-32 h-32 mx-auto">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="4"
+                        strokeWidth="4" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="4"
+                        strokeWidth="4" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -519,7 +499,7 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     {/* Text for percentage, positioned absolutely to overlay the SVG */}
-                    <div className="absolute inset-0 z-10 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
@@ -546,4 +526,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-    

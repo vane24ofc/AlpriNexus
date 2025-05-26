@@ -9,13 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity } from 'lucide-react';
+import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity, Loader2 } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -28,20 +27,12 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
-import { Bar, BarChart as ReBarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList } from 'recharts';
+import { Bar, BarChart as ReBarChart, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 
-
-// Simulación de cursos creados por el instructor actual
-const sampleInstructorCourses: Course[] = [
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs web', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'mongodb database', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux design', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse4', title: 'Marketing de Contenidos para Redes Sociales', description: 'Estrategias de contenido efectivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'social media marketing', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
-];
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; // Match the name used in course creation
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -65,16 +56,51 @@ const studentProgressChartConfig = {
   },
 } satisfies ChartConfig;
 
+const initialSeedCoursesForInstructor: Course[] = [ // Fallback if localStorage is empty
+  { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Seed)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
+  { id: 'instrSeed2', title: 'Diseño UX Avanzado (Seed)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
+];
+
 
 export default function MyCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get('search') || '';
   
-  const [courses, setCourses] = useState<Course[]>(sampleInstructorCourses);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
   const [simulatedStats, setSimulatedStats] = useState<CourseStats | null>(null);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+
+  useEffect(() => {
+    setIsLoading(true);
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      if (storedCourses) {
+        setAllCourses(JSON.parse(storedCourses));
+      } else {
+        // If no courses in localStorage, use initial seed for this instructor and save it (this part is tricky, as it would add to a global list)
+        // For simplicity here, we'll assume if global list is empty, the instructor specific seeds are used.
+        // In a real app, courses would be fetched from a backend.
+        // Let's simulate that if the global course list is empty, we add these instructor seeds.
+        setAllCourses(initialSeedCoursesForInstructor);
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+      }
+    } catch (error) {
+      console.error("Error loading courses from localStorage:", error);
+      setAllCourses(initialSeedCoursesForInstructor); // Fallback
+      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    // Filter courses for the current instructor
+    const filtered = allCourses.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
+    setInstructorCourses(filtered);
+  }, [allCourses]);
 
   useEffect(() => {
     const urlSearchTerm = searchParams.get('search') || '';
@@ -84,16 +110,16 @@ export default function MyCoursesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const filteredCourses = useMemo(() => {
+  const filteredDisplayCourses = useMemo(() => {
     if (!searchTerm.trim()) {
-      return courses;
+      return instructorCourses;
     }
     const lowercasedSearchTerm = searchTerm.toLowerCase();
-    return courses.filter(course =>
+    return instructorCourses.filter(course =>
       course.title.toLowerCase().includes(lowercasedSearchTerm) ||
-      course.description.toLowerCase().includes(lowercasedSearchTerm)
+      (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
     );
-  }, [courses, searchTerm]);
+  }, [instructorCourses, searchTerm]);
 
   const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
@@ -109,15 +135,13 @@ export default function MyCoursesPage() {
   };
 
   const generateSimulatedStats = (course: Course): CourseStats => {
-    // Simple random data for demonstration
-    const enrolled = Math.floor(Math.random() * 300) + 50; // 50-350 students
-    const completion = Math.floor(Math.random() * 70) + 30; // 30-100%
-    const rating = parseFloat((Math.random() * 1.5 + 3.5).toFixed(1)); // 3.5-5.0 stars
-
+    const enrolled = Math.floor(Math.random() * 300) + 50;
+    const completion = Math.floor(Math.random() * 70) + 30;
+    const rating = parseFloat((Math.random() * 1.5 + 3.5).toFixed(1));
     const dist1 = Math.floor(Math.random() * (enrolled * 0.3));
     const dist2 = Math.floor(Math.random() * (enrolled * 0.4));
     const dist3 = Math.floor(Math.random() * (enrolled * 0.2));
-    const dist4 = enrolled - dist1 - dist2 - dist3 > 0 ? enrolled - dist1 - dist2 - dist3 : 0;
+    const dist4 = Math.max(0, enrolled - dist1 - dist2 - dist3);
 
     return {
       enrolledStudents: enrolled,
@@ -141,6 +165,15 @@ export default function MyCoursesPage() {
     setSelectedCourseForStats(null);
     setSimulatedStats(null);
   };
+  
+  if (isLoading) {
+    return (
+        <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground">Cargando tus cursos...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -171,11 +204,12 @@ export default function MyCoursesPage() {
                 className="pl-10 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
             </div>
           </div>
 
-          {filteredCourses.length === 0 ? (
+          {filteredDisplayCourses.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
               {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!"}
             </p>
@@ -192,7 +226,7 @@ export default function MyCoursesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCourses.map((course) => {
+                  {filteredDisplayCourses.map((course) => {
                     const statusInfo = getStatusInfo(course.status);
                     const StatusIcon = statusInfo.icon;
                     return (
@@ -319,4 +353,3 @@ export default function MyCoursesPage() {
     </div>
   );
 }
-

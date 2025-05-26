@@ -9,17 +9,20 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; 
 import type { Course } from '@/types/course'; 
-import { allPlatformCourses } from '@/app/dashboard/courses/explore/page'; 
-import { Badge } from '@/components/ui/badge'; // Added missing import
+import { Badge } from '@/components/ui/badge';
 
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+
+const initialSeedCoursesForStudent: Course[] = [ // Fallback if localStorage is empty or for initial course list
+  { id: 'studentSeed1', title: 'Fundamentos de Programación (Seed)', description: 'Aprende a programar.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Codes', status: 'approved', lessons: [{id: 'l1-sseed1', title: 'Intro Prog Seed'}], dataAiHint: 'programming basics' },
+];
 
 interface EnrolledCourseDisplay extends Course {
   progress: number;
   isCompleted: boolean;
 }
-
 
 export default function MyEnrolledCoursesPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseDisplay[]>([]);
@@ -27,6 +30,20 @@ export default function MyEnrolledCoursesPage() {
 
   useEffect(() => {
     setIsLoading(true);
+    let allAvailableCourses: Course[] = [];
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      if (storedCourses) {
+        allAvailableCourses = JSON.parse(storedCourses);
+      } else {
+        allAvailableCourses = initialSeedCoursesForStudent; // Fallback to seed if no courses in global storage
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
+      }
+    } catch (error) {
+      console.error("Error loading all courses from localStorage:", error);
+      allAvailableCourses = initialSeedCoursesForStudent; // Fallback
+    }
+
     const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
     let enrolledIds: Set<string> = new Set();
 
@@ -54,7 +71,7 @@ export default function MyEnrolledCoursesPage() {
         }
     }
 
-    const coursesToDisplay = allPlatformCourses
+    const coursesToDisplay = allAvailableCourses
       .filter(course => enrolledIds.has(course.id) && course.status === 'approved') 
       .map(course => {
         const isCompleted = completedIds.has(course.id);
@@ -62,7 +79,6 @@ export default function MyEnrolledCoursesPage() {
         if (isCompleted) {
             progress = 100;
         } else {
-            // Simulate progress for non-completed courses by checking individual lesson progress
             const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
             const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
             if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
@@ -70,12 +86,12 @@ export default function MyEnrolledCoursesPage() {
                     const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
                     progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
                 } catch (e) {
-                    progress = Math.floor(Math.random() * 99); // Fallback random progress if parsing fails
+                    progress = Math.floor(Math.random() * 99); 
                 }
             } else if (course.lessons && course.lessons.length > 0) {
-                 progress = 0; // Default to 0 if no specific lesson progress found
+                 progress = 0; 
             } else {
-                progress = Math.floor(Math.random() * 99); // Fallback for courses with no lessons defined
+                progress = Math.floor(Math.random() * 99); 
             }
         }
 
@@ -176,5 +192,3 @@ export default function MyEnrolledCoursesPage() {
     </div>
   );
 }
-
-    

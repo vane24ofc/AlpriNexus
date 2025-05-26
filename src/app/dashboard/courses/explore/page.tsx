@@ -4,36 +4,49 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation'; // Importar useSearchParams
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Search, Grid, List, Info, CheckCircle, Library } from 'lucide-react';
+import { Search, Grid, List, Info, CheckCircle, Library, Loader2 } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 
-// Usaremos una lista consolidada de cursos de ejemplo que podrían estar "aprobados"
-export const allPlatformCourses: Course[] = [
-  { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Dr. Evelyn Woods', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'javascript programming' },
-  { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Ian Stone', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'python data' },
-  { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información y prototipado.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Ana Lima', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'ux design' },
-  { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', description: 'Construye aplicaciones móviles nativas para iOS y Android utilizando React Native.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Carlos Vega', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'mobile development' },
-  { id: 'course-digital-marketing', title: 'Marketing Digital Estratégico para Negocios', description: 'Descubre cómo crear y ejecutar estrategias de marketing digital efectivas para hacer crecer tu negocio.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Laura Morales', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'digital marketing' },
-  { id: 'course-project-management', title: 'Gestión de Proyectos Ágil con Scrum', description: 'Domina Scrum y aprende a gestionar proyectos de forma ágil y eficiente para entregar valor continuamente.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Roberto Diaz', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'project management' },
-  { id: 'course-data-viz', title: 'Visualización de Datos con Tableau', description: 'Aprende a crear visualizaciones de datos impactantes y dashboards interactivos utilizando Tableau.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Sofia Chen', status: 'pending', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'data visualization' }, // Ejemplo de curso no aprobado
-];
-
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+
+const initialSeedCoursesForExplore: Course[] = [ // Fallback if localStorage is empty
+  { id: 'exploreSeed1', title: 'Introducción a la IA (Seed)', description: 'Conceptos básicos de Inteligencia Artificial.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'IA Expert', status: 'approved', lessons: [{id: 'l1-seed-e1', title: 'Intro IA Seed'}], dataAiHint: 'ai concepts' },
+  { id: 'exploreSeed2', title: 'Marketing Digital 101 (Seed)', description: 'Fundamentos de marketing digital.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Marketing Guru', status: 'approved', lessons: [{id: 'l1-seed-e2', title: 'Intro Marketing Seed'}], dataAiHint: 'digital marketing basics' },
+];
 
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
-  const searchParams = useSearchParams(); // Hook para leer parámetros de URL
-  const initialSearchTerm = searchParams.get('search') || ''; // Obtener 'search' de la URL
+  const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get('search') || '';
+  
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    setIsLoading(true);
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      if (storedCourses) {
+        setAllCourses(JSON.parse(storedCourses));
+      } else {
+        setAllCourses(initialSeedCoursesForExplore);
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
+      }
+    } catch (error) {
+      console.error("Error loading courses from localStorage:", error);
+      setAllCourses(initialSeedCoursesForExplore);
+      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
+    }
+
     const storedEnrolledIds = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
     if (storedEnrolledIds) {
       try {
@@ -43,12 +56,11 @@ export default function ExploreCoursesPage() {
         }
       } catch (error) {
         console.error("Error al parsear IDs de cursos inscritos desde localStorage:", error);
-        setEnrolledCourseIds(new Set()); 
       }
     }
+    setIsLoading(false);
   }, []);
 
-  // Actualizar el término de búsqueda si cambia en la URL
   useEffect(() => {
     const urlSearchTerm = searchParams.get('search') || '';
     if (urlSearchTerm !== searchTerm) {
@@ -57,8 +69,7 @@ export default function ExploreCoursesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-
-  const approvedCourses = useMemo(() => allPlatformCourses.filter(course => course.status === 'approved'), []);
+  const approvedCourses = useMemo(() => allCourses.filter(course => course.status === 'approved'), [allCourses]);
 
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -67,8 +78,8 @@ export default function ExploreCoursesPage() {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
     return approvedCourses.filter(course =>
       course.title.toLowerCase().includes(lowercasedSearchTerm) ||
-      course.description.toLowerCase().includes(lowercasedSearchTerm) ||
-      course.instructorName.toLowerCase().includes(lowercasedSearchTerm)
+      (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm)) ||
+      (course.instructorName && course.instructorName.toLowerCase().includes(lowercasedSearchTerm))
     );
   }, [approvedCourses, searchTerm]);
 
@@ -84,6 +95,15 @@ export default function ExploreCoursesPage() {
       description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
     });
   };
+
+  if (isLoading) {
+    return (
+        <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg text-muted-foreground">Cargando catálogo de cursos...</p>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -109,6 +129,7 @@ export default function ExploreCoursesPage() {
                 className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -123,7 +144,7 @@ export default function ExploreCoursesPage() {
 
           {filteredCourses.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              No se encontraron cursos que coincidan con tu búsqueda o no hay cursos disponibles.
+              {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : "No hay cursos disponibles en el catálogo actualmente."}
             </p>
           ) : (
             viewMode === 'grid' ? (
