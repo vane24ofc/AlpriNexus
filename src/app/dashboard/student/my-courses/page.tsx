@@ -7,17 +7,16 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, Zap } from 'lucide-react';
-import type { Course } from '@/types/course'; // Asegurarnos que la importación de Course sea correcta
-import { allPlatformCourses } from '@/app/dashboard/courses/explore/page'; // Importar la lista maestra de cursos
+import { BookOpen, Zap, Award, CheckCircle } from 'lucide-react';
+import type { Course } from '@/types/course'; 
+import { allPlatformCourses } from '@/app/dashboard/courses/explore/page'; 
 
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
 interface EnrolledCourseDisplay extends Course {
-  // Podríamos añadir campos específicos para la visualización aquí si fuera necesario
-  // Por ahora, Course tiene todo lo que necesitamos, incluyendo thumbnailUrl, instructorName.
-  // Añadimos 'progress' como un campo que podría ser específico del estado del estudiante.
   progress: number;
+  isCompleted: boolean;
 }
 
 
@@ -41,24 +40,65 @@ export default function MyEnrolledCoursesPage() {
       }
     }
 
-    // Filtrar de 'allPlatformCourses' aquellos que están en 'enrolledIds'
-    // Y añadirles un progreso simulado (0-100)
+    const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
+    let completedIds: Set<string> = new Set();
+    if (storedCompletedIdsString) {
+        try {
+            const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
+            if (Array.isArray(parsedCompletedIds)) {
+                completedIds = new Set(parsedCompletedIds);
+            }
+        } catch (error) {
+            console.error("Error al parsear IDs de cursos completados desde localStorage:", error);
+        }
+    }
+
     const coursesToDisplay = allPlatformCourses
-      .filter(course => enrolledIds.has(course.id) && course.status === 'approved') // Solo mostrar cursos aprobados
-      .map(course => ({
-        ...course,
-        instructorName: course.instructorName, // Asegurar que instructorName esté
-        progress: Math.floor(Math.random() * 101) // Progreso simulado entre 0 y 100
-      }));
+      .filter(course => enrolledIds.has(course.id) && course.status === 'approved') 
+      .map(course => {
+        const isCompleted = completedIds.has(course.id);
+        let progress = 0;
+        if (isCompleted) {
+            progress = 100;
+        } else {
+            // Simulate progress for non-completed courses by checking individual lesson progress
+            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
+            const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
+            if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
+                try {
+                    const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
+                    progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
+                } catch (e) {
+                    progress = Math.floor(Math.random() * 99); // Fallback random progress if parsing fails
+                }
+            } else if (course.lessons && course.lessons.length > 0) {
+                 progress = 0; // Default to 0 if no specific lesson progress found
+            } else {
+                progress = Math.floor(Math.random() * 99); // Fallback for courses with no lessons defined
+            }
+        }
+
+        return {
+          ...course,
+          instructorName: course.instructorName,
+          progress: progress,
+          isCompleted: isCompleted,
+        };
+      });
       
     setEnrolledCourses(coursesToDisplay);
     setIsLoading(false);
   }, []);
 
+  const handleCertificateClick = (courseTitle: string) => {
+    alert(`¡Felicidades! Aquí se mostraría tu certificado para el curso "${courseTitle}".`);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
-        <p className="text-lg">Cargando tus cursos...</p>
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-3 text-lg">Cargando tus cursos...</p>
       </div>
     );
   }
@@ -96,6 +136,12 @@ export default function MyEnrolledCoursesPage() {
                   className="bg-muted"
                   data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
                 />
+                {course.isCompleted && (
+                    <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground flex items-center">
+                        <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                        Completado
+                    </Badge>
+                )}
               </div>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
@@ -107,14 +153,20 @@ export default function MyEnrolledCoursesPage() {
                     <span>Progreso</span>
                     <span>{course.progress}%</span>
                   </div>
-                  <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className="h-2" />
+                  <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className={`h-2 ${course.isCompleted ? "[&>div]:bg-accent" : ""}`} />
                 </div>
-                <Button asChild className="w-full bg-primary hover:bg-primary/90">
-                  <Link href={`/dashboard/courses/${course.id}/view`}> 
-                    {course.progress === 100 ? 'Ver Certificado' : (course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso')}
-                    <Zap className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
+                {course.isCompleted ? (
+                     <Button onClick={() => handleCertificateClick(course.title)} className="w-full bg-primary hover:bg-primary/90">
+                        <Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)
+                    </Button>
+                ) : (
+                    <Button asChild className="w-full bg-primary hover:bg-primary/90">
+                        <Link href={`/dashboard/courses/${course.id}/view`}> 
+                            {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'}
+                            <Zap className="ml-2 h-4 w-4" />
+                        </Link>
+                    </Button>
+                )}
               </CardContent>
             </Card>
           ))}

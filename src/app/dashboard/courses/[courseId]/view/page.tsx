@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle } from 'lucide-react';
+import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle, Award } from 'lucide-react';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -19,7 +19,7 @@ const sampleCourses: Course[] = [
     id: 'course-js-adv',
     title: 'JavaScript Avanzado: Patrones y Prácticas Modernas',
     description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento para construir aplicaciones robustas y escalables.',
-    thumbnailUrl: 'https://placehold.co/800x450.png?text=JS+Avanzado',
+    thumbnailUrl: 'https://placehold.co/800x450.png',
     dataAiHint: 'javascript patterns',
     instructorName: 'Dr. Evelyn Woods',
     status: 'approved',
@@ -35,7 +35,7 @@ const sampleCourses: Course[] = [
     id: 'course-python-ds',
     title: 'Python para Ciencia de Datos: De Cero a Héroe',
     description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos, incluyendo manipulación de datos con Pandas, visualización con Matplotlib y Seaborn, y una introducción al machine learning con Scikit-learn.',
-    thumbnailUrl: 'https://placehold.co/800x450.png?text=Python+DS',
+    thumbnailUrl: 'https://placehold.co/800x450.png',
     dataAiHint: 'python data science',
     instructorName: 'Prof. Ian Stone',
     status: 'approved',
@@ -51,7 +51,7 @@ const sampleCourses: Course[] = [
     id: 'course-ux-design',
     title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)',
     description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información, wireframing, prototipado y pruebas de usabilidad para crear productos digitales intuitivos y centrados en el usuario.',
-    thumbnailUrl: 'https://placehold.co/800x450.png?text=Diseño+UX',
+    thumbnailUrl: 'https://placehold.co/800x450.png',
     dataAiHint: 'ux design principles',
     instructorName: 'Ana Lima',
     status: 'approved',
@@ -63,6 +63,8 @@ const sampleCourses: Course[] = [
     ],
   },
 ];
+
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
 export default function StudentCourseViewPage() {
   const router = useRouter();
@@ -81,10 +83,21 @@ export default function StudentCourseViewPage() {
         const foundCourse = sampleCourses.find(c => c.id === courseId);
         if (foundCourse) {
           setCourse(foundCourse);
-          const initialCompleted = new Set<string>();
+          // Load completed lessons for this course from localStorage
+          const storedCompleted = localStorage.getItem(`${COMPLETED_COURSES_KEY}_${courseId}`);
+          const initialCompleted = storedCompleted ? new Set<string>(JSON.parse(storedCompleted)) : new Set<string>();
           setCompletedLessons(initialCompleted);
+
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
-            setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
+             // If all lessons are completed, don't auto-open one, otherwise open first uncompleted or first.
+            const allDone = initialCompleted.size === foundCourse.lessons.length;
+            if (!allDone) {
+                const firstUncompleted = foundCourse.lessons.find(l => !initialCompleted.has(l.id));
+                setActiveAccordionItem(firstUncompleted ? `lesson-${firstUncompleted.id}` : `lesson-${foundCourse.lessons[0].id}`);
+            } else {
+                // Optionally keep the first lesson open for review if all completed
+                 setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
+            }
           }
         } else {
           toast({
@@ -99,20 +112,6 @@ export default function StudentCourseViewPage() {
     }
   }, [courseId, router, toast]);
 
-  const handleToggleLessonComplete = (lessonId: string) => {
-    setCompletedLessons(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(lessonId)) {
-        // newSet.delete(lessonId); // Descomentar para permitir desmarcar
-      } else {
-        newSet.add(lessonId);
-        const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
-        toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
-      }
-      return newSet;
-    });
-  };
-
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
     return Math.round((completedLessons.size / course.lessons.length) * 100);
@@ -123,16 +122,45 @@ export default function StudentCourseViewPage() {
     return completedLessons.size === course.lessons.length;
   }, [course, completedLessons]);
 
-  const handleContinueCourse = () => {
+  const handleToggleLessonComplete = (lessonId: string) => {
+    setCompletedLessons(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lessonId)) {
+        // newSet.delete(lessonId); // Descomentar para permitir desmarcar
+      } else {
+        newSet.add(lessonId);
+        const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
+        toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
+        
+        // Save to localStorage for this specific course
+        localStorage.setItem(`${COMPLETED_COURSES_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
+
+        // Check if all lessons are now completed
+        if (course && newSet.size === course.lessons.length) {
+            toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000 });
+            // Add to global list of completed courses
+            const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_KEY) || '[]');
+            if (!globalCompleted.includes(courseId)) {
+                globalCompleted.push(courseId);
+                localStorage.setItem(COMPLETED_COURSES_KEY, JSON.stringify(globalCompleted));
+            }
+        }
+      }
+      return newSet;
+    });
+  };
+
+
+  const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
     if (allLessonsCompleted) {
-      setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
+      alert(`¡Felicidades! Aquí se mostraría tu certificado para el curso "${course.title}".`);
       return;
     }
     const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
-    } else if (course.lessons.length > 0) {
+    } else if (course.lessons.length > 0) { // Should not happen if allLessonsCompleted is false but good fallback
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -148,7 +176,6 @@ export default function StudentCourseViewPage() {
     const contentType = lesson.contentType || 'text'; 
     switch (contentType) {
       case 'video':
-        // Basic check for YouTube embed URL (can be improved)
         const isYouTubeEmbed = lesson.videoUrl && lesson.videoUrl.includes("youtube.com/embed/");
         return (
           <div className="space-y-3">
@@ -338,7 +365,7 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
-                        className="text-primary"
+                        className={allLessonsCompleted ? "text-accent" : "text-primary"}
                         strokeWidth="3"
                         fill="none"
                         strokeLinecap="round"
@@ -348,13 +375,13 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-primary">{courseProgress}%</span>
+                        <span className={`text-2xl font-bold ${allLessonsCompleted ? "text-accent" : "text-primary"}`}>{courseProgress}%</span>
                     </div>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">{allLessonsCompleted ? "¡Curso Completado!" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}</p>
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className="h-2 mb-4" />
-                <Button className="w-full" onClick={handleContinueCourse}>
-                    {allLessonsCompleted ? "Revisar Curso" : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
+                <p className={`text-sm mb-3 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground"}`}>{allLessonsCompleted ? "¡Curso Completado!" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}</p>
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2 mb-4 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+                <Button className="w-full" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
+                    {allLessonsCompleted ? <><Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
             </CardContent>
           </Card>
@@ -363,5 +390,4 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-
     
