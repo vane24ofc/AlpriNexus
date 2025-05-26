@@ -19,7 +19,6 @@ import {
   User as UserIconLucide, 
   CalendarDays,
   BarChartBig,
-  PlusCircle,
   Library,
 } from 'lucide-react';
 import {
@@ -37,9 +36,10 @@ import {
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, Role } from '@/app/dashboard/layout'; 
+import { PlusCircle } from 'lucide-react';
 
 interface NavItem {
   href?: string; 
@@ -76,7 +76,6 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      // "Cursos Inscritos" y "Explorar Cursos" se movieron a nivel superior
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
@@ -94,7 +93,7 @@ export function AppSidebarNav() {
   
   const dashboardPath = '/dashboard'; 
 
-  const getFilteredNavItems = (): NavItem[] => {
+  const filteredNavItems = useMemo(() => {
     if (!currentSessionRole) return [];
 
     return navItems.reduce((acc, item) => {
@@ -110,10 +109,14 @@ export function AppSidebarNav() {
             if (child.roles && !child.roles.includes(currentSessionRole)) {
               return false;
             }
+            // Ensure child href is defined before using it
+            if (child.href && pathname.startsWith(child.href) && child.href === dashboardPath) {
+              // Avoid issues if a child link is the same as dashboardPath
+              // This case might need more specific handling if sub-items point to the main dashboard
+            }
             return true;
           });
 
-          // Si un grupo no tiene hijos visibles Y no tiene un href propio, no lo añadimos
           if (newItem.children.length === 0 && !newItem.href) { 
             return acc; 
           }
@@ -122,36 +125,52 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  };
-  
-  const filteredNavItems = getFilteredNavItems();
+  }, [currentSessionRole, dashboardPath, pathname]); // Added pathname as it influences child filtering logic indirectly
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
   };
   
- useEffect(() => {
-    const activeSubmenus: Record<string, boolean> = {};
+  useEffect(() => {
+    const newActiveSubmenus: Record<string, boolean> = {};
     filteredNavItems.forEach(item => {
-      if (item.children && item.children.length > 0) { // Solo procesar si tiene hijos después de filtrar
+      if (item.children && item.children.length > 0) {
         const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-        const isParentActive = item.href && pathname === item.href;
+        const isParentEffectivelyActive = item.href && pathname === item.href; // Check if the parent group link itself is active
 
-        if (isChildActive || isParentActive) {
-          activeSubmenus[item.label] = true;
+        if (isChildActive || isParentEffectivelyActive) {
+          newActiveSubmenus[item.label] = true;
         }
       }
     });
-    if (Object.keys(activeSubmenus).length > 0) {
-        setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
+
+    let needsUpdate = false;
+    for (const label in newActiveSubmenus) {
+      if (!openSubmenus[label]) { 
+        needsUpdate = true;
+        break;
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, currentSessionRole, filteredNavItems]); // Añadido filteredNavItems
+    // Also check if any previously open submenus (that are path-dependent) should now be closed
+    // This part is tricky: we only want to auto-close if they were auto-opened due to path.
+    // Manual toggles should persist.
+    // For simplicity, this effect primarily focuses on *opening* active submenus.
+    // Manual toggles are handled by `toggleSubmenu`.
+
+    if (needsUpdate) {
+      setOpenSubmenus(prevOpenSubmenus => {
+        const updatedState = { ...prevOpenSubmenus };
+        for (const label in newActiveSubmenus) {
+          updatedState[label] = true; // Ensure active ones are open
+        }
+        return updatedState;
+      });
+    }
+  }, [pathname, filteredNavItems, openSubmenus]);
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      // Si es un grupo sin hijos (después de filtrar por rol) y sin href propio, no renderizarlo.
       if (item.children && item.children.length === 0 && !item.href) {
         return null;
       }
@@ -288,4 +307,3 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
-
