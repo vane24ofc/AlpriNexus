@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
+import { generateReportSections, type GenerateReportSectionsInput, type GenerateReportSectionsOutput } from '@/ai/flows/generate-report-sections-flow';
 
 const userGrowthData = [
   { month: "Ene", users: 65 },
@@ -67,30 +68,59 @@ export default function AdminMetricsPage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isPreviewReportOpen, setIsPreviewReportOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
+  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null);
+  const [isAiLoadingReportText, setIsAiLoadingReportText] = useState(false);
+
+  const stats = [
+    { title: "Usuarios Totales", value: "1,523", icon: Users, trend: "+5% último mes", key: 'totalUsers' },
+    { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+3 esta semana", key: 'activeCourses' },
+    { title: "Tasa de Finalización Prom.", value: "67%", icon: Award, trend: "Estable", key: 'completionRate' },
+    { title: "Nuevos Estudiantes (Mes)", value: "150", icon: UserPlus, trend: "+12% vs mes anterior", key: 'newStudentsMonthly' },
+    { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes", key: 'activeInstructors' }, // Added key
+    { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1", key: 'coursesInReview' }, // Added key
+  ];
+
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }));
   }, []);
 
-  const stats = [
-    { title: "Usuarios Totales", value: "1,523", icon: Users, trend: "+5% último mes" },
-    { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+3 esta semana" },
-    { title: "Tasa de Finalización Prom.", value: "67%", icon: Award, trend: "Estable" },
-    { title: "Nuevos Estudiantes (Mes)", value: "150", icon: UserPlus, trend: "+12% vs mes anterior" },
-    { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes" },
-    { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1" },
-  ];
 
-  const handleGenerateReport = () => {
+  const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
+    setIsAiLoadingReportText(true);
+    setReportText(null); // Clear previous report text
     toast({
       title: "Generando Informe...",
-      description: "El informe de actividad de usuarios se está procesando.",
+      description: "El informe de actividad de usuarios se está procesando. Esto puede tardar unos segundos.",
     });
-    setTimeout(() => {
+
+    const inputForAI: GenerateReportSectionsInput = {
+      totalUsers: parseInt(stats.find(s => s.key === 'totalUsers')?.value.replace(',', '') || '0'),
+      activeCourses: parseInt(stats.find(s => s.key === 'activeCourses')?.value || '0'),
+      completionRate: stats.find(s => s.key === 'completionRate')?.value || 'N/A',
+      newStudentsMonthly: parseInt(stats.find(s => s.key === 'newStudentsMonthly')?.value || '0'),
+    };
+
+    try {
+      const aiGeneratedText = await generateReportSections(inputForAI);
+      setReportText(aiGeneratedText);
+    } catch (error) {
+      console.error("Error generando texto del informe con IA:", error);
+      setReportText({
+        executiveSummary: "No se pudo generar el resumen con IA. Este es un texto de ejemplo.",
+        conclusionsAndRecommendations: "No se pudieron generar las conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones y recomendaciones.",
+      });
+      toast({
+        variant: "destructive",
+        title: "Error de IA",
+        description: "No se pudo generar el contenido del informe. Mostrando texto de ejemplo.",
+      });
+    } finally {
+      setIsAiLoadingReportText(false);
       setIsGeneratingReport(false);
-      setIsPreviewReportOpen(true); // Abre el diálogo de vista previa
-    }, 2500);
+      setIsPreviewReportOpen(true);
+    }
   };
 
   const handleDownloadSimulatedReport = () => {
@@ -99,6 +129,11 @@ export default function AdminMetricsPage() {
         title: "Descarga Iniciada (Simulada)",
         description: "El informe 'Actividad_AlpriNexus_Q1_2024.pdf' ha comenzado a descargarse.",
     });
+  };
+
+  const defaultReportText: GenerateReportSectionsOutput = {
+    executiveSummary: "El informe de actividad para AlpriNexus muestra un crecimiento saludable en la base de usuarios y una participación constante en los cursos. Se identifican oportunidades para mejorar la tasa de finalización en ciertos cursos clave.",
+    conclusionsAndRecommendations: "Conclusión Principal: La plataforma está experimentando una adopción positiva.\nRecomendación 1: Implementar estrategias de gamificación para aumentar la finalización de cursos.\nRecomendación 2: Fomentar la creación de más contenido interactivo por parte de los instructores."
   };
 
   return (
@@ -273,19 +308,19 @@ export default function AdminMetricsPage() {
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <p className="text-muted-foreground flex-1">
-              Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación.
+              Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación. El resumen y las conclusiones se generarán con IA.
             </p>
             <Button 
               onClick={handleGenerateReport} 
-              disabled={isGeneratingReport}
+              disabled={isGeneratingReport || isAiLoadingReportText}
               className="w-full sm:w-auto"
             >
-              {isGeneratingReport ? (
+              {(isGeneratingReport || isAiLoadingReportText) ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              {isGeneratingReport ? "Generando..." : "Generar Informe de Actividad"}
+              {(isGeneratingReport || isAiLoadingReportText) ? "Generando..." : "Generar Informe de Actividad"}
             </Button>
           </div>
         </CardContent>
@@ -296,10 +331,17 @@ export default function AdminMetricsPage() {
           <DialogHeader>
             <DialogTitle>Vista Previa del Informe de Actividad</DialogTitle>
             <DialogDescription>
-              Este es un ejemplo de cómo se vería el informe generado.
+              Este es un ejemplo de cómo se vería el informe generado. El resumen y las conclusiones son generados por IA.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-4 border rounded-md bg-card text-card-foreground">
+            {isAiLoadingReportText ? (
+              <div className="flex flex-col items-center justify-center h-full">
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">Cargando contenido del informe generado por IA...</p>
+              </div>
+            ) : (
+            <>
             <div className="text-center mb-6">
               <Image src="/width_800.png" alt="NexusAlpri Logo" width={150} height={150 * (326/413)} className="mx-auto mb-2" data-ai-hint="company logo"/>
               <h2 className="text-xl font-semibold">Informe de Actividad de la Plataforma AlpriNexus</h2>
@@ -308,19 +350,17 @@ export default function AdminMetricsPage() {
 
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">1. Resumen Ejecutivo</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Este informe presenta un análisis de la actividad de los usuarios en la plataforma AlpriNexus para el período actual.
-                Se observó un crecimiento constante en el número de usuarios y una tasa de finalización de cursos estable.
-                Las áreas de enfoque incluyen mejorar la participación en cursos específicos y continuar fomentando el registro de nuevos usuarios.
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                {reportText?.executiveSummary || defaultReportText.executiveSummary}
               </p>
             </section>
 
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">2. Métricas Clave de Usuarios</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats[0].value}</span> ({stats[0].trend})</li>
-                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats[3].value}</span> ({stats[3].trend})</li>
-                <li>Instructores Activos: <span className="font-semibold text-foreground">{stats[4].value}</span> ({stats[4].trend})</li>
+                <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'totalUsers')?.value}</span> ({stats.find(s => s.key === 'totalUsers')?.trend})</li>
+                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats.find(s => s.key === 'newStudentsMonthly')?.value}</span> ({stats.find(s => s.key === 'newStudentsMonthly')?.trend})</li>
+                <li>Instructores Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeInstructors')?.value}</span> ({stats.find(s => s.key === 'activeInstructors')?.trend})</li>
                 <li>Distribución de Roles:
                   <ul className="list-['-_'] list-inside ml-4">
                     {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value}</li>)}
@@ -332,9 +372,9 @@ export default function AdminMetricsPage() {
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">3. Actividad de Cursos</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                <li>Cursos Activos: <span className="font-semibold text-foreground">{stats[1].value}</span> ({stats[1].trend})</li>
-                <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats[2].value}</span> ({stats[2].trend})</li>
-                <li>Cursos en Revisión: <span className="font-semibold text-foreground">{stats[5].value}</span> ({stats[5].trend})</li>
+                <li>Cursos Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeCourses')?.value}</span> ({stats.find(s => s.key === 'activeCourses')?.trend})</li>
+                <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'completionRate')?.value}</span> ({stats.find(s => s.key === 'completionRate')?.trend})</li>
+                <li>Cursos en Revisión: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'coursesInReview')?.value}</span> ({stats.find(s => s.key === 'coursesInReview')?.trend})</li>
                 <li>Cursos más populares (Inscritos / Completados):
                   <ul className="list-['-_'] list-inside ml-4">
                     {courseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)}
@@ -345,12 +385,8 @@ export default function AdminMetricsPage() {
 
             <section>
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">4. Conclusiones y Recomendaciones</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-                La plataforma muestra un rendimiento saludable. Se recomienda iniciar campañas para promocionar cursos con menor tasa de finalización
-                y facilitar el proceso de onboarding para nuevos instructores para aumentar la oferta de cursos.
-              </p>
-               <p className="text-sm text-muted-foreground leading-relaxed">
-                Monitorizar el crecimiento de usuarios y la actividad de los cursos seguirá siendo crucial para el éxito continuo de AlpriNexus.
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                 {reportText?.conclusionsAndRecommendations || defaultReportText.conclusionsAndRecommendations}
               </p>
             </section>
             
@@ -358,10 +394,12 @@ export default function AdminMetricsPage() {
               <p>&copy; {new Date().getFullYear()} AlpriNexus - Alprigrama S.A.S. Todos los derechos reservados.</p>
               <p>Este es un informe generado automáticamente. La información es confidencial.</p>
             </div>
+            </>
+            )}
           </div>
           <DialogFooter className="pt-4 border-t">
             <Button variant="outline" onClick={() => setIsPreviewReportOpen(false)}>Cerrar Vista Previa</Button>
-            <Button onClick={handleDownloadSimulatedReport}>
+            <Button onClick={handleDownloadSimulatedReport} disabled={isAiLoadingReportText}>
                 <Download className="mr-2 h-4 w-4" />
                 Descargar PDF (Simulado)
             </Button>
