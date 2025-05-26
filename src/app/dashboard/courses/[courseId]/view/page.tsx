@@ -298,7 +298,7 @@ export default function StudentCourseViewPage() {
       case 'quiz':
         return (
           <div className="p-4 bg-muted/70 rounded-md space-y-4">
-            <div className="flex items-center text-primary">
+            <div className="flex items-center text-primary mb-2">
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
@@ -309,6 +309,7 @@ export default function StudentCourseViewPage() {
                   variant="outline" 
                   onClick={() => handleStartQuiz(lesson.id)}
                   disabled={completedLessons.has(lesson.id)}
+                  className="bg-card hover:bg-card/90"
                 >
                   Comenzar Quiz
                 </Button>
@@ -323,7 +324,7 @@ export default function StudentCourseViewPage() {
                       variant={currentQuizState.selectedOption === option ? 'default' : 'outline'}
                       onClick={() => handleAnswerQuiz(lesson.id, option)}
                       disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
-                      className="w-full justify-start"
+                      className={`w-full justify-start ${currentQuizState.selectedOption === option ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-card hover:bg-card/90'}`}
                     >
                       {currentQuizState.selectedOption === option && <CheckCircle className="mr-2 h-4 w-4" />}
                       {option}
@@ -488,7 +489,7 @@ export default function StudentCourseViewPage() {
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-                <div className="relative w-32 h-32 mx-auto mb-3"> {/* Increased size */}
+                <div className="relative w-32 h-32 mx-auto mb-2">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
@@ -511,7 +512,7 @@ export default function StudentCourseViewPage() {
                         <span className={`text-3xl font-semibold ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>{courseProgress}%</span>
                     </div>
                 </div>
-                <p className={`text-base mb-3 ${allLessonsCompleted ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                <p className={`text-lg mb-4 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}
                 </p>
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-5 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
