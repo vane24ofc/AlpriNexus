@@ -76,8 +76,8 @@ export default function AdminMetricsPage() {
     { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+3 esta semana", key: 'activeCourses' },
     { title: "Tasa de Finalización Prom.", value: "67%", icon: Award, trend: "Estable", key: 'completionRate' },
     { title: "Nuevos Estudiantes (Mes)", value: "150", icon: UserPlus, trend: "+12% vs mes anterior", key: 'newStudentsMonthly' },
-    { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes", key: 'activeInstructors' }, // Added key
-    { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1", key: 'coursesInReview' }, // Added key
+    { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes", key: 'activeInstructors' }, 
+    { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1", key: 'coursesInReview' }, 
   ];
 
 
@@ -89,7 +89,7 @@ export default function AdminMetricsPage() {
   const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
     setIsAiLoadingReportText(true);
-    setReportText(null); // Clear previous report text
+    setReportText(null); 
     toast({
       title: "Generando Informe...",
       description: "El informe de actividad de usuarios se está procesando. Esto puede tardar unos segundos.",
@@ -195,6 +195,7 @@ export default function AdminMetricsPage() {
                   top: 5,
                   bottom: 5,
                 }}
+                animationDuration={700}
               >
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
@@ -232,7 +233,11 @@ export default function AdminMetricsPage() {
           </CardHeader>
           <CardContent className="flex items-center justify-center">
             <ChartContainer config={roleChartConfig} className="h-[280px] w-full max-w-[350px] aspect-square">
-              <PieChart accessibilityLayer>
+              <PieChart 
+                accessibilityLayer
+                animationDuration={1000}
+                animationEasing="ease-out"
+              >
                 <ChartTooltip
                   content={<ChartTooltipContent hideLabel nameKey="role" />}
                 />
@@ -271,6 +276,7 @@ export default function AdminMetricsPage() {
               data={courseActivityData}
               margin={{ top: 20, right: 20, left: -10, bottom: 5 }}
               barCategoryGap="20%"
+              animationDuration={800}
             >
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
@@ -409,5 +415,7 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
+
+    
 
     
