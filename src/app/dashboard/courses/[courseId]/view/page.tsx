@@ -101,7 +101,6 @@ export default function StudentCourseViewPage() {
           foundCourse.lessons.forEach(lesson => {
             if (lesson.contentType === 'quiz') {
               const isLessonCompleted = initialCompleted.has(lesson.id);
-              // Attempt to load quiz state for this specific lesson if it exists
               const storedQuizStateForLesson = localStorage.getItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lesson.id}`);
               if (storedQuizStateForLesson) {
                 try {
@@ -160,7 +159,7 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const allLessonsCompleted = useMemo(() => {
-    if (!course || !course.lessons || course.lessons.length === 0) return false; // Handle case of no lessons
+    if (!course || !course.lessons || course.lessons.length === 0) return false; 
     return completedLessons.size === course.lessons.length;
   }, [course, completedLessons]);
 
@@ -253,7 +252,7 @@ export default function StudentCourseViewPage() {
           engagementTimersRef.current[lesson.id] = setTimeout(() => {
             setLessonsReadyForCompletion(prev => {
                 const newSet = new Set(prev);
-                newSet.add(lesson.id); // Asegurarse que es lesson.id
+                newSet.add(lesson.id); 
                 return newSet;
             });
             delete engagementTimersRef.current[lesson.id]; 
@@ -489,18 +488,18 @@ export default function StudentCourseViewPage() {
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-                <div className="relative w-24 h-24 mx-auto mb-2">
+                <div className="relative w-32 h-32 mx-auto mb-3"> {/* Increased size */}
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="3"
+                        strokeWidth="2.5" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="3"
+                        strokeWidth="2.5" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -509,13 +508,15 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-2xl font-bold ${allLessonsCompleted ? "text-accent-foreground" : "text-primary-foreground"}`}>{courseProgress}%</span>
+                        <span className={`text-3xl font-semibold ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>{courseProgress}%</span>
                     </div>
                 </div>
-                <p className={`text-sm mb-3 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground"}`}>{allLessonsCompleted ? "¡Curso Completado!" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}</p>
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2 mb-4 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
-                <Button className="w-full" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
-                    {allLessonsCompleted ? <><Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
+                <p className={`text-base mb-3 ${allLessonsCompleted ? "text-accent font-medium" : "text-muted-foreground"}`}>
+                    {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}
+                </p>
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-5 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+                <Button className="w-full text-base py-3" onClick={handleCourseAction} variant={allLessonsCompleted ? "default" : "default"}>
+                    {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
             </CardContent>
           </Card>
