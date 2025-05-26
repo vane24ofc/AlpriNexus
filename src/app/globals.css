@@ -42,18 +42,18 @@ body {
     /* Chart colors - Paleta para tema claro */
     --chart-1: 220 70% 50%; /* Azul brillante */
     --chart-2: 160 60% 45%; /* Verde azulado */
-    --chart-3: 40 80% 55%;  /* Naranja */
+    --chart-3: 30 80% 55%;  /* Naranja medio brillante */
     --chart-4: 290 65% 60%; /* Púrpura */
-    --chart-5: 0 75% 65%;   /* Rojo coral */
+    --chart-5: 0 70% 50%;   /* Rojo clásico */
 
     /* Sidebar specific colors - Light theme */
-    --sidebar-background: 0 0% 98%; /* Gris muy claro, casi blanco */
-    --sidebar-foreground: 0 0% 3.9%; /* Casi Negro */
-    --sidebar-primary: hsl(var(--primary));
-    --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: 0 0% 90%; /* Gris un poco más oscuro para acento de sidebar */
-    --sidebar-accent-foreground: 0 0% 3.9%; /* Casi Negro */
-    --sidebar-border: 0 0% 85%; /* Gris para bordes de sidebar */
+    --sidebar-background: 0 0% 97%; /* Blanco Hueso / Gris muy claro */
+    --sidebar-foreground: 240 6% 10%; /* Gris oscuro azulado para texto */
+    --sidebar-primary: hsl(var(--primary)); /* Usa el primario principal */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Texto para el primario */
+    --sidebar-accent: 0 0% 90%; /* Gris un poco más oscuro para hover/acento sutil */
+    --sidebar-accent-foreground: 240 6% 10%; /* Texto para el acento */
+    --sidebar-border: 0 0% 88%; /* Borde sutil */
     --sidebar-ring: hsl(var(--ring));
   }
 
@@ -86,7 +86,7 @@ body {
     --input: 0 0% 18%; /* #2E2E2E Gris oscuro para fondos de input */
     --ring: 217 91% 65%; /* Azul un poco más claro para anillos de foco */
 
-    /* Chart colors - Paleta para tema oscuro (la que ya tenías) */
+    /* Chart colors - Paleta para tema oscuro */
     --chart-1: 200 80% 55%; /* Azul Cielo Brillante */
     --chart-2: 340 85% 60%; /* Rosa/Magenta Vibrante */
     --chart-3: 45 100% 50%; /* Amarillo Dorado */
@@ -94,13 +94,13 @@ body {
     --chart-5: 280 75% 65%; /* Lavanda */
 
     /* Sidebar specific colors - Dark theme */
-    --sidebar-background: 0 0% 8%; /* #141414 Similar al popover */
-    --sidebar-foreground: 0 0% 95%; /* #F2F2F2 */
-    --sidebar-primary: hsl(var(--primary));
-    --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: hsl(var(--accent));
-    --sidebar-accent-foreground: hsl(var(--accent-foreground));
-    --sidebar-border: 0 0% 15%; /* #262626 Similar a muted */
+    --sidebar-background: 220 15% 12%; /* Azul muy oscuro y desaturado */
+    --sidebar-foreground: 0 0% 95%; /* Casi blanco, para contraste */
+    --sidebar-primary: hsl(var(--primary)); /* Usa el primario principal del tema oscuro */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Texto para el primario */
+    --sidebar-accent: 220 15% 20%; /* Un tono ligeramente más claro que el fondo para hover/acento sutil */
+    --sidebar-accent-foreground: 0 0% 95%; /* Texto para el acento */
+    --sidebar-border: 220 15% 18%; /* Borde sutil y oscuro */
     --sidebar-ring: hsl(var(--ring));
   }
 }
@@ -142,14 +142,6 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
 
 /* Style for dot on today's date (if not selected) */
 .rdp-day_today.day-with-event-dot:not(.rdp-day_selected)::after {
-  /* For dark theme, accent-foreground is white. For light theme, accent-foreground is black.
-     We need a color that works on accent background.
-     If accent is light gray (light theme), dot should be dark.
-     If accent is teal (dark theme), dot should be white.
-     Let's use primary-foreground which is usually white/light text on primary color.
-     Or more simply, we can hardcode.
-     Given our light theme accent is light gray and dark theme accent is teal:
-  */
   background-color: hsl(var(--accent-foreground));
 }
 
