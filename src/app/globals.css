@@ -9,51 +9,53 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 0%; /* #000000 Pure Black */
-    --foreground: 0 0% 88%; /* #E0E0E0 Light Gray */
+    --background: 0 0% 4%; /* #0A0A0A Un negro un poco más suave */
+    --foreground: 0 0% 95%; /* #F2F2F2 Un gris muy claro, casi blanco */
 
-    --card: 0 0% 10%; /* #1A1A1A Dark Gray for cards */
-    --card-foreground: 0 0% 88%; /* #E0E0E0 Light Gray for card text */
+    --card: 0 0% 12%; /* #1F1F1F Gris oscuro para tarjetas */
+    --card-foreground: 0 0% 95%; /* #F2F2F2 Texto en tarjetas */
 
-    --popover: 0 0% 7%; /* #121212 Darker Gray for popovers */
-    --popover-foreground: 0 0% 88%; /* #E0E0E0 Light Gray */
+    --popover: 0 0% 8%; /* #141414 Gris aún más oscuro para popovers */
+    --popover-foreground: 0 0% 95%; /* #F2F2F2 */
 
-    --primary: 223 84% 25%; /* #0A2A77 Sapphire Blue */
-    --primary-foreground: 0 0% 100%; /* #FFFFFF White */
+    --primary: 217 91% 60%; /* #3B82F6 Azul brillante (Tailwind Blue 500) */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF Blanco */
 
-    --secondary: 200 18% 36%; /* #455A64 Deep Blueish Gray (darker variant for secondary elements) */
-    --secondary-foreground: 0 0% 100%; /* #FFFFFF White */
+    --secondary: 215 28% 17%; /* #202A3A Azul grisáceo oscuro para elementos secundarios */
+    --secondary-foreground: 0 0% 98%; /* #FAFAFA Casi blanco */
 
-    --muted: 0 0% 13%; /* #212121 A slightly different dark gray for muted elements */
-    --muted-foreground: 0 0% 60%; /* #999999 Medium Gray for muted text */
+    --muted: 0 0% 15%; /* #262626 Gris oscuro para elementos apagados */
+    --muted-foreground: 0 0% 65%; /* #A6A6A6 Gris medio para texto apagado */
 
-    --accent: 120 39% 50%; /* #4CAF50 Dark Green */
-    --accent-foreground: 0 0% 100%; /* #FFFFFF White */
+    --accent: 160 70% 45%; /* #14A38B Teal vibrante como acento */
+    --accent-foreground: 0 0% 100%; /* #FFFFFF Blanco */
 
-    --destructive: 0 72% 51%; /* A brighter red for dark theme */
-    --destructive-foreground: 0 0% 100%; /* White */
+    --destructive: 0 75% 55%; /* #FF4D4D Rojo brillante para acciones destructivas */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF Blanco */
 
-    --border: 200 18% 30%; /* #3E5057 Slightly darker version of #455A64 for borders */
-    --input: 0 0% 20%; /* #333333 Dark Gray for input backgrounds */
-    --ring: 223 84% 25%; /* #0A2A77 Sapphire Blue for focus rings */
+    --border: 0 0% 20%; /* #333333 Gris para bordes */
+    --input: 0 0% 18%; /* #2E2E2E Gris oscuro para fondos de input */
+    --ring: 217 91% 65%; /* Azul un poco más claro para anillos de foco, coordinado con el primario */
 
     --radius: 0.5rem; /* 8px. Buttons/Cards will use rounded-lg (8px). Inputs will use rounded-md (6px) */
 
-    --chart-1: 223 84% 35%; /* Sapphire Blue, lighter shade */
-    --chart-2: 120 39% 40%; /* Dark Green, darker shade */
-    --chart-3: 200 18% 50%; /* Deep Blueish Gray, lighter shade */
-    --chart-4: 34 91% 45%; /* Gold/Bronze like color #B8860B */
-    --chart-5: 0 70% 60%; /* A contrasting red/orange */
+    /* Chart colors */
+    --chart-1: hsl(var(--primary)); /* Azul (color primario) */
+    --chart-2: hsl(var(--accent)); /* Teal (color de acento) */
+    --chart-3: 250 70% 60%; /* Púrpura/Violeta */
+    --chart-4: 30 90% 55%;  /* Naranja */
+    --chart-5: 130 60% 50%; /* Verde lima */
+
 
     /* Sidebar specific colors, matching the theme */
-    --sidebar-background: 0 0% 7%; /* #121212 Slightly different than main background */
-    --sidebar-foreground: 0 0% 88%; /* #E0E0E0 */
-    --sidebar-primary: 223 84% 25%; /* Sapphire Blue */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 120 39% 50%; /* Dark Green */
-    --sidebar-accent-foreground: 0 0% 100%; /* White */
-    --sidebar-border: 0 0% 15%; /* #262626 */
-    --sidebar-ring: 223 84% 25%; /* Sapphire Blue */
+    --sidebar-background: 0 0% 8%; /* #141414 Similar al popover */
+    --sidebar-foreground: 0 0% 95%; /* #F2F2F2 */
+    --sidebar-primary: hsl(var(--primary)); /* Azul (color primario) */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Blanco */
+    --sidebar-accent: hsl(var(--accent)); /* Teal (color de acento) */
+    --sidebar-accent-foreground: hsl(var(--accent-foreground)); /* Blanco */
+    --sidebar-border: 0 0% 15%; /* #262626 Similar a muted */
+    --sidebar-ring: hsl(var(--ring)); /* Coordinado con el primario */
   }
 }
 
@@ -102,3 +104,4 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
   position: relative;
   z-index: 2;
 }
+
