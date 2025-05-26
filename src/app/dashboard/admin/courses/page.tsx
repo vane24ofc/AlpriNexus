@@ -1,15 +1,16 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2 } from 'lucide-react';
+import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -21,23 +22,37 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
 
 const sampleCourses: Course[] = [
-  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png?text=JS', instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Python', instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=UX/UI', instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course4', title: 'Marketing Digital Estratégico', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Marketing', instructorName: 'Admin User', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course5', title: 'Cocina Internacional Fácil', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Cocina', instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png?text=JS', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Python', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=UX/UI', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course4', title: 'Marketing Digital Estratégico', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Marketing', dataAiHint: "digital marketing", instructorName: 'Admin User', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course5', title: 'Cocina Internacional Fácil', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Cocina', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course6', title: 'Introducción a la Inteligencia Artificial', description: 'Conceptos básicos de IA.', thumbnailUrl: 'https://placehold.co/150x84.png?text=AI', dataAiHint: "artificial intelligence", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course7', title: 'Desarrollo de APIs con Node.js y Express', description: 'Crea APIs robustas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=NodeJS', dataAiHint: "nodejs api", instructorName: 'Instructor B', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
 ];
 
 
 export default function AdminCoursesPage() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get('search') || '';
+  
   const [courses, setCourses] = useState<Course[]>(sampleCourses);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+
+  useEffect(() => {
+    const urlSearchTerm = searchParams.get('search') || '';
+    if (urlSearchTerm !== searchTerm) {
+      setSearchTerm(urlSearchTerm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
 
   const handleCourseAction = (courseId: string, newStatus: 'approved' | 'rejected') => {
@@ -68,10 +83,22 @@ export default function AdminCoursesPage() {
     setActionType(type);
   }
 
+  const filteredCourses = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return courses;
+    }
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    return courses.filter(course =>
+      course.title.toLowerCase().includes(lowercasedSearchTerm) ||
+      course.instructorName.toLowerCase().includes(lowercasedSearchTerm) ||
+      course.description.toLowerCase().includes(lowercasedSearchTerm)
+    );
+  }, [courses, searchTerm]);
+
   const CourseRow = ({ course }: { course: Course }) => (
     <TableRow>
       <TableCell className="hidden md:table-cell">
-        <Image src={course.thumbnailUrl} alt={course.title} width={80} height={45} className="rounded-md object-cover" data-ai-hint="course thumbnail education" />
+        <Image src={course.thumbnailUrl} alt={course.title} width={80} height={45} className="rounded-md object-cover" data-ai-hint={course.dataAiHint || "course education"} />
       </TableCell>
       <TableCell className="font-medium max-w-xs truncate">
         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
@@ -120,7 +147,7 @@ export default function AdminCoursesPage() {
 
   const renderCourseTable = (courseList: Course[], emptyMessage: string) => {
     if (courseList.length === 0) {
-      return <p className="py-8 text-center text-muted-foreground">{emptyMessage}</p>;
+      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
     }
     return (
       <Table>
@@ -140,9 +167,9 @@ export default function AdminCoursesPage() {
     );
   };
 
-  const pendingCourses = courses.filter(c => c.status === 'pending');
-  const publishedCourses = courses.filter(c => c.status === 'approved');
-  const rejectedCourses = courses.filter(c => c.status === 'rejected');
+  const pendingCourses = filteredCourses.filter(c => c.status === 'pending');
+  const publishedCourses = filteredCourses.filter(c => c.status === 'approved');
+  const rejectedCourses = filteredCourses.filter(c => c.status === 'rejected');
 
   return (
     <div className="space-y-6">
@@ -157,6 +184,24 @@ export default function AdminCoursesPage() {
           </Link>
         </Button>
       </div>
+
+       <Card className="shadow-md">
+        <CardHeader className="pb-4">
+            <CardTitle className="text-base">Buscar Cursos</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar por título, instructor o descripción..."
+                className="pl-10 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="pending">
         <TabsList className="grid w-full grid-cols-3 mb-4">
@@ -241,3 +286,4 @@ export default function AdminCoursesPage() {
   );
 }
 
+    
