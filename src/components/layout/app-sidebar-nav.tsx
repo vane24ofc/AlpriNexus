@@ -108,12 +108,9 @@ export function AppSidebarNav() {
           newItem.children = item.children.filter(child => {
             return !child.roles || child.roles.includes(currentSessionRole!);
           });
-          if (newItem.children.length > 0) {
+          // Only add the group if it has children relevant to the role, OR if the group item itself has an href
+          if (newItem.children.length > 0 || newItem.href) {
             acc.push(newItem);
-          } else if (newItem.href && (!item.children || item.children.length === 0)) { // Only add if it has href and no relevant children
-            // This case might be tricky: a group item without children but with an href
-            // We should treat it as a direct link then.
-            acc.push({ ...newItem, children: undefined });
           }
         } else {
           acc.push(newItem);
@@ -126,48 +123,31 @@ export function AppSidebarNav() {
 
   useEffect(() => {
     if (isLoadingRole || !currentSessionRole) {
-      if (Object.keys(openSubmenus).length > 0) {
-        setOpenSubmenus({});
-      }
+      setOpenSubmenus({}); // Reset if role is not ready
       return;
     }
 
-    const calculateNewOpenState = (): Record<string, boolean> => {
-      const state: Record<string, boolean> = {};
-      const checkItems = (items: NavItem[], currentPath: string) => {
-        items.forEach(item => {
-          if (item.children && item.children.length > 0) {
-            const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
-            state[item.id] = isActiveGroup;
-            if (isActiveGroup) {
-              checkItems(item.children, currentPath);
-            }
+    const newState: Record<string, boolean> = {};
+    // Function to recursively check items and their children to determine active groups
+    const checkItems = (items: NavItem[], currentPath: string) => {
+      items.forEach(item => {
+        if (item.children && item.children.length > 0) {
+          // A group is active if the current path starts with any of its children's hrefs
+          const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
+          newState[item.id] = isActiveGroup;
+          
+          // If a group is active, also check its children for nested active groups
+          if (isActiveGroup) {
+            checkItems(item.children, currentPath);
           }
-        });
-      };
-      checkItems(filteredNavItems, pathname);
-      return state;
+        }
+      });
     };
 
-    const newCalculatedOpenState = calculateNewOpenState();
+    checkItems(filteredNavItems, pathname);
+    setOpenSubmenus(newState); // Directly set the new state
 
-    const currentKeys = Object.keys(openSubmenus);
-    const newKeys = Object.keys(newCalculatedOpenState);
-    let needsUpdate = currentKeys.length !== newKeys.length;
-
-    if (!needsUpdate) {
-      for (const key of newKeys) {
-        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
-          needsUpdate = true;
-          break;
-        }
-      }
-    }
-
-    if (needsUpdate) {
-      setOpenSubmenus(newCalculatedOpenState);
-    }
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole, openSubmenus]);
+  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -180,7 +160,7 @@ export function AppSidebarNav() {
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
       if (item.children && item.children.length === 0 && !item.href) {
-        return null; // Do not render group items with no children and no direct href
+        return null; 
       }
 
       const effectiveHref = item.href;
@@ -191,11 +171,9 @@ export function AppSidebarNav() {
         
         const isGroupActive = item.children.some(child => {
             if (!child.href) return false;
-            // A child is active if the pathname is exactly its href OR starts with its href + '/'
             return pathname === child.href || pathname.startsWith(child.href + '/');
         });
         
-        // A group button itself can be considered active if its own href matches, OR if any of its children are active
         const isActiveForButton = (effectiveHref && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
 
         return (
@@ -221,11 +199,9 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref) return null; // Don't render if no href and not a group with children
+      if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      // For non-group items, active means exact match or starts with + '/'
-      // For the "Panel Principal" link, it should only be active if pathname is exactly dashboardPath
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
        if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
          isActive = pathname === dashboardPath; 
