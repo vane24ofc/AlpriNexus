@@ -164,7 +164,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         const newLessons = result.lessonTitles.map(lessonTitle => ({
             title: lessonTitle,
             contentType: 'text' as 'text' | 'video' | 'quiz',
-            content: '', videoUrl: '', quizPlaceholder: `Quiz sobre: ${lessonTitle}` // Placeholder dinámico
+            content: '', 
+            videoUrl: '', 
+            quizPlaceholder: `Quiz sobre: ${lessonTitle}` 
         }));
         replace(newLessons);
         toast({
@@ -174,8 +176,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       } else {
         toast({
           variant: "destructive",
-          title: "Error de IA",
-          description: "La IA no pudo generar un esquema de lecciones o devolvió una lista vacía.",
+          title: "Respuesta de IA Inválida",
+          description: "La IA no pudo generar un esquema de lecciones o devolvió una lista vacía. Por favor, inténtalo de nuevo o añade lecciones manualmente.",
         });
       }
     } catch (error) {
@@ -209,8 +211,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const result = await generateCourseThumbnail(input);
       if (result.thumbnailDataUri) {
         setThumbnailPreview(result.thumbnailDataUri);
-        // No establecemos thumbnailFile aquí porque la IA devuelve un Data URI, no un File.
-        // La lógica de envío tomará thumbnailPreview si existe.
         form.setValue('thumbnailFile', null); 
         toast({
           title: "Miniatura Generada por IA",
@@ -240,16 +240,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     let finalThumbnailUrl = initialData?.thumbnailUrl;
 
     if (thumbnailPreview && thumbnailPreview !== initialData?.thumbnailUrl) {
-        finalThumbnailUrl = thumbnailPreview; // Puede ser un Data URI de la IA o un Data URI de un archivo local.
+        finalThumbnailUrl = thumbnailPreview; 
     } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
-        // Si no hay preview (no se cambió ni se generó nueva) pero había una inicial, se mantiene.
         finalThumbnailUrl = initialData.thumbnailUrl;
     } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
-        // Si no hay nada (ni preview, ni inicial, ni archivo seleccionado)
-        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; // Placeholder por defecto
+        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; 
     }
-    // Si data.thumbnailFile existe, la simulación de subida y la URL final se manejarían en onSubmitCourse.
-    // Por ahora, priorizamos thumbnailPreview si existe.
 
     const lessonsWithDefaults = data.lessons.map(lesson => ({
         ...lesson,
@@ -407,7 +403,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   </div>
                   );
                 })}
-                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: '' })} className="w-full mt-4" disabled={formDisabled}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: `Quiz sobre: Nueva Lección ${fields.length + 1}` })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
@@ -495,4 +491,3 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     </Form>
   );
 }
-
