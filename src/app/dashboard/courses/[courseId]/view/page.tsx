@@ -99,8 +99,8 @@ export default function StudentCourseViewPage() {
           const initialReadyForCompletionFromStorage = new Set<string>();
 
           foundCourse.lessons.forEach(lesson => {
+            const isLessonCompleted = initialCompleted.has(lesson.id);
             if (lesson.contentType === 'quiz') {
-              const isLessonCompleted = initialCompleted.has(lesson.id);
               const storedQuizStateForLesson = localStorage.getItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lesson.id}`);
               if (storedQuizStateForLesson) {
                 try {
@@ -111,16 +111,16 @@ export default function StudentCourseViewPage() {
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
                  initialQuizStateFromStorage[lesson.id] = {
-                    started: isLessonCompleted,
-                    answered: isLessonCompleted,
+                    started: isLessonCompleted, // if lesson is completed, quiz should be marked as started
+                    answered: isLessonCompleted, // and answered
                     selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
               }
-              if (isLessonCompleted) {
+              if (isLessonCompleted) { // ensure completed quizzes are also ready for completion
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
             } else if (initialCompleted.has(lesson.id)) {
-                 initialReadyForCompletionFromStorage.add(lesson.id);
+                 initialReadyForCompletionFromStorage.add(lesson.id); // non-quiz completed lessons are directly ready
             }
           });
           setQuizState(initialQuizStateFromStorage);
@@ -148,6 +148,7 @@ export default function StudentCourseViewPage() {
       }, 500);
     }
      return () => {
+        // Clear all active timers when the component unmounts
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -236,6 +237,7 @@ export default function StudentCourseViewPage() {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
     const currentActiveLessonIdKey = value?.replace('lesson-', '');
 
+    // Clear timer for previously active lesson if it wasn't "ready" or "completed"
     if (prevActiveLessonIdKey && engagementTimersRef.current[prevActiveLessonIdKey]) {
       if (!lessonsReadyForCompletion.has(prevActiveLessonIdKey) && !completedLessons.has(prevActiveLessonIdKey)) {
         clearTimeout(engagementTimersRef.current[prevActiveLessonIdKey]);
@@ -245,9 +247,11 @@ export default function StudentCourseViewPage() {
 
     setActiveAccordionItem(value);
 
+    // Start timer for newly active lesson if applicable
     if (value && currentActiveLessonIdKey) {
       const lesson = course?.lessons.find(l => l.id === currentActiveLessonIdKey);
       if (lesson && (lesson.contentType === 'text' || lesson.contentType === 'video')) {
+        // Only start timer if lesson isn't completed and not already ready for completion
         if (!completedLessons.has(lesson.id) && !lessonsReadyForCompletion.has(lesson.id)) {
           engagementTimersRef.current[lesson.id] = setTimeout(() => {
             setLessonsReadyForCompletion(prev => {
@@ -255,6 +259,7 @@ export default function StudentCourseViewPage() {
                 newSet.add(lesson.id);
                 return newSet;
             });
+            // Timer fulfilled, can delete it
             delete engagementTimersRef.current[lesson.id];
           }, ENGAGEMENT_DURATION);
         }
@@ -420,7 +425,7 @@ export default function StudentCourseViewPage() {
                     if (lesson.contentType === 'quiz') {
                        isEngagementMetForButton = (quizState[lesson.id]?.answered || isCompleted);
                     } else if (isCompleted) {
-                       isEngagementMetForButton = true;
+                       isEngagementMetForButton = true; // If already completed, it's always ready
                     }
 
                     const buttonDisabled = isCompleted || !isEngagementMetForButton;
@@ -490,18 +495,18 @@ export default function StudentCourseViewPage() {
             </CardHeader>
             <CardContent className="text-center pt-4">
                 {/* SVG Container */}
-                <div className="relative w-32 h-32 mx-auto">
+                <div className="relative w-32 h-32 mx-auto -mt-4">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="4"
+                        strokeWidth="2.5" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="4"
+                        strokeWidth="2.5" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -535,3 +540,4 @@ export default function StudentCourseViewPage() {
     
 
     
+
