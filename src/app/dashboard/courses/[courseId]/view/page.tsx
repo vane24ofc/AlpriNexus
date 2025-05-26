@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter }
 from 'next/navigation';
 import Image from 'next/image';
@@ -24,10 +24,10 @@ const sampleCourses: Course[] = [
     instructorName: 'Dr. Evelyn Woods',
     status: 'approved',
     lessons: [
-      {id: 'l1-js', title: 'Introducción a ESNext', contentType: 'text', content: 'Exploraremos las últimas características de ECMAScript, como let/const, arrow functions, template literals, y más. Veremos cómo estas adiciones mejoran la legibilidad y mantenibilidad del código JavaScript.'},
+      {id: 'l1-js', title: 'Introducción a ESNext', contentType: 'text', content: 'Exploraremos las últimas características de ECMAScript, como let/const, arrow functions, template literals, y más. Veremos cómo estas adiciones mejoran la legibilidad y mantenibilidad del código JavaScript. Este contenido es lo suficientemente largo como para necesitar algo de lectura antes de marcar como completado.'},
       {id: 'l2-js', title: 'Programación Asíncrona Profunda', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Este módulo cubre promesas, async/await, y cómo manejar operaciones asíncronas de manera efectiva. También discutiremos el event loop y cómo funciona en JavaScript.'},
       {id: 'l3-js', title: 'Patrones de Diseño en JS', contentType: 'text', content: 'Aprende patrones comunes como Singleton, Factory, Observer y Module, y cómo aplicarlos en JavaScript para crear soluciones más robustas y reutilizables.'},
-      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', contentType: 'quiz', quizPlaceholder: 'Pregunta de ejemplo: ¿Cuál es la principal ventaja de usar "async/await" sobre las promesas puras para manejar código asíncrono en JavaScript?', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
+      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', contentType: 'quiz', quizPlaceholder: '¿Cuál es la principal ventaja de usar "async/await" sobre las promesas puras para manejar código asíncrono en JavaScript?', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
     ],
     interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">Material complementario disponible abajo.</p>'
   },
@@ -65,6 +65,7 @@ const sampleCourses: Course[] = [
 ];
 
 const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const ENGAGEMENT_DURATION = 3000; // 3 segundos para simular compromiso
 
 export default function StudentCourseViewPage() {
   const router = useRouter();
@@ -76,6 +77,9 @@ export default function StudentCourseViewPage() {
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
   const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
+  
+  const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
+  const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
 
   useEffect(() => {
@@ -90,12 +94,25 @@ export default function StudentCourseViewPage() {
           setCompletedLessons(initialCompleted);
 
           const initialQuizState: Record<string, { started: boolean; answered: boolean; selectedOption: string | null }> = {};
+          const initialReadyForCompletion = new Set<string>();
+
           foundCourse.lessons.forEach(lesson => {
             if (lesson.contentType === 'quiz') {
               initialQuizState[lesson.id] = { started: false, answered: false, selectedOption: null };
+              // Si está completada, se considera lista (aunque el botón estará disabled)
+              if (initialCompleted.has(lesson.id)) {
+                initialReadyForCompletion.add(lesson.id);
+              }
+            } else {
+                 // Si ya está completada, se considera lista
+                 if (initialCompleted.has(lesson.id)) {
+                    initialReadyForCompletion.add(lesson.id);
+                }
             }
           });
           setQuizState(initialQuizState);
+          setLessonsReadyForCompletion(initialReadyForCompletion);
+
 
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             const allDone = initialCompleted.size === foundCourse.lessons.length;
@@ -117,6 +134,11 @@ export default function StudentCourseViewPage() {
         setIsLoading(false);
       }, 500);
     }
+     // Cleanup timers on unmount
+    return () => {
+        Object.values(engagementTimersRef.current).forEach(clearTimeout);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, router, toast]);
 
   const courseProgress = useMemo(() => {
@@ -182,16 +204,51 @@ export default function StudentCourseViewPage() {
 
   const handleAnswerQuiz = (lessonId: string, option: string) => {
     setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
+    setLessonsReadyForCompletion(prev => new Set(prev).add(lessonId));
     toast({
         title: "Respuesta Enviada (Simulación)",
         description: `Has seleccionado la ${option}.`,
     });
-    // Aquí podrías marcar la lección como completada automáticamente si lo deseas.
-    // handleToggleLessonComplete(lessonId);
   };
+  
+  const handleAccordionChange = (value: string | undefined) => {
+    const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
+    const currentActiveLessonIdKey = value?.replace('lesson-', '');
+
+    // Clear timer for previously active lesson if it exists
+    if (prevActiveLessonIdKey && engagementTimersRef.current[prevActiveLessonIdKey]) {
+      if (!lessonsReadyForCompletion.has(prevActiveLessonIdKey) && !completedLessons.has(prevActiveLessonIdKey)) {
+        clearTimeout(engagementTimersRef.current[prevActiveLessonIdKey]);
+        delete engagementTimersRef.current[prevActiveLessonIdKey];
+      }
+    }
+  
+    setActiveAccordionItem(value);
+  
+    if (value && currentActiveLessonIdKey) {
+      const lesson = course?.lessons.find(l => l.id === currentActiveLessonIdKey);
+      if (lesson && (lesson.contentType === 'text' || lesson.contentType === 'video')) {
+        if (!completedLessons.has(lesson.id) && !lessonsReadyForCompletion.has(lesson.id)) {
+          engagementTimersRef.current[lesson.id] = setTimeout(() => {
+            setLessonsReadyForCompletion(prev => new Set(prev).add(lesson.id));
+            delete engagementTimersRef.current[lesson.id]; 
+          }, ENGAGEMENT_DURATION);
+        }
+      }
+    }
+  };
+
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text'; 
+    const isCompleted = completedLessons.has(lesson.id);
+    let isEngagementMet = lessonsReadyForCompletion.has(lesson.id);
+    if (lesson.contentType === 'quiz' && quizState[lesson.id]?.answered) {
+        isEngagementMet = true;
+    }
+    if (isCompleted) isEngagementMet = true; // If already completed, engagement is implicitly met for button state
+
+
     switch (contentType) {
       case 'video':
         const isYouTubeEmbed = lesson.videoUrl && lesson.videoUrl.includes("youtube.com/embed/");
@@ -336,10 +393,18 @@ export default function StudentCourseViewPage() {
                     collapsible
                     className="w-full"
                     value={activeAccordionItem}
-                    onValueChange={setActiveAccordionItem}
+                    onValueChange={handleAccordionChange}
                 >
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
+                    let isEngagementMetForButton = lessonsReadyForCompletion.has(lesson.id);
+                    if (lesson.contentType === 'quiz' && quizState[lesson.id]?.answered) {
+                        isEngagementMetForButton = true;
+                    }
+                    // If already completed, engagement is met for button state, but button will be disabled due to completion.
+                    // The primary control is isCompleted. If not completed, then isEngagementMetForButton matters.
+                    const buttonDisabled = isCompleted || !isEngagementMetForButton;
+
                     return (
                         <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id} className="border-border">
                         <AccordionTrigger className="text-lg hover:no-underline px-3 py-4 hover:bg-muted/50 rounded-t-md data-[state=open]:bg-muted/60 data-[state=open]:rounded-b-none">
@@ -355,7 +420,7 @@ export default function StudentCourseViewPage() {
                                 <Button
                                     size="sm"
                                     onClick={() => handleToggleLessonComplete(lesson.id)}
-                                    disabled={isCompleted}
+                                    disabled={buttonDisabled}
                                     variant={isCompleted ? "secondary" : "default"}
                                     className="w-full sm:w-auto"
                                 >
@@ -440,6 +505,3 @@ export default function StudentCourseViewPage() {
   );
 }
     
-
-    
-
