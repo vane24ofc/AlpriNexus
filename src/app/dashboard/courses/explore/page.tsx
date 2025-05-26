@@ -13,19 +13,20 @@ import { useToast } from '@/hooks/use-toast';
 
 // Usaremos una lista consolidada de cursos de ejemplo que podrían estar "aprobados"
 const allPlatformCourses: Course[] = [
-  { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento.', thumbnailUrl: 'https://placehold.co/600x338.png?text=JS+Avanzado', instructorName: 'Dr. Evelyn Woods', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos.', thumbnailUrl: 'https://placehold.co/600x338.png?text=Python+DS', instructorName: 'Prof. Ian Stone', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información y prototipado.', thumbnailUrl: 'https://placehold.co/600x338.png?text=Diseño+UX', instructorName: 'Ana Lima', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', description: 'Construye aplicaciones móviles nativas para iOS y Android utilizando React Native.', thumbnailUrl: 'https://placehold.co/600x338.png?text=React+Native', instructorName: 'Carlos Vega', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-digital-marketing', title: 'Marketing Digital Estratégico para Negocios', description: 'Descubre cómo crear y ejecutar estrategias de marketing digital efectivas para hacer crecer tu negocio.', thumbnailUrl: 'https://placehold.co/600x338.png?text=Marketing', instructorName: 'Laura Morales', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-project-management', title: 'Gestión de Proyectos Ágil con Scrum', description: 'Domina Scrum y aprende a gestionar proyectos de forma ágil y eficiente para entregar valor continuamente.', thumbnailUrl: 'https://placehold.co/600x338.png?text=Scrum', instructorName: 'Roberto Diaz', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course-data-viz', title: 'Visualización de Datos con Tableau', description: 'Aprende a crear visualizaciones de datos impactantes y dashboards interactivos utilizando Tableau.', thumbnailUrl: 'https://placehold.co/600x338.png?text=Tableau', instructorName: 'Sofia Chen', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]}, // Ejemplo de curso no aprobado
+  { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Dr. Evelyn Woods', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'javascript programming' },
+  { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Ian Stone', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'python data' },
+  { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información y prototipado.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Ana Lima', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'ux design' },
+  { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', description: 'Construye aplicaciones móviles nativas para iOS y Android utilizando React Native.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Carlos Vega', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'mobile development' },
+  { id: 'course-digital-marketing', title: 'Marketing Digital Estratégico para Negocios', description: 'Descubre cómo crear y ejecutar estrategias de marketing digital efectivas para hacer crecer tu negocio.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Laura Morales', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'digital marketing' },
+  { id: 'course-project-management', title: 'Gestión de Proyectos Ágil con Scrum', description: 'Domina Scrum y aprende a gestionar proyectos de forma ágil y eficiente para entregar valor continuamente.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Roberto Diaz', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'project management' },
+  { id: 'course-data-viz', title: 'Visualización de Datos con Tableau', description: 'Aprende a crear visualizaciones de datos impactantes y dashboards interactivos utilizando Tableau.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Sofia Chen', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}], dataAiHint: 'data visualization' }, // Ejemplo de curso no aprobado
 ];
 
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [simulatedEnrolledCourseIds, setSimulatedEnrolledCourseIds] = useState<Set<string>>(new Set());
 
   // Filtramos solo los cursos aprobados para el catálogo
   const approvedCourses = allPlatformCourses.filter(course => course.status === 'approved');
@@ -36,12 +37,12 @@ export default function ExploreCoursesPage() {
     course.instructorName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleEnroll = (courseTitle: string) => {
+  const handleEnroll = (courseId: string, courseTitle: string) => {
+    setSimulatedEnrolledCourseIds(prev => new Set(prev).add(courseId));
     toast({
       title: "¡Inscripción Exitosa! (Simulada)",
       description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
     });
-    // En una aplicación real, aquí se actualizaría el estado del usuario o se haría una llamada API.
   };
 
   return (
@@ -87,71 +88,89 @@ export default function ExploreCoursesPage() {
           ) : (
             viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCourses.map((course) => (
-                  <Card key={course.id} className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
-                    <div className="relative w-full h-48">
-                      <Image
-                        src={course.thumbnailUrl}
-                        alt={course.title}
-                        fill
-                        style={{ objectFit: 'cover' }}
-                        className="bg-muted"
-                        data-ai-hint={`course ${course.title.substring(0,15)}`}
-                      />
-                    </div>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
-                      <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex-grow flex flex-col justify-between">
-                      <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{course.description}</p>
-                      <div className="flex flex-col sm:flex-row gap-2 mt-auto">
-                        <Button variant="outline" size="sm" asChild className="flex-1">
-                          <Link href={`/dashboard/courses/${course.id}/view`}>
-                            <Info className="mr-2 h-4 w-4" /> Ver Detalles
-                          </Link>
-                        </Button>
-                        <Button size="sm" onClick={() => handleEnroll(course.title)} className="flex-1 bg-primary hover:bg-primary/90">
-                          <CheckCircle className="mr-2 h-4 w-4" /> Inscribirme
-                        </Button>
+                {filteredCourses.map((course) => {
+                  const isEnrolled = simulatedEnrolledCourseIds.has(course.id);
+                  return (
+                    <Card key={course.id} className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
+                      <div className="relative w-full h-48">
+                        <Image
+                          src={course.thumbnailUrl}
+                          alt={course.title}
+                          fill
+                          style={{ objectFit: 'cover' }}
+                          className="bg-muted"
+                          data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
+                        />
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
+                        <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex-grow flex flex-col justify-between">
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{course.description}</p>
+                        <div className="flex flex-col sm:flex-row gap-2 mt-auto">
+                          <Button variant="outline" size="sm" asChild className="flex-1">
+                            <Link href={`/dashboard/courses/${course.id}/view`}>
+                              <Info className="mr-2 h-4 w-4" /> Ver Detalles
+                            </Link>
+                          </Button>
+                          {isEnrolled ? (
+                            <Button size="sm" variant="secondary" disabled className="flex-1">
+                              <CheckCircle className="mr-2 h-4 w-4" /> Ya Inscrito
+                            </Button>
+                          ) : (
+                            <Button size="sm" onClick={() => handleEnroll(course.id, course.title)} className="flex-1 bg-primary hover:bg-primary/90">
+                              <CheckCircle className="mr-2 h-4 w-4" /> Inscribirme
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             ) : ( // Vista de Lista
               <div className="space-y-4">
-                {filteredCourses.map((course) => (
-                  <Card key={course.id} className="shadow-md hover:shadow-primary/20 transition-shadow">
-                    <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
-                      <div className="relative w-full sm:w-40 h-32 sm:h-24 flex-shrink-0 rounded-md overflow-hidden">
-                         <Image
-                            src={course.thumbnailUrl}
-                            alt={course.title}
-                            fill
-                            style={{ objectFit: 'cover' }}
-                            className="bg-muted"
-                             data-ai-hint={`course ${course.title.substring(0,15)}`}
-                          />
-                      </div>
-                      <div className="flex-grow">
-                        <CardTitle className="text-lg mb-1">{course.title}</CardTitle>
-                        <CardDescription className="text-xs mb-2">Por: {course.instructorName}</CardDescription>
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2 sm:mt-0 self-start sm:self-center flex-shrink-0">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link href={`/dashboard/courses/${course.id}/view`}>
-                            <Info className="mr-1 h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Ver Detalles</span>
-                          </Link>
-                        </Button>
-                        <Button size="sm" onClick={() => handleEnroll(course.title)} className="bg-primary hover:bg-primary/90">
-                          <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Inscribirme
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {filteredCourses.map((course) => {
+                   const isEnrolled = simulatedEnrolledCourseIds.has(course.id);
+                   return (
+                    <Card key={course.id} className="shadow-md hover:shadow-primary/20 transition-shadow">
+                      <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
+                        <div className="relative w-full sm:w-40 h-32 sm:h-24 flex-shrink-0 rounded-md overflow-hidden">
+                           <Image
+                              src={course.thumbnailUrl}
+                              alt={course.title}
+                              fill
+                              style={{ objectFit: 'cover' }}
+                              className="bg-muted"
+                              data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
+                            />
+                        </div>
+                        <div className="flex-grow">
+                          <CardTitle className="text-lg mb-1">{course.title}</CardTitle>
+                          <CardDescription className="text-xs mb-2">Por: {course.instructorName}</CardDescription>
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2 sm:mt-0 self-start sm:self-center flex-shrink-0">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/dashboard/courses/${course.id}/view`}>
+                              <Info className="mr-1 h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Ver Detalles</span>
+                            </Link>
+                          </Button>
+                          {isEnrolled ? (
+                            <Button size="sm" variant="secondary" disabled>
+                              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Ya Inscrito
+                            </Button>
+                          ) : (
+                            <Button size="sm" onClick={() => handleEnroll(course.id, course.title)} className="bg-primary hover:bg-primary/90">
+                              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Inscribirme
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                   );
+                })}
               </div>
             )
           )}
@@ -160,3 +179,5 @@ export default function ExploreCoursesPage() {
     </div>
   );
 }
+
+    
