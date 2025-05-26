@@ -489,7 +489,7 @@ export default function StudentCourseViewPage() {
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
-                <div className="relative w-32 h-32 mx-auto mb-2">
+                <div className="relative w-32 h-32 mx-auto mb-1"> {/* Reduced margin bottom */}
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
@@ -512,7 +512,7 @@ export default function StudentCourseViewPage() {
                         <span className={`text-3xl font-semibold ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>{courseProgress}%</span>
                     </div>
                 </div>
-                <p className={`text-lg mb-4 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"}`}>
+                <p className={`text-lg mb-2 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"}`}> {/* Reduced margin bottom */}
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}
                 </p>
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-5 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
@@ -529,3 +529,4 @@ export default function StudentCourseViewPage() {
     
 
     
+
