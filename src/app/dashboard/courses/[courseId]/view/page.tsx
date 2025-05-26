@@ -65,6 +65,7 @@ const sampleCourses: Course[] = [
 ];
 
 const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
+const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 const ENGAGEMENT_DURATION = 3000; // 3 segundos para simular compromiso
 
 export default function StudentCourseViewPage() {
@@ -101,7 +102,7 @@ export default function StudentCourseViewPage() {
           foundCourse.lessons.forEach(lesson => {
             const isLessonCompleted = initialCompleted.has(lesson.id);
             if (lesson.contentType === 'quiz') {
-              const storedQuizStateForLesson = localStorage.getItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lesson.id}`);
+              const storedQuizStateForLesson = localStorage.getItem(`${QUIZ_STATE_STORAGE_PREFIX}${lesson.id}`);
               if (storedQuizStateForLesson) {
                 try {
                     initialQuizStateFromStorage[lesson.id] = JSON.parse(storedQuizStateForLesson);
@@ -111,12 +112,12 @@ export default function StudentCourseViewPage() {
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
                  initialQuizStateFromStorage[lesson.id] = {
-                    started: isLessonCompleted,
+                    started: isLessonCompleted, // If lesson is marked completed, assume quiz was started/answered
                     answered: isLessonCompleted,
                     selectedOption: isLessonCompleted ? 'Simulado' : null
                 };
               }
-              if (isLessonCompleted) {
+              if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { // Also ready if answered but not yet marked as lesson completed
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
             } else if (initialCompleted.has(lesson.id)) {
@@ -211,13 +212,19 @@ export default function StudentCourseViewPage() {
   };
 
   const handleStartQuiz = (lessonId: string) => {
-    setQuizState(prev => ({ ...prev, [lessonId]: { started: true, answered: false, selectedOption: null } }));
-    localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify({ started: true, answered: false, selectedOption: null }));
+    setQuizState(prev => {
+      const newState = { ...prev, [lessonId]: { started: true, answered: false, selectedOption: null } };
+      localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
+      return newState;
+    });
   };
 
   const handleAnswerQuiz = (lessonId: string, option: string) => {
-    setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
-    localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify({ ...quizState[lessonId], answered: true, selectedOption: option }));
+    setQuizState(prev => {
+      const newState = { ...prev, [lessonId]: { ...prev[lessonId], started: true, answered: true, selectedOption: option } };
+      localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
+      return newState;
+    });
 
     setLessonsReadyForCompletion(prev => {
         const newSet = new Set(prev);
@@ -263,8 +270,8 @@ export default function StudentCourseViewPage() {
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
-    const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptions = ['Opción A', 'Opción B', 'Opción C'];
+    const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
+    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; // Ejemplo, podría venir de lesson.quizOptions
 
     switch (contentType) {
       case 'video':
@@ -300,7 +307,7 @@ export default function StudentCourseViewPage() {
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
-            {!currentQuizState.started ? (
+            {!currentQuizData.started && !currentQuizData.answered ? (
               <>
                 <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
                 <Button
@@ -319,17 +326,17 @@ export default function StudentCourseViewPage() {
                   {quizOptions.map((option, index) => (
                     <Button
                       key={index}
-                      variant={currentQuizState.selectedOption === option ? 'default' : 'outline'}
+                      variant={currentQuizData.selectedOption === option ? 'default' : 'outline'}
                       onClick={() => handleAnswerQuiz(lesson.id, option)}
-                      disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
-                      className={`w-full justify-start ${currentQuizState.selectedOption === option ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-card hover:bg-card/90'}`}
+                      disabled={currentQuizData.answered || completedLessons.has(lesson.id)}
+                      className={`w-full justify-start ${currentQuizData.selectedOption === option ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-card hover:bg-card/90'}`}
                     >
-                      {currentQuizState.selectedOption === option && <CheckCircle className="mr-2 h-4 w-4" />}
+                      {currentQuizData.selectedOption === option && <CheckCircle className="mr-2 h-4 w-4" />}
                       {option}
                     </Button>
                   ))}
                 </div>
-                {currentQuizState.answered && <p className="text-xs text-accent mt-2">Tu respuesta ha sido registrada. ¡Buen trabajo!</p>}
+                {currentQuizData.answered && <p className="text-xs text-accent mt-2">Tu respuesta ha sido registrada. ¡Buen trabajo!</p>}
               </div>
             )}
           </div>
@@ -489,7 +496,7 @@ export default function StudentCourseViewPage() {
             <CardContent style={{ textAlign: 'center', paddingTop: '24px', paddingBottom: '20px', paddingLeft: '20px', paddingRight: '20px' }}>
                 {/* SVG Container */}
                 <div className="relative w-32 h-32 mx-auto -mt-4">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
                         strokeWidth="4"
@@ -521,8 +528,11 @@ export default function StudentCourseViewPage() {
 
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
                 <Button 
-                    className={`w-full text-base py-2.5 ${allLessonsCompleted ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`}
+                    className="w-full text-base py-2.5"
                     onClick={handleCourseAction}
+                    variant={allLessonsCompleted ? "default" : "default"} // Mantener default o ajustar según preferencia
+                    // Cambiar color de fondo si está completado, manteniendo texto blanco
+                    style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
                 >
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
@@ -536,4 +546,5 @@ export default function StudentCourseViewPage() {
     
 
     
+
 
