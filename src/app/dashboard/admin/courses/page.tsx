@@ -92,16 +92,16 @@ export default function AdminCoursesPage() {
           {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
         </Badge>
       </TableCell>
-      <TableCell className="text-right space-x-1 md:space-x-0"> {/* Ajustado el espacio para íconos */}
+      <TableCell className="text-right space-x-1 md:space-x-0">
+        {(course.status === 'pending' || course.status === 'rejected') && (
+          <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1">
+            <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
+          </Button>
+        )}
         {course.status === 'pending' && (
-          <>
-            <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1">
-              <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
-            </Button>
-            <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')}>
-              <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
-            </Button>
-          </>
+          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')}>
+            <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
+          </Button>
         )}
          <Button variant="ghost" size="icon" asChild title="Ver Curso">
             <Link href={`/dashboard/courses/${course.id}/view`}>
@@ -159,14 +159,14 @@ export default function AdminCoursesPage() {
       </div>
 
       <Tabs defaultValue="pending">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="pending">
-            Pendientes de Revisión ({pendingCourses.length})
+            Pendientes ({pendingCourses.length})
           </TabsTrigger>
           <TabsTrigger value="published">
             Publicados ({publishedCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="hidden md:flex"> {/* Clase hidden md:flex para ocultar en móvil y mostrar en md y superior */}
+          <TabsTrigger value="rejected" className="flex">
             Rechazados ({rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
@@ -199,7 +199,7 @@ export default function AdminCoursesPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Cursos Rechazados</CardTitle>
-              <CardDescription>Cursos que han sido revisados y no aprobados.</CardDescription>
+              <CardDescription>Cursos que han sido revisados y no aprobados. Puedes aprobarlos desde aquí si es necesario.</CardDescription>
             </CardHeader>
             <CardContent>
               {renderCourseTable(rejectedCourses, "No hay cursos rechazados.")}
@@ -240,3 +240,4 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
+
