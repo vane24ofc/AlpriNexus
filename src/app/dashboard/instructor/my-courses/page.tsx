@@ -180,67 +180,69 @@ export default function MyCoursesPage() {
               {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!"}
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead className="hidden sm:table-cell">Estado</TableHead>
-                  <TableHead className="hidden lg:table-cell">Estudiantes</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredCourses.map((course) => {
-                  const statusInfo = getStatusInfo(course.status);
-                  const StatusIcon = statusInfo.icon;
-                  return (
-                    <TableRow key={course.id}>
-                      <TableCell className="hidden md:table-cell">
-                        <Image 
-                          src={course.thumbnailUrl} 
-                          alt={course.title} 
-                          width={80} 
-                          height={45} 
-                          className="rounded-md object-cover" 
-                          data-ai-hint={course.dataAiHint || "course thumbnail education"}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium max-w-xs truncate">
-                         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
-                        <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        <Badge variant={statusInfo.variant} className={statusInfo.className}>
-                          <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
-                          {statusInfo.text}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">
-                        {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
-                      </TableCell>
-                      <TableCell className="text-right space-x-1 md:space-x-0">
-                        <Button variant="ghost" size="icon" asChild>
-                          <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="icon" asChild>
-                           <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
-                            <Edit3 className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => handleOpenStatsModal(course)}>
-                            <BarChart2 className="h-4 w-4" />
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead className="hidden sm:table-cell">Estado</TableHead>
+                    <TableHead className="hidden lg:table-cell">Estudiantes</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredCourses.map((course) => {
+                    const statusInfo = getStatusInfo(course.status);
+                    const StatusIcon = statusInfo.icon;
+                    return (
+                      <TableRow key={course.id}>
+                        <TableCell className="hidden md:table-cell">
+                          <Image 
+                            src={course.thumbnailUrl} 
+                            alt={course.title} 
+                            width={80} 
+                            height={45} 
+                            className="rounded-md object-cover" 
+                            data-ai-hint={course.dataAiHint || "course thumbnail education"}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium max-w-xs truncate">
+                           <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
+                          <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                          <Badge variant={statusInfo.variant} className={statusInfo.className}>
+                            <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
+                            {statusInfo.text}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
+                        </TableCell>
+                        <TableCell className="text-right space-x-1 md:space-x-0">
+                          <Button variant="ghost" size="icon" asChild>
+                            <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
+                              <Eye className="h-4 w-4" />
+                            </Link>
                           </Button>
-                        </AlertDialogTrigger>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                          <Button variant="ghost" size="icon" asChild>
+                             <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
+                              <Edit3 className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => handleOpenStatsModal(course)}>
+                              <BarChart2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -317,3 +319,4 @@ export default function MyCoursesPage() {
     </div>
   );
 }
+

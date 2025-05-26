@@ -26,13 +26,13 @@ import {
 import { Input } from '@/components/ui/input';
 
 const sampleCourses: Course[] = [
-  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png?text=JS', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Python', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=UX/UI', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course4', title: 'Marketing Digital Estratégico', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Marketing', dataAiHint: "digital marketing", instructorName: 'Admin User', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course5', title: 'Cocina Internacional Fácil', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Cocina', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course6', title: 'Introducción a la Inteligencia Artificial', description: 'Conceptos básicos de IA.', thumbnailUrl: 'https://placehold.co/150x84.png?text=AI', dataAiHint: "artificial intelligence", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course7', title: 'Desarrollo de APIs con Node.js y Express', description: 'Crea APIs robustas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=NodeJS', dataAiHint: "nodejs api", instructorName: 'Instructor B', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course4', title: 'Marketing Digital Estratégico', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "digital marketing", instructorName: 'Admin User', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course5', title: 'Cocina Internacional Fácil', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course6', title: 'Introducción a la Inteligencia Artificial', description: 'Conceptos básicos de IA.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "artificial intelligence", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
+  { id: 'course7', title: 'Desarrollo de APIs con Node.js y Express', description: 'Crea APIs robustas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "nodejs api", instructorName: 'Instructor B', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
 ];
 
 
@@ -150,20 +150,22 @@ export default function AdminCoursesPage() {
       return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
     }
     return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
-            <TableHead>Título</TableHead>
-            <TableHead className="hidden sm:table-cell">Instructor</TableHead>
-            <TableHead className="hidden lg:table-cell">Estado</TableHead>
-            <TableHead className="text-right">Acciones</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {courseList.map(course => <CourseRow key={course.id} course={course} />)}
-        </TableBody>
-      </Table>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
+              <TableHead>Título</TableHead>
+              <TableHead className="hidden sm:table-cell">Instructor</TableHead>
+              <TableHead className="hidden lg:table-cell">Estado</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {courseList.map(course => <CourseRow key={course.id} course={course} />)}
+          </TableBody>
+        </Table>
+      </div>
     );
   };
 
