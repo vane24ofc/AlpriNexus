@@ -11,14 +11,69 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2 } from 'lucide-react';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
-import { Progress } from '@/components/ui/progress'; // Importar Progress
+import { Progress } from '@/components/ui/progress'; 
 
 // Sample courses to simulate fetching data
 const sampleCourses: Course[] = [
-  { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento para construir aplicaciones robustas y escalables.', thumbnailUrl: 'https://placehold.co/800x450.png?text=JS+Avanzado', instructorName: 'Dr. Evelyn Woods', status: 'approved', lessons: [{id: 'l1-js', title: 'Introducción a ESNext'}, {id: 'l2-js', title: 'Programación Asíncrona Profunda'}, {id: 'l3-js', title: 'Patrones de Diseño en JS'}, {id: 'l4-js', title: 'Optimización y Buenas Prácticas'}], interactiveContent: '<iframe width="100%" height="315" src="https://www.youtube.com/embed/PkZNo7MFNFg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' },
-  { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos, incluyendo manipulación de datos con Pandas, visualización con Matplotlib y Seaborn, y una introducción al machine learning con Scikit-learn.', thumbnailUrl: 'https://placehold.co/800x450.png?text=Python+DS', instructorName: 'Prof. Ian Stone', status: 'approved', lessons: [{id: 'l1-py', title: 'Fundamentos de Python'}, {id: 'l2-py', title: 'Pandas para Manipulación de Datos'}, {id: 'l3-py', title: 'Visualización de Datos'}, {id: 'l4-py', title: 'Intro a Machine Learning'}], interactiveContent: '<div><p>Este curso incluye un Jupyter Notebook interactivo que puedes descargar.</p><Button>Descargar Notebook</Button></div>' },
-  { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información, wireframing, prototipado y pruebas de usabilidad para crear productos digitales intuitivos y centrados en el usuario.', thumbnailUrl: 'https://placehold.co/800x450.png?text=Diseño+UX', instructorName: 'Ana Lima', status: 'approved', lessons: [{id: 'l1-ux', title: '¿Qué es UX?'}, {id: 'l2-ux', title: 'Investigación de Usuarios'}, {id: 'l3-ux', title: 'Wireframing y Prototipado'}, {id: 'l4-ux', title: 'Pruebas de Usabilidad'}], interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">Contenido interactivo de UX próximamente. ¡Un quiz para probar tus conocimientos!</p>' },
-  { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', description: 'Construye aplicaciones móviles nativas para iOS y Android utilizando React Native. Cubriremos componentes, navegación, manejo de estado, APIs nativas y despliegue.', thumbnailUrl: 'https://placehold.co/800x450.png?text=React+Native', instructorName: 'Carlos Vega', status: 'approved', lessons: [{id: 'l1-rn', title: 'Setup y Fundamentos'}, {id: 'l2-rn', title: 'Componentes y Estilos'}, {id: 'l3-rn', title: 'Navegación'}, {id: 'l4-rn', title: 'APIs Nativas'}], },
+  { 
+    id: 'course-js-adv', 
+    title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', 
+    description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento para construir aplicaciones robustas y escalables.', 
+    thumbnailUrl: 'https://placehold.co/800x450.png?text=JS+Avanzado', 
+    instructorName: 'Dr. Evelyn Woods', 
+    status: 'approved', 
+    lessons: [
+      {id: 'l1-js', title: 'Introducción a ESNext', content: 'Exploraremos las últimas características de ECMAScript, como let/const, arrow functions, template literals, y más. Veremos cómo estas adiciones mejoran la legibilidad y mantenibilidad del código JavaScript.'}, 
+      {id: 'l2-js', title: 'Programación Asíncrona Profunda', content: 'Este módulo cubre promesas, async/await, y cómo manejar operaciones asíncronas de manera efectiva. También discutiremos el event loop y cómo funciona en JavaScript.'}, 
+      {id: 'l3-js', title: 'Patrones de Diseño en JS', content: 'Aprende patrones comunes como Singleton, Factory, Observer y Module, y cómo aplicarlos en JavaScript para crear soluciones más robustas y reutilizables.'}, 
+      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
+    ], 
+    interactiveContent: '<iframe width="100%" height="315" src="https://www.youtube.com/embed/PkZNo7MFNFg" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>' 
+  },
+  { 
+    id: 'course-python-ds', 
+    title: 'Python para Ciencia de Datos: De Cero a Héroe', 
+    description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos, incluyendo manipulación de datos con Pandas, visualización con Matplotlib y Seaborn, y una introducción al machine learning con Scikit-learn.', 
+    thumbnailUrl: 'https://placehold.co/800x450.png?text=Python+DS', 
+    instructorName: 'Prof. Ian Stone', 
+    status: 'approved', 
+    lessons: [
+      {id: 'l1-py', title: 'Fundamentos de Python', content: 'Comenzaremos con los conceptos básicos de Python, incluyendo tipos de datos, variables, operadores, estructuras de control (if/else, bucles) y funciones.'}, 
+      {id: 'l2-py', title: 'Pandas para Manipulación de Datos', content: 'Introducción a la librería Pandas para la carga, limpieza, transformación y análisis de datos tabulares.'}, 
+      {id: 'l3-py', title: 'Visualización de Datos', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'}, 
+      {id: 'l4-py', title: 'Intro a Machine Learning', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
+    ], 
+    interactiveContent: '<div><p>Este curso incluye un Jupyter Notebook interactivo que puedes descargar.</p><Button>Descargar Notebook</Button></div>' 
+  },
+  { 
+    id: 'course-ux-design', 
+    title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', 
+    description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información, wireframing, prototipado y pruebas de usabilidad para crear productos digitales intuitivos y centrados en el usuario.', 
+    thumbnailUrl: 'https://placehold.co/800x450.png?text=Diseño+UX', 
+    instructorName: 'Ana Lima', 
+    status: 'approved', 
+    lessons: [
+      {id: 'l1-ux', title: '¿Qué es UX?', content: 'Definición de Experiencia de Usuario, su importancia y los diferentes roles dentro del campo del diseño UX.'}, 
+      {id: 'l2-ux', title: 'Investigación de Usuarios', content: 'Métodos para entender a tus usuarios, sus necesidades y comportamientos, incluyendo entrevistas, encuestas y personas.'}, 
+      {id: 'l3-ux', title: 'Wireframing y Prototipado', content: 'Cómo crear wireframes de baja y alta fidelidad, y prototipos interactivos para probar tus diseños.'}, 
+      {id: 'l4-ux', title: 'Pruebas de Usabilidad', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
+    ], 
+    interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">Contenido interactivo de UX próximamente. ¡Un quiz para probar tus conocimientos!</p>' 
+  },
+  { 
+    id: 'course-react-native', 
+    title: 'Desarrollo de Apps Móviles con React Native', 
+    description: 'Construye aplicaciones móviles nativas para iOS y Android utilizando React Native. Cubriremos componentes, navegación, manejo de estado, APIs nativas y despliegue.', 
+    thumbnailUrl: 'https://placehold.co/800x450.png?text=React+Native', 
+    instructorName: 'Carlos Vega', 
+    status: 'approved', 
+    lessons: [
+      {id: 'l1-rn', title: 'Setup y Fundamentos', content: 'Configuración del entorno de desarrollo para React Native y primeros pasos con componentes básicos.'}, 
+      {id: 'l2-rn', title: 'Componentes y Estilos', content: 'Exploración de los componentes principales de React Native y cómo aplicar estilos.'}, 
+      {id: 'l3-rn', title: 'Navegación', content: 'Implementación de navegación entre pantallas usando React Navigation.'}, 
+      {id: 'l4-rn', title: 'APIs Nativas', content: 'Cómo acceder a funcionalidades nativas del dispositivo, como la cámara o la geolocalización.'}
+    ], 
+  },
 ];
 
 export default function StudentCourseViewPage() {
@@ -39,14 +94,10 @@ export default function StudentCourseViewPage() {
         const foundCourse = sampleCourses.find(c => c.id === courseId);
         if (foundCourse) {
           setCourse(foundCourse);
-          // Simular carga de progreso guardado (ej. primeras N lecciones)
           const initialCompleted = new Set<string>();
-          // if (foundCourse.lessons && foundCourse.lessons.length > 0) {
-          //   initialCompleted.add(foundCourse.lessons[0].id); // Ejemplo: primera lección completada
-          // }
           setCompletedLessons(initialCompleted);
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
-            setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`); // Abrir la primera lección por defecto
+            setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`); 
           }
 
         } else {
@@ -66,7 +117,7 @@ export default function StudentCourseViewPage() {
     setCompletedLessons(prev => {
       const newSet = new Set(prev);
       if (newSet.has(lessonId)) {
-        // newSet.delete(lessonId); // Permitir desmarcar si se desea, por ahora solo marca como completo
+        // newSet.delete(lessonId); // Permitir desmarcar si se desea
       } else {
         newSet.add(lessonId);
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección como completada.` });
@@ -84,14 +135,13 @@ export default function StudentCourseViewPage() {
   const handleContinueCourse = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
     if (allLessonsCompleted) {
-        setActiveAccordionItem(`lesson-${course.lessons[0].id}`); // Abrir la primera si todo está completo
+        setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
         return;
     }
     const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
-       // Si no hay incompletas (pero no todas completas, raro) o para el caso de todas completas
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -175,8 +225,14 @@ export default function StudentCourseViewPage() {
                             <span className={`${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{lesson.title}</span>
                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pl-8 pr-4 py-4 bg-muted/30 rounded-b-md">
-                            <p className="text-muted-foreground mb-3">Contenido de la lección "{lesson.title}" estará disponible aquí.</p>
+                        <AccordionContent className="pl-8 pr-4 py-4 bg-muted/30 rounded-b-md space-y-4">
+                            {lesson.content ? (
+                              <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <p>{lesson.content}</p>
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground">Contenido de la lección "{lesson.title}" estará disponible aquí próximamente.</p>
+                            )}
                             <Button 
                                 size="sm" 
                                 onClick={() => handleToggleLessonComplete(lesson.id)}
@@ -259,5 +315,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-
-    

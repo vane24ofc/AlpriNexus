@@ -2,6 +2,7 @@
 export interface Lesson {
   id: string;
   title: string;
+  content?: string; // Nuevo campo para el contenido de la lección
   // En un futuro: contentType: 'video' | 'text' | 'quiz';
   // En un futuro: contentUrl?: string;
   // En un futuro: description?: string;
