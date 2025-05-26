@@ -7,9 +7,10 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; // Added Loader2
+import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; 
 import type { Course } from '@/types/course'; 
 import { allPlatformCourses } from '@/app/dashboard/courses/explore/page'; 
+import { Badge } from '@/components/ui/badge'; // Added missing import
 
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
