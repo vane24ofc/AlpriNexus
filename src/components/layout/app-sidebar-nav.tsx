@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Library,
   PlusCircle,
+  Video as VideoIcon, // Nuevo ícono para Sesiones Virtuales
 } from 'lucide-react';
 import {
   Sidebar,
@@ -81,9 +82,10 @@ const navItems: NavItem[] = [
       { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
     ],
   },
-   { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
+  { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] },
+  { id: 'nav-virtual-sessions', href: '/dashboard/virtual-sessions', label: 'Sesiones Virtuales', icon: VideoIcon, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -108,7 +110,6 @@ export function AppSidebarNav() {
           newItem.children = item.children.filter(child => {
             return !child.roles || child.roles.includes(currentSessionRole!);
           });
-          // Only add the group if it has children relevant to the role, OR if the group item itself has an href
           if (newItem.children.length > 0 || newItem.href) {
             acc.push(newItem);
           }
@@ -123,29 +124,30 @@ export function AppSidebarNav() {
 
   useEffect(() => {
     if (isLoadingRole || !currentSessionRole) {
-      setOpenSubmenus({}); // Reset if role is not ready
+       if (Object.keys(openSubmenus).length > 0) {
+        setOpenSubmenus({});
+      }
       return;
     }
 
-    const newState: Record<string, boolean> = {};
-    // Function to recursively check items and their children to determine active groups
-    const checkItems = (items: NavItem[], currentPath: string) => {
-      items.forEach(item => {
-        if (item.children && item.children.length > 0) {
-          // A group is active if the current path starts with any of its children's hrefs
-          const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
-          newState[item.id] = isActiveGroup;
-          
-          // If a group is active, also check its children for nested active groups
-          if (isActiveGroup) {
-            checkItems(item.children, currentPath);
+    const calculateNewOpenState = (): Record<string, boolean> => {
+      const state: Record<string, boolean> = {};
+      const checkItems = (items: NavItem[], currentPath: string) => {
+        items.forEach(item => {
+          if (item.children && item.children.length > 0) {
+            const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
+            state[item.id] = isActiveGroup;
+            if (isActiveGroup) {
+              checkItems(item.children, currentPath);
+            }
           }
-        }
-      });
+        });
+      };
+      checkItems(filteredNavItems, pathname);
+      return state;
     };
 
-    checkItems(filteredNavItems, pathname);
-    setOpenSubmenus(newState); // Directly set the new state
+    setOpenSubmenus(calculateNewOpenState());
 
   }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
 
@@ -160,7 +162,7 @@ export function AppSidebarNav() {
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
       if (item.children && item.children.length === 0 && !item.href) {
-        return null; 
+        return null;
       }
 
       const effectiveHref = item.href;
@@ -199,12 +201,12 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref) return null; 
+      if (!effectiveHref) return null;
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
        if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-         isActive = pathname === dashboardPath; 
+         isActive = pathname === dashboardPath;
       }
 
 
@@ -244,7 +246,7 @@ export function AppSidebarNav() {
             </SidebarHeader>
             <SidebarContent className="p-2">
                 <SidebarMenu>
-                    {Array.from({ length: 7 }).map((_, index) => ( 
+                    {Array.from({ length: 8 }).map((_, index) => (
                         <SidebarMenuSkeleton key={`skeleton-${index}`} showIcon={true} />
                     ))}
                 </SidebarMenu>
@@ -277,7 +279,7 @@ export function AppSidebarNav() {
             <SidebarMenuItem key="nav-help-link">
                 <SidebarMenuButton asChild tooltip="Ayuda y Soporte" isActive={pathname === '/dashboard/help'}>
                     <Link href="/dashboard/help">
-                        <LifeBuoy />
+                        <LifeBuoy className="h-4 w-4" />
                         <span className="group-data-[collapsible=icon]:hidden">Ayuda y Soporte</span>
                     </Link>
                 </SidebarMenuButton>
@@ -285,7 +287,7 @@ export function AppSidebarNav() {
              <SidebarMenuItem key="nav-feedback-link">
                 <SidebarMenuButton asChild tooltip="Enviar Comentarios" isActive={pathname === '/dashboard/feedback'}>
                     <Link href="/dashboard/feedback">
-                        <MessageSquare />
+                        <MessageSquare className="h-4 w-4" />
                         <span className="group-data-[collapsible=icon]:hidden">Enviar Comentarios</span>
                     </Link>
                 </SidebarMenuButton>
