@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,6 +11,7 @@ import { useSessionRole } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
 
 type FileVisibility = 'private' | 'instructors' | 'public';
+type FileCategory = 'company' | 'learning';
 
 interface ResourceFile {
   id: string;
@@ -20,26 +21,28 @@ interface ResourceFile {
   uploadDate: string;
   url?: string; 
   visibility: FileVisibility;
+  category: FileCategory;
 }
 
-const sampleCompanyResources: ResourceFile[] = [
-  { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors' },
-  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private' }, 
-  { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public' },
-  { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public'},
-  { id: 'cr5', name: 'Presentación de Ventas Global.pptx', type: 'Presentación', size: '4.5 MB', uploadDate: '2024-02-01', url: '#', visibility: 'instructors'},
-  { id: 'cr6', name: 'Manual de Bienvenida para Nuevos Empleados.pdf', type: 'PDF', size: '1.8 MB', uploadDate: '2024-03-01', url: '#', visibility: 'public' },
-  { id: 'cr7', name: 'Protocolos de Seguridad IT.docx', type: 'Documento', size: '750 KB', uploadDate: '2024-02-15', url: '#', visibility: 'private' },
+const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
+const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
+
+// Sample data will now serve as a fallback if localStorage is empty or for initial setup
+const initialSampleCompanyResources: ResourceFile[] = [
+  { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors', category: 'company' },
+  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private', category: 'company' }, 
+  { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public', category: 'company' },
+  { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public', category: 'company'},
 ];
 
-const sampleLearningResources: ResourceFile[] = [
-  { id: 'lr1', name: 'Introducción a JavaScript - Módulo 1.mp4', type: 'Video', size: '150 MB', uploadDate: '2023-11-05', url: '#', visibility: 'public' },
-  { id: 'lr2', name: 'Ejercicios Prácticos de Python.pdf', type: 'PDF', size: '800 KB', uploadDate: '2023-11-02', url: '#', visibility: 'public' },
-  { id: 'lr3', name: 'Presentación - Desarrollo Web Moderno.pptx', type: 'Presentación', size: '3.5 MB', uploadDate: '2023-10-28', url: '#', visibility: 'instructors' },
-  { id: 'lr4', name: 'Glosario de Términos de IA.docx', type: 'Documento', size: '450 KB', uploadDate: '2023-11-10', url: '#', visibility: 'instructors' },
-  { id: 'lr5', name: 'Notas Privadas del Instructor sobre Web Avanzado.docx', type: 'Documento', size: '50 KB', uploadDate: '2023-11-12', url: '#', visibility: 'private' },
-  { id: 'lr6', name: 'Video Tutorial de React Hooks.mp4', type: 'Video', size: '120 MB', uploadDate: '2024-01-20', url: '#', visibility: 'public'},
+const initialSampleLearningResources: ResourceFile[] = [
+  { id: 'lr1', name: 'Introducción a JavaScript - Módulo 1.mp4', type: 'Video', size: '150 MB', uploadDate: '2023-11-05', url: '#', visibility: 'public', category: 'learning' },
+  { id: 'lr2', name: 'Ejercicios Prácticos de Python.pdf', type: 'PDF', size: '800 KB', uploadDate: '2023-11-02', url: '#', visibility: 'public', category: 'learning' },
+  { id: 'lr3', name: 'Presentación - Desarrollo Web Moderno.pptx', type: 'Presentación', size: '3.5 MB', uploadDate: '2023-10-28', url: '#', visibility: 'instructors', category: 'learning' },
+  { id: 'lr4', name: 'Glosario de Términos de IA.docx', type: 'Documento', size: '450 KB', uploadDate: '2023-11-10', url: '#', visibility: 'instructors', category: 'learning' },
+  { id: 'lr5', name: 'Notas Privadas del Instructor sobre Web Avanzado.docx', type: 'Documento', size: '50 KB', uploadDate: '2023-11-12', url: '#', visibility: 'private', category: 'learning' },
 ];
+
 
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
   public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
@@ -50,25 +53,56 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole(); 
+  const [companyResources, setCompanyResources] = useState<ResourceFile[]>(initialSampleCompanyResources);
+  const [learningResources, setLearningResources] = useState<ResourceFile[]>(initialSampleLearningResources);
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
+  useEffect(() => {
+    // Load from localStorage on mount
+    const loadResources = () => {
+      try {
+        const storedCompany = localStorage.getItem(COMPANY_RESOURCES_STORAGE_KEY);
+        if (storedCompany) {
+          setCompanyResources(JSON.parse(storedCompany));
+        } else {
+          setCompanyResources(initialSampleCompanyResources); // Fallback to initial samples
+        }
+        const storedLearning = localStorage.getItem(LEARNING_RESOURCES_STORAGE_KEY);
+        if (storedLearning) {
+          setLearningResources(JSON.parse(storedLearning));
+        } else {
+          setLearningResources(initialSampleLearningResources); // Fallback
+        }
+      } catch (error) {
+        console.error("Error cargando recursos desde localStorage:", error);
+        setCompanyResources(initialSampleCompanyResources);
+        setLearningResources(initialSampleLearningResources);
+      }
+    };
+    loadResources();
+
+    // Optional: Listen for storage changes to update if files are "uploaded" in another tab (advanced)
+    // window.addEventListener('storage', loadResources);
+    // return () => window.removeEventListener('storage', loadResources);
+  }, []);
+
   const filterFilesByVisibility = (files: ResourceFile[], role: typeof currentSessionRole) => {
+    if (!role) return []; // Should not happen if layout manages role loading
     return files.filter(file => {
-      if (role === 'administrador') return true; // Admins see all files in a category
+      if (role === 'administrador') return true;
       if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private';
-      // Students only see public files
       return file.visibility === 'public';
     });
   };
 
   const companyResourcesForRole = useMemo(() => {
-    return filterFilesByVisibility(sampleCompanyResources, currentSessionRole);
-  }, [currentSessionRole]);
+    return filterFilesByVisibility(companyResources, currentSessionRole);
+  }, [companyResources, currentSessionRole]);
   
   const learningResourcesForRole = useMemo(() => {
-    return filterFilesByVisibility(sampleLearningResources, currentSessionRole);
-  }, [currentSessionRole]);
+    return filterFilesByVisibility(learningResources, currentSessionRole);
+  }, [learningResources, currentSessionRole]);
 
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
@@ -103,7 +137,7 @@ export default function ResourcesPage() {
                     <TableCell className="hidden md:table-cell">
                       <FileText className="h-6 w-6 text-muted-foreground" />
                     </TableCell>
-                    <TableCell className="font-medium">{file.name}</TableCell>
+                    <TableCell className="font-medium max-w-xs truncate" title={file.name}>{file.name}</TableCell>
                     <TableCell className="hidden sm:table-cell">{file.type}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       {displayInfo && VisibilityIcon && (
@@ -162,7 +196,7 @@ export default function ResourcesPage() {
       {renderResourceTable(
         companyResourcesForRole, 
         "Recursos de la Empresa", 
-        "Documentos y archivos importantes de la organización. Su visibilidad es controlada por los administradores.",
+        "Documentos y archivos importantes de la organización. Su visibilidad es controlada según los permisos.",
         Shield
       )}
       
@@ -175,4 +209,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-

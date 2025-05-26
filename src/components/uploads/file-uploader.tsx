@@ -27,6 +27,17 @@ interface UploadedFile {
   category: FileCategory;
 }
 
+interface StoredResource {
+  id: string;
+  name: string;
+  type: string; // e.g., 'PDF', 'Video', 'Documento'
+  size: string;
+  uploadDate: string;
+  url?: string;
+  visibility: FileVisibility;
+  category: FileCategory; // To know which list it belongs to
+}
+
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe },
   { value: 'instructors', label: 'Instructores y Administradores', icon: Users },
@@ -37,6 +48,9 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
   { value: 'learning', label: 'Archivos de Aprendizaje', icon: BookOpen },
   { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
 ];
+
+const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
+const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
 
 export function FileUploader() {
   const { currentSessionRole } = useSessionRole();
@@ -52,7 +66,7 @@ export function FileUploader() {
 
   useEffect(() => {
     if (isInstructor) {
-      setSelectedCategory('learning');
+      setSelectedCategory('learning'); // Instructors always upload to learning resources
     }
   }, [isInstructor]);
 
@@ -62,81 +76,11 @@ export function FileUploader() {
       id: Math.random().toString(36).substring(7),
       progress: 0,
       status: 'pending',
-      visibility: selectedVisibility, // Always use selectedVisibility
-      category: isInstructor ? 'learning' : selectedCategory,
+      visibility: selectedVisibility,
+      category: isAdmin ? selectedCategory : 'learning', // Admin chooses, instructor defaults to learning
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
-  }, [selectedVisibility, selectedCategory, isInstructor]);
-
-
-  const handleSimulateUploadAll = () => {
-    if (files.filter(f => f.status === 'pending' || f.status === 'uploading').length === 0) {
-        toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero." });
-        return;
-    }
-    setIsSimulatingUpload(true);
-
-    files.forEach(uploadedFile => {
-      if (uploadedFile.status === 'pending' || uploadedFile.status === 'uploading') {
-        setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0 } : f));
-        
-        let currentProgress = 0;
-        const interval = setInterval(() => {
-          currentProgress += Math.floor(Math.random() * 20) + 20; 
-          if (currentProgress >= 100) {
-            clearInterval(interval);
-            setFiles(prev =>
-              prev.map(f =>
-                f.id === uploadedFile.id ? { 
-                    ...f, 
-                    progress: 100, 
-                    status: Math.random() > 0.2 ? 'success' : 'error', 
-                    error: Math.random() <= 0.2 ? 'Fallo al subir (simulado)' : undefined 
-                } : f
-              )
-            );
-            
-            const allDoneProcessing = files.every(f => 
-              (f.id === uploadedFile.id && (f.status === 'success' || f.status === 'error')) || // current file is done
-              (f.id !== uploadedFile.id && (f.status === 'success' || f.status === 'error' || f.status === 'pending')) // other files are either done or weren't part of this batch
-            );
-
-            if (allDoneProcessing && files.filter(f => f.status === 'uploading').length === 0) {
-                setIsSimulatingUpload(false);
-            }
-          } else {
-            setFiles(prev =>
-              prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: currentProgress } : f))
-            );
-          }
-        }, 100 + Math.random() * 200); 
-      }
-    });
-    toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
-  };
-
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.png', '.gif', '.webp'],
-      'application/pdf': ['.pdf'],
-      'video/*': ['.mp4', '.mov', '.avi'],
-      'application/msword': ['.doc', '.docx'],
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-      'application/vnd.ms-powerpoint': ['.ppt', '.pptx'],
-      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-    },
-    disabled: isSimulatingUpload,
-  });
-
-  const removeFile = (id: string) => {
-    setFiles(prevFiles => prevFiles.filter(file => file.id !== id));
-  };
-  
-  const clearAllFiles = () => {
-    setFiles([]);
-  }
+  }, [selectedVisibility, selectedCategory, isAdmin]);
 
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return '0 Bytes';
@@ -147,6 +91,116 @@ export function FileUploader() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
+  const getFileType = (fileName: string): string => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+    if (!extension) return 'Desconocido';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) return 'Imagen';
+    if (extension === 'pdf') return 'PDF';
+    if (['mp4', 'mov', 'avi', 'mkv'].includes(extension)) return 'Video';
+    if (['doc', 'docx'].includes(extension)) return 'Documento';
+    if (['ppt', 'pptx'].includes(extension)) return 'Presentación';
+    if (['xls', 'xlsx'].includes(extension)) return 'Hoja de Cálculo';
+    return extension.toUpperCase();
+  };
+
+  const handleSimulateUploadAll = () => {
+    const pendingFiles = files.filter(f => f.status === 'pending');
+    if (pendingFiles.length === 0) {
+        toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero." });
+        return;
+    }
+    setIsSimulatingUpload(true);
+
+    let filesProcessed = 0;
+
+    pendingFiles.forEach(uploadedFile => {
+      setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0 } : f));
+      
+      let currentProgress = 0;
+      const interval = setInterval(() => {
+        currentProgress += Math.floor(Math.random() * 20) + 20; 
+        if (currentProgress >= 100) {
+          clearInterval(interval);
+          const success = Math.random() > 0.1; // 90% success rate
+          const newStatus = success ? 'success' : 'error';
+          const errorMsg = success ? undefined : 'Fallo al subir (simulado)';
+
+          setFiles(prev =>
+            prev.map(f =>
+              f.id === uploadedFile.id ? { 
+                  ...f, 
+                  progress: 100, 
+                  status: newStatus,
+                  error: errorMsg
+              } : f
+            )
+          );
+
+          if (success) {
+            const storedResource: StoredResource = {
+              id: uploadedFile.id,
+              name: uploadedFile.file.name,
+              type: getFileType(uploadedFile.file.name),
+              size: formatBytes(uploadedFile.file.size),
+              uploadDate: new Date().toISOString().split('T')[0],
+              url: '#', // Placeholder URL
+              visibility: uploadedFile.visibility,
+              category: uploadedFile.category,
+            };
+
+            const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
+            try {
+              const existingResourcesString = localStorage.getItem(storageKey);
+              const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
+              localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
+            } catch (e) {
+              console.error("Error guardando recurso en localStorage:", e);
+              toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
+            }
+          }
+          
+          filesProcessed++;
+          if (filesProcessed === pendingFiles.length) {
+            setIsSimulatingUpload(false);
+            toast({ title: "Proceso de Subida Completado", description: "Algunos archivos pueden haber fallado (simulado)." });
+          }
+
+        } else {
+          setFiles(prev =>
+            prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: currentProgress } : f))
+          );
+        }
+      }, 200 + Math.random() * 300); 
+    });
+    toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/*': ['.jpeg', '.png', 'jpg', '.gif', '.webp'],
+      'application/pdf': ['.pdf'],
+      'video/*': ['.mp4', '.mov', '.avi'],
+      'application/msword': ['.doc'],
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+      'application/vnd.ms-powerpoint': ['.ppt'],
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+    },
+    disabled: isSimulatingUpload,
+  });
+
+  const removeFile = (id: string) => {
+    setFiles(prevFiles => prevFiles.filter(file => file.id !== id && file.status !== 'uploading'));
+  };
+  
+  const clearAllFiles = () => {
+    // Only clear files that are not currently in 'uploading' state
+    setFiles(prev => prev.filter(f => f.status === 'uploading')); 
+    if (files.some(f => f.status === 'uploading')) {
+      toast({title: "No se pueden limpiar todos", description: "Algunos archivos están en proceso de subida."})
+    }
+  };
+
   const getVisibilityLabel = (visibility: FileVisibility) => {
     return visibilityOptions.find(opt => opt.value === visibility)?.label || 'Desconocido';
   };
@@ -155,7 +209,7 @@ export function FileUploader() {
     return categoryOptions.find(opt => opt.value === category)?.label || 'Desconocido';
   };
   
-  const filesToUploadCount = files.filter(f => f.status === 'pending' || (f.status === 'uploading' && f.progress < 100)).length;
+  const filesToUploadCount = files.filter(f => f.status === 'pending').length;
 
 
   if (!canUpload) return null;
@@ -166,7 +220,7 @@ export function FileUploader() {
         <CardTitle>Subir Recursos</CardTitle>
         <CardDescription>
           {isAdmin && "Selecciona la categoría y visibilidad, luego arrastra y suelta archivos o haz clic para buscar."}
-          {isInstructor && "Selecciona la visibilidad (los archivos se subirán a 'Archivos de Aprendizaje'), luego arrastra y suelta archivos o haz clic para buscar."}
+          {isInstructor && "Selecciona la visibilidad (tus archivos se subirán a 'Archivos de Aprendizaje'), luego arrastra y suelta archivos o haz clic para buscar."}
           {" Admite imágenes, PDF, videos y documentos."}
         </CardDescription>
       </CardHeader>
@@ -287,10 +341,7 @@ export function FileUploader() {
                         </Badge>
                        )}
                     </div>
-                    {uploadedFile.status === 'uploading' && uploadedFile.progress < 100 && !isSimulatingUpload && (
-                       <Loader2 className="w-5 h-5 text-muted-foreground animate-spin shrink-0" />
-                    )}
-                    {uploadedFile.status !== 'uploading' || isSimulatingUpload && ( // condition was complex, simplified a bit to show X if not actively uploading
+                    {(uploadedFile.status !== 'uploading' || uploadedFile.progress === 100) && (
                       <Button 
                         variant="ghost" 
                         size="icon" 
@@ -301,6 +352,9 @@ export function FileUploader() {
                         <XCircle className="w-5 h-5" />
                       </Button>
                     )}
+                    {uploadedFile.status === 'uploading' && uploadedFile.progress < 100 && isSimulatingUpload &&(
+                       <Loader2 className="w-5 h-5 text-muted-foreground animate-spin shrink-0" />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -309,10 +363,10 @@ export function FileUploader() {
         )}
          {files.length > 0 && (
             <div className="mt-6 flex justify-end gap-2">
-                 <Button variant="outline" onClick={clearAllFiles} disabled={isSimulatingUpload}>Limpiar Todo</Button>
+                 <Button variant="outline" onClick={clearAllFiles} disabled={isSimulatingUpload && files.some(f=> f.status === 'uploading')}>Limpiar Cola</Button>
                  <Button onClick={handleSimulateUploadAll} disabled={isSimulatingUpload || filesToUploadCount === 0} className="min-w-[150px]">
                     {isSimulatingUpload ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Send className="mr-2 h-5 w-5" />}
-                    {isSimulatingUpload ? 'Subiendo...' : `Subir ${filesToUploadCount > 0 ? `(${filesToUploadCount}) Archivo(s)` : 'Archivos'}`}
+                    {isSimulatingUpload ? 'Subiendo...' : `Subir ${filesToUploadCount > 0 ? `(${filesToUploadCount}) Archivo(s)` : 'Archivos Pendientes'}`}
                   </Button>
             </div>
         )}
@@ -320,4 +374,3 @@ export function FileUploader() {
     </Card>
   );
 }
-
