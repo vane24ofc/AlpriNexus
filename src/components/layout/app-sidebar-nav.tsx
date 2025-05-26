@@ -20,7 +20,7 @@ import {
   CalendarDays,
   Library,
   PlusCircle,
-  Video as VideoIcon, // Nuevo ícono para Sesiones Virtuales
+  Video as VideoIcon,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -124,9 +124,10 @@ export function AppSidebarNav() {
 
   useEffect(() => {
     if (isLoadingRole || !currentSessionRole) {
-       if (Object.keys(openSubmenus).length > 0) {
-        setOpenSubmenus({});
-      }
+      setOpenSubmenus(currentOpen => {
+        if (Object.keys(currentOpen).length > 0) return {};
+        return currentOpen; // No change if already empty
+      });
       return;
     }
 
@@ -138,7 +139,7 @@ export function AppSidebarNav() {
             const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActiveGroup;
             if (isActiveGroup) {
-              checkItems(item.children, currentPath);
+              checkItems(item.children, currentPath); // Recursively check children
             }
           }
         });
@@ -147,9 +148,29 @@ export function AppSidebarNav() {
       return state;
     };
 
-    setOpenSubmenus(calculateNewOpenState());
+    const newCalculatedOpenState = calculateNewOpenState();
 
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
+    setOpenSubmenus(currentOpenSubmenus => {
+      const currentKeys = Object.keys(currentOpenSubmenus);
+      const newKeys = Object.keys(newCalculatedOpenState);
+      let needsUpdate = currentKeys.length !== newKeys.length;
+
+      if (!needsUpdate) {
+        for (const key of newKeys) {
+          if (currentOpenSubmenus[key] !== newCalculatedOpenState[key]) {
+            needsUpdate = true;
+            break;
+          }
+        }
+      }
+
+      if (needsUpdate) {
+        return newCalculatedOpenState;
+      }
+      return currentOpenSubmenus; // No actual change needed
+    });
+
+  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]); // 'openSubmenus' is removed from dependencies
 
 
   const toggleSubmenu = (itemId: string) => {
