@@ -13,13 +13,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2 as AiLoader, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
-import { generateCourseOutline, type GenerateCourseOutlineInput } from '@/ai/flows/generate-course-outline-flow';
+// Importación de generateCourseOutline eliminada
 import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow';
 
 const lessonSchema = z.object({
@@ -62,10 +62,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const { currentSessionRole } = useSessionRole();
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
-  const [isAiGeneratingLessons, setIsAiGeneratingLessons] = useState(false);
+  // Estado isAiGeneratingLessons eliminado
   const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false);
 
-  const isAnyAiWorking = isAiGeneratingLessons || isAiGeneratingThumbnail;
+  const isAnyAiWorking = isAiGeneratingThumbnail; // Actualizado para reflejar solo la generación de miniaturas
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -143,55 +143,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
-  const handleGenerateOutline = async () => {
-    const title = form.getValues("title");
-    const description = form.getValues("description");
-
-    if (!title.trim() || !description.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Faltan Datos",
-        description: "Por favor, introduce un título y una descripción para el curso antes de generar el esquema.",
-      });
-      return;
-    }
-
-    setIsAiGeneratingLessons(true);
-    try {
-      const input: GenerateCourseOutlineInput = { courseTitle: title, courseDescription: description };
-      const result = await generateCourseOutline(input);
-      
-      if (result && typeof result.lessonTitles !== 'undefined') {
-        const newLessons = result.lessonTitles.map(lessonTitle => ({
-            title: lessonTitle,
-            contentType: 'text' as 'text' | 'video' | 'quiz',
-            content: '', 
-            videoUrl: '', 
-            quizPlaceholder: `Quiz sobre: ${lessonTitle}` 
-        }));
-        replace(newLessons);
-        toast({
-          title: "Esquema de Lecciones Generado",
-          description: "Se han añadido las lecciones sugeridas por la IA.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error de IA",
-          description: "La IA no devolvió un esquema de lecciones en el formato esperado. Inténtalo de nuevo.",
-        });
-      }
-    } catch (error) {
-      console.error("Error generando esquema de lecciones:", error);
-      toast({
-        variant: "destructive",
-        title: "Error de IA",
-        description: "Ocurrió un error al intentar generar el esquema de lecciones.",
-      });
-    } finally {
-      setIsAiGeneratingLessons(false);
-    }
-  };
+  // Función handleGenerateOutline eliminada
 
   const handleGenerateThumbnail = async () => {
     const title = form.getValues("title");
@@ -245,8 +197,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
         finalThumbnailUrl = initialData.thumbnailUrl;
     } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
-        // Si no hay previsualización, ni dato inicial de thumbnail, ni archivo nuevo,
-        // se podría usar un placeholder por defecto o dejarlo como está si ya se generó con IA (thumbnailPreview)
         finalThumbnailUrl = thumbnailPreview || "https://placehold.co/600x400.png?text=Curso"; 
     }
 
@@ -306,10 +256,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   <CardTitle>Lecciones del Curso</CardTitle>
                   <CardDescription>Añade y organiza las lecciones. Debes añadir al menos una.</CardDescription>
                 </div>
-                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={formDisabled}>
-                  {isAiGeneratingLessons ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Wand2 className="mr-2 h-5 w-5" />}
-                  {isAiGeneratingLessons ? 'Generando...' : 'Sugerir Lecciones con IA'}
-                </Button>
+                {/* Botón de Sugerir Lecciones con IA eliminado */}
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => {
@@ -495,3 +442,4 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   );
 }
 
+    
