@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSessionRole, Role } from '@/app/dashboard/layout';
+import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,8 @@ import {
   BarChart as BarChartIcon,
   Star,
   Loader2,
-  Library
+  Library,
+  Edit3
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -40,6 +41,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Course } from '@/types/course';
 import { allPlatformCourses } from '@/app/dashboard/courses/explore/page';
+import { Badge } from '@/components/ui/badge';
+
 
 // Admin Dashboard Content
 const AdminDashboardContent = () => {
@@ -82,8 +85,8 @@ const AdminDashboardContent = () => {
                 { user: "Bob (Instructor)", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
                 { user: "Charlie", action: "completó 'Introducción a Python'.", time: "hace 2h" },
                 { user: "System", action: "mantenimiento programado para mañana.", time: "hace 4h" },
-              ].map((activity, index) => (
-                <li key={index} className="flex items-center space-x-3 text-sm">
+              ].map((activity) => (
+                <li key={activity.user + activity.time} className="flex items-center space-x-3 text-sm">
                   <Users className="h-4 w-4 text-primary" />
                   <div>
                     <span className="font-semibold">{activity.user}</span> {activity.action}
@@ -133,7 +136,6 @@ const AdminDashboardContent = () => {
 };
 
 // Instructor Dashboard Content
-// Simulación de cursos creados por el instructor actual (similar a MyCoursesPage)
 const instructorSampleCourses: Course[] = [
   { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
   { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
@@ -186,9 +188,9 @@ const InstructorDashboardContent = () => {
           <CardContent>
             {instructorSampleCourses.length > 0 ? (
               <ul className="space-y-4">
-                {instructorSampleCourses.slice(0, 3).map((course) => { // Mostrar solo los primeros 3 como resumen
-                  const students = Math.floor(Math.random() * 200) + 50; // Placeholder
-                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; // Placeholder
+                {instructorSampleCourses.slice(0, 3).map((course) => { 
+                  const students = Math.floor(Math.random() * 200) + 50; 
+                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; 
                   return (
                   <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start">
@@ -244,8 +246,8 @@ const InstructorDashboardContent = () => {
                 { student: "Emily R.", course: "JS Avanzado", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
                 { student: "John B.", course: "Python DSA", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
                 { student: "Sarah K.", course: "Intro UX", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
-              ].map((feedback, index) => (
-                <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
+              ].map((feedback) => (
+                <li key={feedback.student + feedback.course + feedback.time} className="text-sm border-b border-border pb-2 last:border-b-0">
                   <div className="flex justify-between items-center">
                     <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
                     <span className="text-xs text-muted-foreground">{feedback.time}</span>
@@ -312,9 +314,8 @@ const StudentDashboardContent = () => {
     const coursesToDisplay = allPlatformCourses
       .filter(course => enrolledIds.has(course.id))
       .map(courseFromCatalog => {
-        // Find full course data from allPlatformCourses to ensure 'lessons' array is present
         const fullCourseData = allPlatformCourses.find(c => c.id === courseFromCatalog.id);
-        if (!fullCourseData) return null; // Should not happen if logic is correct
+        if (!fullCourseData) return null; 
 
         const isCompleted = completedIds.has(fullCourseData.id);
         let progress = 0;
@@ -335,7 +336,7 @@ const StudentDashboardContent = () => {
             }
         }
         return { ...fullCourseData, progress };
-      }).filter(Boolean) as EnrolledCourseData[]; // Filter out nulls and assert type
+      }).filter(Boolean) as EnrolledCourseData[]; 
       
     setEnrolledCourses(coursesToDisplay);
 
@@ -610,18 +611,8 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent />;
     default:
-      // Default to student dashboard or a generic error/welcome if role is somehow unexpected
       return <StudentDashboardContent />; 
   }
 }
 
-// Helper StarIcon if needed, or use lucide-react directly
-// function StarIcon(props: React.SVGProps<SVGSVGElement>) { 
-//   return (
-//     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-//       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-//     </svg>
-//   )
-// }
     
-
