@@ -31,7 +31,7 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(), // Aseguramos que este campo esté en el schema
+  quizPlaceholder: z.string().optional(),
 });
 
 const courseFormSchema = z.object({
@@ -391,7 +391,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                             render={({ field: lessonQuizField }) => (
                               <FormItem>
                                 <FormLabel>Texto Descriptivo del Quiz</FormLabel>
-                                <FormControl><Input placeholder="Ej: Evalúa tus conocimientos sobre el Módulo 1." {...lessonQuizField} disabled={formDisabled} /></FormControl>
+                                <FormControl><Textarea placeholder="Ej: Describe brevemente el quiz o incluye una pregunta de ejemplo." {...lessonQuizField} rows={3} disabled={formDisabled} /></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -495,3 +495,4 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     </Form>
   );
 }
+
