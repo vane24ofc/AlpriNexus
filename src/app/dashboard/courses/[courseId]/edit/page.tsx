@@ -11,11 +11,11 @@ import { Edit3, Loader2 } from 'lucide-react';
 
 // Sample courses to simulate fetching data - in a real app, this would come from an API
 const sampleCourses: Course[] = [
-  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=JS', instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-js', title: 'Intro JS', content: 'Contenido de la lección 1 de JS.'}]},
-  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Python', instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-py', title: 'Intro Python', content: 'Contenido de la lección 1 de Python.'}]},
-  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/600x400.png?text=UX/UI', instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-ux', title: 'Intro UX', content: 'Contenido de la lección 1 de UX.'}]},
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Next.js', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1-next', title: 'Intro Next.js', content: 'Este es el contenido de la introducción a Next.js.'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=MongoDB', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1-mongo', title: 'Intro MongoDB', content: 'Este es el contenido de la introducción a MongoDB.'}] },
+  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=JS', instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-js', title: 'Intro JS', contentType: 'text', content: 'Contenido de la lección 1 de JS.'}]},
+  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Python', instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-py', title: 'Intro Python', contentType: 'text', content: 'Contenido de la lección 1 de Python.'}]},
+  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/600x400.png?text=UX/UI', instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-ux', title: 'Intro UX', contentType: 'text', content: 'Contenido de la lección 1 de UX.'}]},
+  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Next.js', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1-next', title: 'Intro Next.js', contentType: 'text', content: 'Este es el contenido de la introducción a Next.js.'}] },
+  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=MongoDB', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1-mongo', title: 'Intro MongoDB', contentType: 'text', content: 'Este es el contenido de la introducción a MongoDB.'}] },
 ];
 
 
@@ -24,7 +24,7 @@ export default function EditCoursePage() {
   const router = useRouter();
   const params = useParams();
   const courseId = params.courseId as string;
-  
+
   const { currentSessionRole } = useSessionRole();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCourse, setIsLoadingCourse] = useState(true);
@@ -32,8 +32,7 @@ export default function EditCoursePage() {
 
   useEffect(() => {
     if (courseId) {
-      setIsLoadingCourse(true); // Poner loading a true aquí
-      // Simulate API call to fetch course data
+      setIsLoadingCourse(true);
       setTimeout(() => {
         const courseToEdit = sampleCourses.find(c => c.id === courseId);
         if (courseToEdit) {
@@ -63,22 +62,24 @@ export default function EditCoursePage() {
     console.log("URL de Miniatura (simulada/existente):", thumbnailUrl);
 
     const updatedCourse: Course = {
-      id: courseId, 
+      id: courseId,
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrl || initialCourseData?.thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: initialCourseData?.instructorName || "Usuario Actual", 
+      instructorName: initialCourseData?.instructorName || "Usuario Actual",
       status: initialCourseData?.status || (currentSessionRole === 'instructor' ? 'pending' : 'approved'),
-      lessons: data.lessons.map((lesson: any) => ({ // Asegúrate de que esto mapee correctamente el contenido
-        id: lesson.id || crypto.randomUUID(), 
+      lessons: data.lessons.map((lesson: any) => ({
+        id: lesson.id || crypto.randomUUID(),
         title: lesson.title,
-        content: lesson.content || '',
-        contentType: lesson.contentType || 'text', // Asumimos 'text' si no se especifica
+        contentType: lesson.contentType || 'text',
+        content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
+        videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
       })),
       interactiveContent: data.interactiveContent,
     };
 
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
       title: "Curso Actualizado Exitosamente",
@@ -121,12 +122,13 @@ export default function EditCoursePage() {
           Editar Curso: {initialCourseData.title}
         </h1>
       </div>
-      <CourseForm 
-        onSubmitCourse={handleSubmit} 
+      <CourseForm
+        onSubmitCourse={handleSubmit}
         isSubmitting={isSubmitting}
-        initialData={initialCourseData} 
+        initialData={initialCourseData}
       />
     </div>
   );
 }
+
     

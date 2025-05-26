@@ -25,19 +25,21 @@ export default function CreateCoursePage() {
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: "Usuario Actual", 
+      instructorName: "Usuario Actual",
       status: currentSessionRole === 'instructor' ? 'pending' : 'approved',
       lessons: data.lessons.map((lesson: any) => ({
         id: crypto.randomUUID(),
         title: lesson.title,
-        content: lesson.content || '', // Asegurar que content es una cadena
-        contentType: 'text', // Por defecto, las nuevas lecciones son de texto
+        contentType: lesson.contentType || 'text',
+        content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
+        videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
       })),
       interactiveContent: data.interactiveContent,
     };
 
 
-    await new Promise(resolve => setTimeout(resolve, 1500)); 
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
     toast({
       title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
@@ -47,10 +49,9 @@ export default function CreateCoursePage() {
     setIsSubmitting(false);
 
     if (currentSessionRole === 'administrador') {
-      router.push('/dashboard/admin/courses'); 
+      router.push('/dashboard/admin/courses');
     } else {
-      // Para instructores, o cualquier otro rol que pueda crear (si se expande)
-      router.push('/dashboard/instructor/my-courses'); 
+      router.push('/dashboard/instructor/my-courses');
     }
   };
 
@@ -66,4 +67,5 @@ export default function CreateCoursePage() {
     </div>
   );
 }
+
     
