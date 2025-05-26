@@ -8,9 +8,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award } from "lucide-react";
+import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
+interface Achievement {
+  id: string;
+  name: string;
+  icon: React.ElementType;
+  description?: string;
+}
+
+const sampleAchievements: Achievement[] = [
+  { id: "ach1", name: "Pionero de AlpriNexus", icon: Award, description: "Por ser uno de los primeros en unirse." },
+  { id: "ach2", name: "Maratón de Aprendizaje", icon: BookOpen, description: "Completó 3 cursos en una semana." },
+  { id: "ach3", name: "Experto en JavaScript", icon: CheckCircle, description: "Dominio demostrado en cursos de JS." },
+  { id: "ach4", name: "Colaborador Destacado", icon: Users, description: "Participación activa en foros (próximamente)." },
+];
 
 export default function StudentProfilePage() {
   const { toast } = useToast();
@@ -19,8 +44,8 @@ export default function StudentProfilePage() {
     name: "Estudiante Demo",
     email: "student@example.com",
     joinDate: "15 de Enero, 2023",
-    coursesEnrolled: 5, // Ejemplo
-    coursesCompleted: 2, // Ejemplo
+    coursesEnrolled: 5, 
+    coursesCompleted: 2, 
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,7 +92,7 @@ export default function StudentProfilePage() {
           <User className="mr-3 h-8 w-8 text-primary" />
           Mi Perfil
         </h1>
-        <Button variant="outline" asChild>
+         <Button variant="outline" asChild>
           <Link href="/dashboard/settings">
             <Settings className="mr-2 h-4 w-4" />
             Ir a Configuración
@@ -114,55 +139,100 @@ export default function StudentProfilePage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-2 shadow-lg">
-          <CardHeader>
-            <CardTitle>Resumen de Actividad</CardTitle>
-            <CardDescription>Tu progreso y logros en la plataforma.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            
-            <div>
-              <h3 className="text-lg font-semibold mb-3 text-foreground">Estadísticas de Aprendizaje</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Card className="bg-muted/30">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cursos Inscritos</CardTitle>
-                    <BookOpen className="h-5 w-5 text-primary" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{studentData.coursesEnrolled}</div>
-                    <p className="text-xs text-muted-foreground">Tu viaje de aprendizaje activo.</p>
-                  </CardContent>
-                </Card>
-                <Card className="bg-muted/30">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cursos Completados</CardTitle>
-                    <Award className="h-5 w-5 text-accent" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{studentData.coursesCompleted}</div>
-                    <p className="text-xs text-muted-foreground">¡Felicidades por tus logros!</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-            
-            <Separator />
-            
-            <div>
-                <h3 className="text-lg font-semibold mb-3 text-foreground">Acciones de Cuenta</h3>
-                <div className="space-y-3">
-                    <Button variant="destructive" className="w-full md:w-auto" disabled>
-                        Eliminar Cuenta (Próximamente)
-                    </Button>
-                     <p className="text-xs text-muted-foreground">
+        <div className="lg:col-span-2 space-y-6">
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle>Resumen de Actividad</CardTitle>
+                    <CardDescription>Tu progreso en la plataforma AlpriNexus.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <Card className="bg-muted/30">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Cursos Inscritos</CardTitle>
+                            <BookOpen className="h-5 w-5 text-primary" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{studentData.coursesEnrolled}</div>
+                            <p className="text-xs text-muted-foreground">Tu viaje de aprendizaje activo.</p>
+                        </CardContent>
+                        </Card>
+                        <Card className="bg-muted/30">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">Cursos Completados</CardTitle>
+                            <Award className="h-5 w-5 text-accent" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{studentData.coursesCompleted}</div>
+                            <p className="text-xs text-muted-foreground">¡Felicidades por tus logros!</p>
+                        </CardContent>
+                        </Card>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle>Mis Logros e Insignias</CardTitle>
+                    <CardDescription>Reconocimientos obtenidos por tu dedicación y aprendizaje.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {sampleAchievements.length > 0 ? (
+                        <ul className="space-y-3">
+                            {sampleAchievements.map(ach => (
+                                <li key={ach.id} className="flex items-center p-3 border rounded-md bg-card hover:bg-muted/50 transition-colors">
+                                    <ach.icon className="h-6 w-6 mr-3 text-accent flex-shrink-0" />
+                                    <div>
+                                        <p className="font-semibold text-foreground">{ach.name}</p>
+                                        {ach.description && <p className="text-sm text-muted-foreground">{ach.description}</p>}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-muted-foreground text-center py-4">Aún no has obtenido logros. ¡Sigue aprendiendo!</p>
+                    )}
+                </CardContent>
+            </Card>
+
+             <Card className="shadow-lg">
+                <CardHeader>
+                    <CardTitle>Acciones de Cuenta</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" className="w-full md:w-auto">
+                                Eliminar Cuenta
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro de que quieres eliminar tu cuenta?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta acción no se puede deshacer. Todos tus datos y progreso serán eliminados permanentemente.
+                                Considera esto cuidadosamente antes de proceder.
+                            </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction
+                                onClick={() => toast({ title: "Solicitud de Eliminación (Simulada)", description: "Tu solicitud para eliminar la cuenta ha sido recibida.", variant: "destructive" })}
+                            >
+                                Sí, Eliminar mi Cuenta
+                            </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    <p className="text-xs text-muted-foreground">
                         Para cambiar tu contraseña u otras opciones de seguridad, visita la página de <Link href="/dashboard/settings" className="text-primary hover:underline">Configuración</Link>.
                     </p>
-                </div>
-            </div>
-          </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );
 }
+
+    
