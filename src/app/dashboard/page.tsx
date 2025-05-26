@@ -120,7 +120,7 @@ const AdminDashboardContent = () => {
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
                 <Link href="/dashboard/settings">
                     <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
-                    <span className="font-medium">Configuración</span>
+                    <span className="font-medium">Configuración del Sistema</span>
                 </Link>
             </Button>
           </CardContent>
@@ -276,13 +276,11 @@ const StudentDashboardContent = () => {
         } catch (e) { console.error("Error parsing completed IDs", e); }
     }
     
-    // Simulación de allPlatformCourses para evitar dependencia directa de otro archivo
-    // En una app real, esto vendría de una API o un estado global.
-    const allPlatformCoursesSample: any[] = [ // Usar 'any' para flexibilidad en datos de ejemplo
-        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', thumbnailUrl: 'https://placehold.co/600x300.png?text=JS+Avanzado', dataAiHint: 'javascript programming', lessons: [{id:'l1'},{id:'l2'}]},
-        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', thumbnailUrl: 'https://placehold.co/600x300.png?text=Python+DS', dataAiHint: 'python data', lessons: [{id:'l1'},{id:'l2'},{id:'l3'}]},
-        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', thumbnailUrl: 'https://placehold.co/600x300.png?text=Diseño+UX', dataAiHint: 'ux design', lessons: [{id:'l1'}]},
-        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', thumbnailUrl: 'https://placehold.co/600x300.png?text=React+Native', dataAiHint: 'mobile development', lessons: []},
+    const allPlatformCoursesSample: any[] = [ 
+        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'javascript programming', lessons: [{id:'l1'},{id:'l2'}]},
+        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'python data', lessons: [{id:'l1'},{id:'l2'},{id:'l3'}]},
+        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'ux design', lessons: [{id:'l1'}]},
+        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'mobile development', lessons: []},
     ];
 
 
@@ -317,7 +315,7 @@ const StudentDashboardContent = () => {
         incompleteCourses.sort((a, b) => a.progress - b.progress);
         setCourseToContinue(incompleteCourses[0]);
       } else {
-        setCourseToContinue(coursesToDisplay[0]); // Show first completed if all are done
+        setCourseToContinue(coursesToDisplay[0]); 
       }
     } else {
       setCourseToContinue(null);
@@ -467,7 +465,7 @@ function AdminDashboardWrapper() {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
-  const [announcementAudience, setAnnouncementAudience] = React.useState('all');
+  const [announcementAudience, setAnnouncementAudience] = React.useState('all'); // Default to 'all'
   const { toast } = useToast();
 
   const handleSendAnnouncement = () => {
@@ -487,7 +485,7 @@ function AdminDashboardWrapper() {
     setIsAnnouncementDialogOpen(false);
     setAnnouncementTitle('');
     setAnnouncementMessage('');
-    setAnnouncementAudience('all');
+    setAnnouncementAudience('all'); // Reset audience to default
   };
 
   return (
