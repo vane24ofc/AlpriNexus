@@ -349,7 +349,7 @@ export default function AdminMetricsPage() {
               Este es un ejemplo de cómo se vería el informe generado. El resumen y las conclusiones son generados por IA.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-grow overflow-y-auto p-6 sm:p-8 bg-card text-card-foreground">
+          <div className="flex-grow overflow-y-auto overflow-x-auto p-6 sm:p-8 bg-card text-card-foreground">
             {isAiLoadingReportText && !reportText ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -436,7 +436,7 @@ export default function AdminMetricsPage() {
                     src="/Logo-Manchas-SAS (2).png"
                     alt="Alprigrama S.A.S"
                     width={100}
-                    height={100 * (742/800)} // Mantener aspect ratio
+                    height={100 * (742/800)} 
                     className="mb-2 opacity-70"
                     data-ai-hint="brand watermark logo"
                 />
@@ -458,4 +458,6 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
+    
+
     

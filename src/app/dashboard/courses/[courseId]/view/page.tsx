@@ -50,7 +50,7 @@ export default function StudentCourseViewPage() {
   useEffect(() => {
     if (courseId) {
       setIsLoading(true);
-      setTimeout(() => { // Simulate API call latency
+      setTimeout(() => { 
         let foundCourse: Course | undefined;
         try {
           const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
@@ -115,8 +115,7 @@ export default function StudentCourseViewPage() {
             title: "Curso no encontrado",
             description: "No se pudo encontrar el curso solicitado. Mostrando contenido de ejemplo.",
           });
-          setCourse(fallbackSampleCourse); // Use fallback if not found
-          // Initialize states for fallback course
+          setCourse(fallbackSampleCourse);
           setCompletedLessons(new Set());
           setQuizState({});
           setLessonsReadyForCompletion(new Set());
@@ -131,7 +130,7 @@ export default function StudentCourseViewPage() {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, toast]); // Removed router from dependencies as it's stable
+  }, [courseId, toast]); 
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -147,7 +146,6 @@ export default function StudentCourseViewPage() {
     setCompletedLessons(prev => {
       const newSet = new Set(prev);
       if (newSet.has(lessonId)) {
-        // Allow unchecking for simulation if needed, or keep it as one-way completion
         // newSet.delete(lessonId); 
       } else {
         newSet.add(lessonId);
@@ -239,7 +237,7 @@ export default function StudentCourseViewPage() {
                 newSet.add(lesson.id);
                 return newSet;
             });
-            if (engagementTimersRef.current[lesson.id]) { // Check if still exists before deleting
+            if (engagementTimersRef.current[lesson.id]) { 
                 delete engagementTimersRef.current[lesson.id];
             }
           }, ENGAGEMENT_DURATION);
@@ -287,21 +285,18 @@ export default function StudentCourseViewPage() {
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
+            <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
             {!currentQuizData.started && !currentQuizData.answered ? (
-              <>
-                <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
-                <Button
-                  variant="outline"
-                  onClick={() => handleStartQuiz(lesson.id)}
-                  disabled={completedLessons.has(lesson.id)}
-                  className="bg-card hover:bg-card/90"
-                >
-                  Comenzar Quiz
-                </Button>
-              </>
+              <Button
+                variant="outline"
+                onClick={() => handleStartQuiz(lesson.id)}
+                disabled={completedLessons.has(lesson.id)}
+                className="bg-card hover:bg-card/90"
+              >
+                Comenzar Quiz
+              </Button>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
                 <div className="flex flex-col gap-2">
                   {quizOptions.map((option, index) => (
                     <Button
@@ -340,7 +335,7 @@ export default function StudentCourseViewPage() {
     );
   }
 
-  if (!course) { // Should ideally not happen with fallback, but good to keep
+  if (!course) { 
     return (
       <div className="text-center py-10">
         <h1 className="text-2xl font-semibold">Curso no encontrado</h1>
@@ -410,7 +405,7 @@ export default function StudentCourseViewPage() {
                         LessonIcon = CheckCircle;
                         iconClassName = "text-green-500";
                     } else if (isReadyForCompletion) {
-                        LessonIcon = ClipboardCheck;
+                        LessonIcon = ClipboardCheck; // Icono para "lista para completar"
                         iconClassName = "text-blue-500";
                     }
 
@@ -423,7 +418,7 @@ export default function StudentCourseViewPage() {
                             <span className={`${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{lesson.title}</span>
                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="px-4 py-4 bg-card border-t-0 border-b border-x border-border rounded-b-md space-y-4">
+                        <AccordionContent className="px-4 py-4 bg-card border-t-0 border-b border-x border-border rounded-b-md space-y-4 max-h-[60vh] overflow-y-auto">
                             {renderLessonContent(lesson)}
                             <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4 pt-4 border-t border-border">
                                 <Button
@@ -474,23 +469,23 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-             <CardHeader style={{ padding: '16px 20px 8px' }}>
+            <CardHeader style={{ padding: '16px 20px 8px' }}>
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-4">
+            <CardContent className="text-center pt-6"> {/* Added pt-6 for overall top padding */}
                 {/* SVG Container */}
-                <div className="relative w-32 h-32 mx-auto">
+                <div className="relative w-32 h-32 mx-auto -mt-4"> {/* Maintained -mt-4 to pull circle up */}
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
-                        strokeWidth="4" 
+                        strokeWidth="2.5" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="4" 
+                        strokeWidth="2.5" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -499,14 +494,14 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     {/* Text for percentage, positioned absolutely to overlay the SVG */}
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center z-10">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
                 {/* Status Text Paragraph */}
-                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
+                <p className={`text-sm mt-2 mb-4 ${allLessonsCompleted ? "text-foreground font-normal" : "text-muted-foreground font-normal"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
@@ -526,3 +521,5 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
+    
