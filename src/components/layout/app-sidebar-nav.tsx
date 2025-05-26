@@ -20,6 +20,7 @@ import {
   CalendarDays,
   BarChartBig,
   Library,
+  PlusCircle,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -39,9 +40,9 @@ import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, Role } from '@/app/dashboard/layout'; 
-import { PlusCircle } from 'lucide-react';
 
 interface NavItem {
+  id: string; // Added unique ID
   href?: string; 
   label: string;
   icon: React.ElementType;
@@ -51,39 +52,42 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
+  { id: 'nav-panel-principal', href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
+    id: 'nav-gestion-group',
     label: 'Gestión',
     icon: Shield, 
     roles: ['administrador'],
     children: [
-      { href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
-      { href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
-      { href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig },
+      { id: 'nav-admin-users', href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
+      { id: 'nav-admin-courses', href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
+      { id: 'nav-admin-metrics', href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig },
     ],
   },
   {
+    id: 'nav-instructor-tools-group',
     label: 'Herramientas de Instructor',
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
-      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen }, 
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
+      { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen }, 
     ],
   },
   {
+    id: 'nav-student-portal-group',
     label: 'Portal del Estudiante',
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
+      { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
-  { href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
-  { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] }, 
-  { href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
-  { href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
-  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
+  { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
+  { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] }, 
+  { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
+  { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
+  { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
 export function AppSidebarNav() {
@@ -109,11 +113,6 @@ export function AppSidebarNav() {
             if (child.roles && !child.roles.includes(currentSessionRole)) {
               return false;
             }
-            // Ensure child href is defined before using it
-            if (child.href && pathname.startsWith(child.href) && child.href === dashboardPath) {
-              // Avoid issues if a child link is the same as dashboardPath
-              // This case might need more specific handling if sub-items point to the main dashboard
-            }
             return true;
           });
 
@@ -125,7 +124,7 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  }, [currentSessionRole, dashboardPath, pathname]); // Added pathname as it influences child filtering logic indirectly
+  }, [currentSessionRole, dashboardPath]);
 
   const toggleSubmenu = (label: string) => {
     setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
@@ -133,35 +132,41 @@ export function AppSidebarNav() {
   
   useEffect(() => {
     const newActiveSubmenus: Record<string, boolean> = {};
+    let needsUpdate = false;
+
     filteredNavItems.forEach(item => {
       if (item.children && item.children.length > 0) {
         const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-        const isParentEffectivelyActive = item.href && pathname === item.href; // Check if the parent group link itself is active
+        const isParentEffectivelyActive = item.href && pathname === item.href;
 
         if (isChildActive || isParentEffectivelyActive) {
+          if (!openSubmenus[item.label]) {
+            needsUpdate = true;
+          }
           newActiveSubmenus[item.label] = true;
+        } else if (openSubmenus[item.label]) {
+           // If submenu was open but no longer active, consider it for closing
+           // (This part can be tricky to avoid closing manually opened submenus)
         }
       }
     });
-
-    let needsUpdate = false;
-    for (const label in newActiveSubmenus) {
-      if (!openSubmenus[label]) { 
-        needsUpdate = true;
-        break;
-      }
+    
+    // Check if any currently open submenu is no longer active and wasn't manually toggled (hard to detect)
+    // For simplicity, focus on auto-opening active ones
+    for (const label in openSubmenus) {
+        if (openSubmenus[label] && !newActiveSubmenus[label]) {
+            // If a menu was open, but its associated path is not active anymore,
+            // it MIGHT be a candidate for closing. This logic can be complex.
+            // For now, we'll primarily focus on auto-opening.
+        }
     }
-    // Also check if any previously open submenus (that are path-dependent) should now be closed
-    // This part is tricky: we only want to auto-close if they were auto-opened due to path.
-    // Manual toggles should persist.
-    // For simplicity, this effect primarily focuses on *opening* active submenus.
-    // Manual toggles are handled by `toggleSubmenu`.
+
 
     if (needsUpdate) {
       setOpenSubmenus(prevOpenSubmenus => {
         const updatedState = { ...prevOpenSubmenus };
         for (const label in newActiveSubmenus) {
-          updatedState[label] = true; // Ensure active ones are open
+          updatedState[label] = true; 
         }
         return updatedState;
       });
@@ -188,7 +193,7 @@ export function AppSidebarNav() {
 
 
         return (
-          <SidebarMenuItem key={item.label}>
+          <SidebarMenuItem key={item.id}> {/* USE item.id AS KEY */}
             <Comp
               onClick={() => toggleSubmenu(item.label)}
               className="justify-between"
@@ -213,15 +218,24 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      const isActive = pathname === effectiveHref || 
-                   (effectiveHref && pathname.startsWith(effectiveHref) && 
-                    effectiveHref !== dashboardPath && 
-                    !(effectiveHref === '/dashboard/courses/explore' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore')) &&
-                    !(effectiveHref === '/dashboard/student/my-courses' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore')) 
-                   );
+      // More precise isActive check for top-level items
+      let isActive;
+      if (effectiveHref === dashboardPath) {
+        // For /dashboard, only active if it's exactly /dashboard or /dashboard/
+        // OR if it's one of the specific role paths that now map to /dashboard for content
+        const isExactDashboard = pathname === dashboardPath || pathname === `${dashboardPath}/`;
+        const isRoleDashboard = (currentSessionRole === 'administrador' && pathname.startsWith('/dashboard/admin')) ||
+                                (currentSessionRole === 'instructor' && pathname.startsWith('/dashboard/instructor')) ||
+                                (currentSessionRole === 'estudiante' && pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile'));
+        isActive = isExactDashboard && !isRoleDashboard; // Panel principal es activo si es /dashboard y no una subruta de rol
+      } else {
+          isActive = pathname === effectiveHref || 
+                     (pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath);
+      }
+
 
       return (
-        <SidebarMenuItem key={effectiveHref || item.label}>
+        <SidebarMenuItem key={item.id}> {/* USE item.id AS KEY */}
           <Comp
             asChild
             isActive={isActive}
@@ -278,7 +292,7 @@ export function AppSidebarNav() {
         <SidebarGroup className="mt-auto group-data-[collapsible=icon]:px-0">
           <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Soporte</SidebarGroupLabel>
           <SidebarMenu>
-            <SidebarMenuItem>
+            <SidebarMenuItem key="nav-help">
                 <SidebarMenuButton asChild tooltip="Ayuda y Soporte">
                     <Link href="#">
                         <LifeBuoy />
@@ -286,7 +300,7 @@ export function AppSidebarNav() {
                     </Link>
                 </SidebarMenuButton>
             </SidebarMenuItem>
-             <SidebarMenuItem>
+             <SidebarMenuItem key="nav-feedback">
                 <SidebarMenuButton asChild tooltip="Enviar Comentarios">
                     <Link href="#">
                         <MessageSquare />
