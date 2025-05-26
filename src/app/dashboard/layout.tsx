@@ -8,7 +8,6 @@ import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { FullPageLoader } from '@/components/ui/loader';
-import { Button } from '@/components/ui/button';
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
@@ -33,12 +32,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
+  const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null); // Initialize with null
   const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
     // This effect runs only on the client
-    setIsLoadingRole(true);
+    setIsLoadingRole(true); 
     let determinedRole: Role = 'estudiante'; // Fallback
 
     const storedRole = localStorage.getItem('sessionRole') as Role | null;
@@ -48,24 +47,24 @@ export default function DashboardLayout({
       roleFromPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
       roleFromPath = 'instructor';
-    } else if (pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile')) {
+    } else if (pathname.startsWith('/dashboard/student')) { 
       roleFromPath = 'estudiante';
     }
 
     if (roleFromPath) {
       determinedRole = roleFromPath;
-      if (storedRole !== determinedRole) {
+      if (storedRole !== determinedRole) { 
         localStorage.setItem('sessionRole', determinedRole);
       }
     } else if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-      determinedRole = storedRole;
-    } else {
+      determinedRole = storedRole; 
+    } else { 
       localStorage.setItem('sessionRole', 'estudiante');
       determinedRole = 'estudiante';
     }
     
     setCurrentSessionRole(determinedRole);
-    setIsLoadingRole(false);
+    setIsLoadingRole(false); 
   }, [pathname]);
 
   const contextValue = useMemo(() => ({
@@ -73,7 +72,8 @@ export default function DashboardLayout({
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  if (isLoadingRole || !currentSessionRole) { // Ensure role is set before rendering main content
+  // Render FullPageLoader if still loading role OR if role hasn't been determined yet (currentSessionRole is null)
+  if (isLoadingRole || !currentSessionRole) { 
     return <FullPageLoader message="Determinando rol y cargando panel..." />;
   }
   
