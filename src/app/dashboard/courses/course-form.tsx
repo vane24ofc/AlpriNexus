@@ -12,13 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, Wand2, Loader2 as AiLoader, Sparkles } from 'lucide-react'; // Añadido Sparkles
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { generateCourseOutline, type GenerateCourseOutlineInput } from '@/ai/flows/generate-course-outline-flow';
+import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow'; // Nueva importación
 
 const lessonSchema = z.object({
   id: z.string().optional(), 
@@ -47,7 +48,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const { currentSessionRole } = useSessionRole();
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
-  const [isAiGenerating, setIsAiGenerating] = useState(false);
+  const [isAiGeneratingLessons, setIsAiGeneratingLessons] = useState(false);
+  const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false); // Nuevo estado
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -110,13 +112,13 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       return;
     }
 
-    setIsAiGenerating(true);
+    setIsAiGeneratingLessons(true);
     try {
       const input: GenerateCourseOutlineInput = { courseTitle: title, courseDescription: description };
       const result = await generateCourseOutline(input);
       if (result.lessonTitles && result.lessonTitles.length > 0) {
         const newLessons = result.lessonTitles.map(lessonTitle => ({ title: lessonTitle }));
-        replace(newLessons); // Reemplaza las lecciones existentes con las generadas por IA
+        replace(newLessons); 
         toast({
           title: "Esquema de Lecciones Generado",
           description: "Se han añadido las lecciones sugeridas por la IA.",
@@ -136,16 +138,67 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         description: "Ocurrió un error al intentar generar el esquema de lecciones.",
       });
     } finally {
-      setIsAiGenerating(false);
+      setIsAiGeneratingLessons(false);
     }
   };
 
+  const handleGenerateThumbnail = async () => {
+    const title = form.getValues("title");
+    const description = form.getValues("description");
+
+    if (!title.trim() || !description.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Faltan Datos",
+        description: "Por favor, introduce un título y una descripción para el curso antes de generar la miniatura.",
+      });
+      return;
+    }
+
+    setIsAiGeneratingThumbnail(true);
+    try {
+      const input: GenerateCourseThumbnailInput = { courseTitle: title, courseDescription: description };
+      const result = await generateCourseThumbnail(input);
+      if (result.thumbnailDataUri) {
+        setThumbnailPreview(result.thumbnailDataUri);
+        form.setValue('thumbnailFile', null); // Si se genera con IA, el archivo local no es necesario
+        toast({
+          title: "Miniatura Generada por IA",
+          description: "Se ha establecido la miniatura sugerida por la IA.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error de IA",
+          description: "La IA no pudo generar una miniatura.",
+        });
+      }
+    } catch (error) {
+      console.error("Error generando miniatura con IA:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de IA",
+        description: "Ocurrió un error al intentar generar la miniatura del curso.",
+      });
+    } finally {
+      setIsAiGeneratingThumbnail(false);
+    }
+  };
+
+
   const processSubmit = async (data: CourseFormValues) => {
     let finalThumbnailUrl = initialData?.thumbnailUrl;
-    if (data.thumbnailFile) {
-      finalThumbnailUrl = thumbnailPreview!; 
-    } else if (!finalThumbnailUrl && !data.thumbnailFile) {
-      finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
+
+    // Si hay un thumbnailPreview y NO es el mismo que el initialData.thumbnailUrl
+    // (esto significa que o se subió un archivo nuevo, o se generó uno con IA, o se quitó uno existente)
+    if (thumbnailPreview && thumbnailPreview !== initialData?.thumbnailUrl) {
+        finalThumbnailUrl = thumbnailPreview;
+    } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
+        // Si no hay preview (se eliminó uno existente) y había uno inicial, se quita
+        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; 
+    } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
+        // Si nunca hubo preview, ni inicial, ni archivo subido
+        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
     }
     
     await onSubmitCourse(data, finalThumbnailUrl);
@@ -193,9 +246,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   <CardTitle>Lecciones del Curso</CardTitle>
                   <CardDescription>Añade y organiza las lecciones. Debes añadir al menos una.</CardDescription>
                 </div>
-                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={isAiGenerating || isSubmitting}>
-                  {isAiGenerating ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Wand2 className="mr-2 h-5 w-5" />}
-                  {isAiGenerating ? 'Generando...' : 'Sugerir Lecciones con IA'}
+                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
+                  {isAiGeneratingLessons ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Wand2 className="mr-2 h-5 w-5" />}
+                  {isAiGeneratingLessons ? 'Generando...' : 'Sugerir Lecciones con IA'}
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -216,13 +269,13 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                       />
                     </div>
                     {fields.length > 1 && (
-                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-0.5" aria-label="Eliminar lección" disabled={isAiGenerating || isSubmitting}>
+                         <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-0.5" aria-label="Eliminar lección" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
                             <Trash2 className="h-5 w-5" />
                         </Button>
                     )}
                   </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ title: '' })} className="w-full" disabled={isAiGenerating || isSubmitting}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '' })} className="w-full" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
@@ -258,15 +311,19 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     <FormItem>
                       <FormLabel className="sr-only">Archivo de Miniatura</FormLabel>
                       <FormControl>
-                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={isAiGenerating || isSubmitting}/>
+                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}/>
                       </FormControl>
-                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={isAiGenerating || isSubmitting}>
+                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail}>
                          <ImageUp className="mr-2 h-4 w-4" /> {thumbnailPreview ? 'Cambiar Miniatura' : 'Seleccionar Miniatura'}
                        </Button>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={isAiGeneratingThumbnail || isSubmitting || isAiGeneratingLessons}>
+                  {isAiGeneratingThumbnail ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
+                  {isAiGeneratingThumbnail ? 'Generando...' : 'Generar Miniatura con IA'}
+                </Button>
                  <p className="text-xs text-muted-foreground">Recomendado: 16:9, JPG/PNG, &lt;5MB.</p>
               </CardContent>
             </Card>
@@ -282,7 +339,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="sr-only">Contenido Interactivo</FormLabel>
-                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={isAiGenerating || isSubmitting} /></FormControl>
+                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={isAiGeneratingLessons || isSubmitting || isAiGeneratingThumbnail} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -294,10 +351,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         </div>
         
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isAiGenerating}>
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isAiGeneratingLessons || isAiGeneratingThumbnail}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting || isAiGenerating} className="min-w-[120px]">
+          <Button type="submit" disabled={isSubmitting || isAiGeneratingLessons || isAiGeneratingThumbnail} className="min-w-[120px]">
             {isSubmitting ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
             {isSubmitting ? 'Guardando...' : (currentSessionRole === 'instructor' ? 'Enviar a Revisión' : 'Guardar Curso')}
           </Button>
