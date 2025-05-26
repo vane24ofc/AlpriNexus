@@ -20,7 +20,7 @@ import {
   CalendarDays,
   BarChartBig,
   PlusCircle,
-  Library, // Añadido para Explorar Cursos
+  Library,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -68,7 +68,7 @@ const navItems: NavItem[] = [
     roles: ['instructor'],
     children: [
       { href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
-      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos', icon: BookOpen }, 
+      { href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen }, 
     ],
   },
   {
@@ -76,11 +76,12 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen }, 
-      { href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library }, // Nuevo enlace
+      // "Cursos Inscritos" y "Explorar Cursos" se movieron a nivel superior
       { href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
     ],
   },
+  { href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
+  { href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] }, 
   { href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'], badge: "Nuevo" },
   { href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -112,6 +113,7 @@ export function AppSidebarNav() {
             return true;
           });
 
+          // Si un grupo no tiene hijos visibles Y no tiene un href propio, no lo añadimos
           if (newItem.children.length === 0 && !newItem.href) { 
             return acc; 
           }
@@ -131,7 +133,7 @@ export function AppSidebarNav() {
  useEffect(() => {
     const activeSubmenus: Record<string, boolean> = {};
     filteredNavItems.forEach(item => {
-      if (item.children) {
+      if (item.children && item.children.length > 0) { // Solo procesar si tiene hijos después de filtrar
         const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
         const isParentActive = item.href && pathname === item.href;
 
@@ -144,11 +146,16 @@ export function AppSidebarNav() {
         setOpenSubmenus(prev => ({ ...prev, ...activeSubmenus }));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, currentSessionRole]); 
+  }, [pathname, currentSessionRole, filteredNavItems]); // Añadido filteredNavItems
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
+      // Si es un grupo sin hijos (después de filtrar por rol) y sin href propio, no renderizarlo.
+      if (item.children && item.children.length === 0 && !item.href) {
+        return null;
+      }
+
       const effectiveHref = item.href || (item.label === 'Panel Principal' ? dashboardPath : undefined);
 
       if (item.children && item.children.length > 0) {
@@ -187,11 +194,18 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
+      const isActive = pathname === effectiveHref || 
+                   (effectiveHref && pathname.startsWith(effectiveHref) && 
+                    effectiveHref !== dashboardPath && 
+                    !(effectiveHref === '/dashboard/courses/explore' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore')) &&
+                    !(effectiveHref === '/dashboard/student/my-courses' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore')) 
+                   );
+
       return (
         <SidebarMenuItem key={effectiveHref || item.label}>
           <Comp
             asChild
-            isActive={pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath && !(effectiveHref === '/dashboard/courses/explore' && pathname.includes('/dashboard/courses/') && !pathname.endsWith('/explore'))  ) }
+            isActive={isActive}
             tooltip={item.label}
           >
             <Link href={effectiveHref}>
@@ -200,7 +214,7 @@ export function AppSidebarNav() {
               {item.badge && (
                 <span className={cn(
                   "ml-auto inline-block rounded-full px-2 py-0.5 text-xs",
-                  (pathname === effectiveHref || (effectiveHref && pathname.startsWith(effectiveHref))) ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
+                  isActive ? "bg-sidebar-primary-foreground text-sidebar-primary" : "bg-sidebar-accent text-sidebar-accent-foreground"
                 )}>
                   {item.badge}
                 </span>
@@ -274,3 +288,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
