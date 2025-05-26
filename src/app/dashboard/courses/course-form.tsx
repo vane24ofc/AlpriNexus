@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send, AiLoader, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
@@ -21,7 +21,16 @@ import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow';
 import { generateLessonContent, type GenerateLessonContentInput } from '@/ai/flows/generate-lesson-content-flow';
-
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const lessonSchema = z.object({
   id: z.string().optional(),
@@ -66,6 +75,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false);
   const [aiGeneratingLessonContentFor, setAiGeneratingLessonContentFor] = useState<number | null>(null);
 
+  const [showConfirmReplaceDialog, setShowConfirmReplaceDialog] = useState(false);
+  const [aiContentToApply, setAiContentToApply] = useState<{ index: number; content: string } | null>(null);
 
   const isAnyAiWorking = isAiGeneratingThumbnail || aiGeneratingLessonContentFor !== null;
 
@@ -87,7 +98,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ // 'replace' no se usaba y se eliminó
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "lessons",
   });
@@ -144,7 +155,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const triggerThumbnailSelect = () => {
     thumbnailFileRef.current?.click();
   };
-
 
   const handleGenerateThumbnail = async () => {
     const title = form.getValues("title");
@@ -208,8 +218,14 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const input: GenerateLessonContentInput = { courseTitle, courseDescription, lessonTitle };
       const result = await generateLessonContent(input);
       if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
-        form.setValue(`lessons.${lessonIndex}.content`, result.generatedContent);
-        toast({ title: "Contenido Generado por IA", description: `Se ha añadido un borrador de contenido para la Lección ${lessonIndex + 1}.` });
+        const currentContent = form.getValues(`lessons.${lessonIndex}.content`);
+        if (currentContent && currentContent.trim() !== '') {
+          setAiContentToApply({ index: lessonIndex, content: result.generatedContent });
+          setShowConfirmReplaceDialog(true);
+        } else {
+          form.setValue(`lessons.${lessonIndex}.content`, result.generatedContent);
+          toast({ title: "Contenido Generado por IA", description: `Se ha añadido un borrador de contenido para la Lección ${lessonIndex + 1}.` });
+        }
       } else {
          toast({ variant: "destructive", title: "Error de IA", description: result.generatedContent || "La IA no pudo generar contenido para la lección." });
       }
@@ -221,6 +237,19 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     }
   };
 
+  const confirmReplaceContent = () => {
+    if (aiContentToApply) {
+      form.setValue(`lessons.${aiContentToApply.index}.content`, aiContentToApply.content);
+      toast({ title: "Contenido Reemplazado", description: `El contenido de la Lección ${aiContentToApply.index + 1} ha sido actualizado con el borrador de la IA.` });
+    }
+    setShowConfirmReplaceDialog(false);
+    setAiContentToApply(null);
+  };
+
+  const cancelReplaceContent = () => {
+    setShowConfirmReplaceDialog(false);
+    setAiContentToApply(null);
+  };
 
   const processSubmit = async (data: CourseFormValues) => {
     let finalThumbnailUrl = initialData?.thumbnailUrl;
@@ -294,6 +323,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 {fields.map((field, index) => {
                   const currentLessonType = form.watch(`lessons.${index}.contentType`);
                   const isCurrentLessonAiGenerating = aiGeneratingLessonContentFor === index;
+                  const lessonTitleValue = form.watch(`lessons.${index}.title`);
+                  const courseTitleValue = form.watch("title");
+
                   return (
                   <div key={field.id} className="flex flex-col gap-3 p-4 border rounded-md bg-muted/30 shadow-sm">
                     <div className="flex items-start gap-3">
@@ -316,7 +348,15 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           render={({ field: lessonTypeField }) => (
                             <FormItem>
                               <FormLabel>Tipo de Contenido</FormLabel>
-                              <Select onValueChange={lessonTypeField.onChange} defaultValue={lessonTypeField.value} disabled={formDisabled}>
+                              <Select onValueChange={(value) => {
+                                  lessonTypeField.onChange(value);
+                                  // Limpiar campos no relevantes al cambiar tipo
+                                  if (value !== 'text') update(index, { ...fields[index], content: ''});
+                                  if (value !== 'video') update(index, { ...fields[index], videoUrl: ''});
+                                  if (value !== 'quiz') update(index, { ...fields[index], quizPlaceholder: ''});
+                                }} 
+                                defaultValue={lessonTypeField.value} 
+                                disabled={formDisabled}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar tipo de contenido" />
@@ -350,10 +390,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                     variant="outline" 
                                     size="sm" 
                                     onClick={() => handleGenerateLessonContent(index)} 
-                                    disabled={formDisabled || isCurrentLessonAiGenerating || !form.getValues("title") || !form.getValues(`lessons.${index}.title`)}
+                                    disabled={formDisabled || isCurrentLessonAiGenerating || !courseTitleValue || !lessonTitleValue}
                                     className="text-xs px-2 py-1 h-auto leading-tight"
+                                    title={(!courseTitleValue || !lessonTitleValue) ? "Introduce el título del curso y de la lección para activar IA" : "Generar borrador con IA"}
                                   >
-                                    {isCurrentLessonAiGenerating ? <AiLoader className="animate-spin mr-1.5 h-3 w-3" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+                                    {isCurrentLessonAiGenerating ? <Loader2 className="animate-spin mr-1.5 h-3 w-3" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
                                     {isCurrentLessonAiGenerating ? 'Generando...' : 'IA Borrador'}
                                   </Button>
                                 </div>
@@ -444,8 +485,15 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     </FormItem>
                   )}
                 />
-                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={formDisabled || !form.getValues("title") || !form.getValues("description")}>
-                  {isAiGeneratingThumbnail ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={handleGenerateThumbnail} 
+                    className="w-full" 
+                    disabled={formDisabled || !form.watch("title") || !form.watch("description")}
+                    title={(!form.watch("title") || !form.watch("description")) ? "Introduce título y descripción del curso para activar IA" : "Generar miniatura con IA"}
+                >
+                  {isAiGeneratingThumbnail ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
                   {isAiGeneratingThumbnail ? 'Generando...' : 'Generar Miniatura con IA'}
                 </Button>
                  <p className="text-xs text-muted-foreground">Recomendado: 16:9, JPG/PNG, &lt;5MB.</p>
@@ -479,13 +527,29 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
             Cancelar
           </Button>
           <Button type="submit" disabled={formDisabled} className="min-w-[120px]">
-            {isSubmitting ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
+            {isSubmitting ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
             {isSubmitting ? 'Guardando...' : (currentSessionRole === 'instructor' ? 'Enviar a Revisión' : 'Guardar Curso')}
           </Button>
         </div>
       </form>
+
+      {showConfirmReplaceDialog && aiContentToApply && (
+        <AlertDialog open={showConfirmReplaceDialog} onOpenChange={setShowConfirmReplaceDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Reemplazar Contenido Existente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                La IA ha generado un borrador de contenido para la Lección {aiContentToApply.index + 1}.
+                ¿Deseas reemplazar el texto que ya has escrito en esta lección?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelReplaceContent}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmReplaceContent}>Reemplazar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </Form>
   );
 }
-
-    
