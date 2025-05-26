@@ -20,6 +20,7 @@ const sampleCourses: Course[] = [
     title: 'JavaScript Avanzado: Patrones y Prácticas Modernas',
     description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento para construir aplicaciones robustas y escalables.',
     thumbnailUrl: 'https://placehold.co/800x450.png?text=JS+Avanzado',
+    dataAiHint: 'javascript patterns',
     instructorName: 'Dr. Evelyn Woods',
     status: 'approved',
     lessons: [
@@ -35,13 +36,14 @@ const sampleCourses: Course[] = [
     title: 'Python para Ciencia de Datos: De Cero a Héroe',
     description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos, incluyendo manipulación de datos con Pandas, visualización con Matplotlib y Seaborn, y una introducción al machine learning con Scikit-learn.',
     thumbnailUrl: 'https://placehold.co/800x450.png?text=Python+DS',
+    dataAiHint: 'python data science',
     instructorName: 'Prof. Ian Stone',
     status: 'approved',
     lessons: [
       {id: 'l1-py', title: 'Fundamentos de Python', contentType: 'text', content: 'Comenzaremos con los conceptos básicos de Python, incluyendo tipos de datos, variables, operadores, estructuras de control (if/else, bucles) y funciones.'},
       {id: 'l2-py', title: 'Pandas para Manipulación de Datos', contentType: 'text', content: 'Introducción a la librería Pandas para la carga, limpieza, transformación y análisis de datos tabulares.'},
-      {id: 'l3-py', title: 'Visualización de Datos', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/NgsQjG1qN4k', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'},
-      {id: 'l4-py', title: 'Intro a Machine Learning', contentType: 'quiz', quizPlaceholder: 'Evalúa tu comprensión de los conceptos básicos de ML.', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
+      {id: 'l3-py', title: 'Visualización de Datos con Matplotlib', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/NgsQjG1qN4k', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'},
+      {id: 'l4-py', title: 'Intro a Machine Learning con Scikit-learn', contentType: 'quiz', quizPlaceholder: 'Evalúa tu comprensión de los conceptos básicos de ML.', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
     ],
     interactiveContent: '<div><p class="text-center p-2">Este curso incluye un Jupyter Notebook interactivo.</p><button class="w-full bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">Descargar Notebook (Simulado)</button></div>'
   },
@@ -50,13 +52,14 @@ const sampleCourses: Course[] = [
     title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)',
     description: 'Aprende los principios clave del diseño UX, incluyendo investigación de usuarios, arquitectura de información, wireframing, prototipado y pruebas de usabilidad para crear productos digitales intuitivos y centrados en el usuario.',
     thumbnailUrl: 'https://placehold.co/800x450.png?text=Diseño+UX',
+    dataAiHint: 'ux design principles',
     instructorName: 'Ana Lima',
     status: 'approved',
     lessons: [
-      {id: 'l1-ux', title: '¿Qué es UX?', content: 'Definición de Experiencia de Usuario, su importancia y los diferentes roles dentro del campo del diseño UX.'},
-      {id: 'l2-ux', title: 'Investigación de Usuarios', content: 'Métodos para entender a tus usuarios, sus necesidades y comportamientos, incluyendo entrevistas, encuestas y personas.'},
+      {id: 'l1-ux', title: '¿Qué es UX?', contentType: 'text', content: 'Definición de Experiencia de Usuario, su importancia y los diferentes roles dentro del campo del diseño UX.'},
+      {id: 'l2-ux', title: 'Investigación de Usuarios', contentType: 'text', content: 'Métodos para entender a tus usuarios, sus necesidades y comportamientos, incluyendo entrevistas, encuestas y personas.'},
       {id: 'l3-ux', title: 'Wireframing y Prototipado', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/6301pG42H7E', content: 'Cómo crear wireframes de baja y alta fidelidad, y prototipos interactivos para probar tus diseños.'},
-      {id: 'l4-ux', title: 'Pruebas de Usabilidad', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
+      {id: 'l4-ux', title: 'Pruebas de Usabilidad', contentType: 'quiz', quizPlaceholder: 'Evalúa tus diseños con pruebas de usabilidad.', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
     ],
   },
 ];
@@ -79,6 +82,10 @@ export default function StudentCourseViewPage() {
         if (foundCourse) {
           setCourse(foundCourse);
           const initialCompleted = new Set<string>();
+          // For demo, let's mark the first lesson as completed if there's more than one
+          // if (foundCourse.lessons && foundCourse.lessons.length > 1) {
+          //   initialCompleted.add(foundCourse.lessons[0].id);
+          // }
           setCompletedLessons(initialCompleted);
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
@@ -103,7 +110,8 @@ export default function StudentCourseViewPage() {
         // newSet.delete(lessonId); // Descomentar para permitir desmarcar
       } else {
         newSet.add(lessonId);
-        toast({ title: "¡Lección Marcada!", description: `Has marcado la lección como completada.` });
+        const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
+        toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
       }
       return newSet;
     });
@@ -129,6 +137,7 @@ export default function StudentCourseViewPage() {
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
+      // Should not happen if allLessonsCompleted is false, but as a fallback
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -147,24 +156,25 @@ export default function StudentCourseViewPage() {
         return (
           <div className="space-y-3">
             {lesson.videoUrl ? (
-              <div className="aspect-video bg-muted rounded-md overflow-hidden">
+              <div className="aspect-video bg-muted rounded-md overflow-hidden shadow-inner">
                 <iframe
                   width="100%"
                   height="100%"
-                  src={lesson.videoUrl}
+                  src={lesson.videoUrl.replace("watch?v=", "embed/")} // Basic transformation for YouTube embed URLs
                   title={`Video: ${lesson.title}`}
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
+                  className="block"
                 ></iframe>
               </div>
             ) : (
               <div className="p-4 bg-muted rounded-md flex flex-col items-center justify-center text-muted-foreground aspect-video">
                 <Youtube className="h-12 w-12 mb-2" />
-                <span>Video no disponible.</span>
+                <span>Video no disponible o URL inválida.</span>
               </div>
             )}
-            {lesson.content && <p className="text-sm text-muted-foreground">{lesson.content}</p>}
+            {lesson.content && <p className="text-sm text-muted-foreground mt-2">{lesson.content}</p>}
           </div>
         );
       case 'quiz':
@@ -258,22 +268,23 @@ export default function StudentCourseViewPage() {
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
                     return (
-                        <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id}>
-                        <AccordionTrigger className="text-lg hover:no-underline">
-                            <div className="flex items-center text-left">
-                            {isCompleted && <CheckCircle className="mr-2 h-5 w-5 text-green-500 flex-shrink-0" />}
-                            <span className={`text-primary font-semibold mr-3 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{index + 1}.</span>
-                            <span className={`${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{lesson.title}</span>
+                        <AccordionItem value={`lesson-${lesson.id}`} key={lesson.id} className="border-border">
+                        <AccordionTrigger className="text-lg hover:no-underline px-3 py-4 hover:bg-muted/50 rounded-t-md data-[state=open]:bg-muted/60 data-[state=open]:rounded-b-none">
+                            <div className="flex items-center text-left flex-1 gap-2">
+                            {isCompleted ? <CheckCircle className="mr-2 h-5 w-5 text-green-500 flex-shrink-0" /> : <FileText className="mr-2 h-5 w-5 text-primary/70 flex-shrink-0" />}
+                            <span className={`text-primary font-semibold mr-1 ${isCompleted ? 'line-through text-muted-foreground' : ''}`}>{index + 1}.</span>
+                            <span className={`${isCompleted ? 'line-through text-muted-foreground' : 'text-foreground'}`}>{lesson.title}</span>
                             </div>
                         </AccordionTrigger>
-                        <AccordionContent className="pl-8 pr-4 py-4 bg-muted/30 rounded-b-md space-y-4">
+                        <AccordionContent className="px-4 py-4 bg-card border-t-0 border-b border-x border-border rounded-b-md space-y-4">
                             {renderLessonContent(lesson)}
-                            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4 pt-4 border-t">
+                            <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-4 pt-4 border-t border-border">
                                 <Button
                                     size="sm"
                                     onClick={() => handleToggleLessonComplete(lesson.id)}
                                     disabled={isCompleted}
                                     variant={isCompleted ? "secondary" : "default"}
+                                    className="w-full sm:w-auto"
                                 >
                                     {isCompleted ? (
                                         <> <CheckCircle className="mr-2 h-4 w-4" /> Lección Completada </>
@@ -286,6 +297,7 @@ export default function StudentCourseViewPage() {
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleNextLesson(index)}
+                                        className="w-full sm:w-auto"
                                     >
                                         Siguiente Lección <ArrowLeft className="ml-2 h-4 w-4 rotate-180" />
                                     </Button>
@@ -310,7 +322,7 @@ export default function StudentCourseViewPage() {
                 <CardTitle className="text-xl">Contenido Interactivo Adicional</CardTitle>
               </CardHeader>
               <CardContent>
-                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
+                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} className="prose prose-sm dark:prose-invert max-w-none"/>
               </CardContent>
             </Card>
           )}
@@ -320,7 +332,7 @@ export default function StudentCourseViewPage() {
             </CardHeader>
             <CardContent className="text-center">
                 <div className="relative w-24 h-24 mx-auto mb-2">
-                    <svg className="w-full h-full" viewBox="0 0 36 36">
+                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
                         strokeWidth="3"
@@ -332,6 +344,7 @@ export default function StudentCourseViewPage() {
                         className="text-primary"
                         strokeWidth="3"
                         fill="none"
+                        strokeLinecap="round"
                         stroke="currentColor"
                         strokeDasharray={`${courseProgress}, 100`}
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
@@ -344,7 +357,7 @@ export default function StudentCourseViewPage() {
                 <p className="text-sm text-muted-foreground mb-3">{allLessonsCompleted ? "¡Curso Completado!" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}</p>
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className="h-2 mb-4" />
                 <Button className="w-full" onClick={handleContinueCourse}>
-                    {allLessonsCompleted ? "Revisar Curso" : "Continuar donde lo dejaste"}
+                    {allLessonsCompleted ? "Revisar Curso" : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
             </CardContent>
           </Card>
@@ -353,3 +366,4 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
