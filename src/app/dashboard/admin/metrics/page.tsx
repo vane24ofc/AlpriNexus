@@ -2,16 +2,15 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon } from "lucide-react";
+import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare } from "lucide-react";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-  ChartStyle
 } from "@/components/ui/chart";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, Bar, BarChart as ReBarChart, LabelList } from 'recharts';
 import type { ChartConfig } from "@/components/ui/chart";
 
 const userGrowthData = [
@@ -21,6 +20,8 @@ const userGrowthData = [
   { month: "Abr", users: 81 },
   { month: "May", users: 96 },
   { month: "Jun", users: 105 },
+  { month: "Jul", users: 120 },
+  { month: "Ago", users: 135 },
 ];
 
 const userGrowthChartConfig = {
@@ -42,6 +43,19 @@ const roleChartConfig = {
   Administradores: { label: "Administradores", color: "hsl(var(--chart-3))" },
 } satisfies ChartConfig;
 
+const courseActivityData = [
+  { name: 'JS Avanzado', inscritos: 120, completados: 85, color: "hsl(var(--chart-1))" },
+  { name: 'Python para DS', inscritos: 150, completados: 95, color: "hsl(var(--chart-2))" },
+  { name: 'Diseño UX', inscritos: 90, completados: 60, color: "hsl(var(--chart-3))" },
+  { name: 'React Native', inscritos: 110, completados: 70, color: "hsl(var(--chart-4))" },
+  { name: 'Marketing Digital', inscritos: 200, completados: 130, color: "hsl(var(--chart-5))" },
+];
+
+const courseActivityChartConfig = {
+  inscritos: { label: "Inscritos", color: "hsl(var(--chart-1))" },
+  completados: { label: "Completados", color: "hsl(var(--chart-2))" },
+} satisfies ChartConfig;
+
 
 export default function AdminMetricsPage() {
   const stats = [
@@ -49,6 +63,8 @@ export default function AdminMetricsPage() {
     { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+3 esta semana" },
     { title: "Tasa de Finalización Prom.", value: "67%", icon: Award, trend: "Estable" },
     { title: "Nuevos Estudiantes (Mes)", value: "150", icon: UserPlus, trend: "+12% vs mes anterior" },
+    { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes" },
+    { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1" },
   ];
 
   return (
@@ -60,8 +76,22 @@ export default function AdminMetricsPage() {
         </h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3"> {/* Ajustado para 3 columnas en pantallas grandes */}
+        {stats.slice(0,3).map((stat) => (
+          <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <stat.icon className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground">{stat.trend}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3"> {/* Nuevo grid para la segunda fila de stats */}
+        {stats.slice(3,6).map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
@@ -75,6 +105,7 @@ export default function AdminMetricsPage() {
         ))}
       </div>
 
+
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
@@ -82,10 +113,10 @@ export default function AdminMetricsPage() {
               <TrendingUp className="mr-2 h-5 w-5 text-primary" />
               Crecimiento de Usuarios
             </CardTitle>
-            <CardDescription>Nuevos usuarios registrados en los últimos 6 meses.</CardDescription>
+            <CardDescription>Nuevos usuarios registrados en los últimos 8 meses.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={userGrowthChartConfig} className="h-[250px] w-full">
+            <ChartContainer config={userGrowthChartConfig} className="h-[280px] w-full">
               <AreaChart
                 accessibilityLayer
                 data={userGrowthData}
@@ -115,6 +146,7 @@ export default function AdminMetricsPage() {
                   fill="var(--color-users)"
                   fillOpacity={0.4}
                   stroke="var(--color-users)"
+                  stackId="a"
                 />
               </AreaChart>
             </ChartContainer>
@@ -130,14 +162,22 @@ export default function AdminMetricsPage() {
             <CardDescription>Porcentaje de usuarios por cada rol en la plataforma.</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            <ChartContainer config={roleChartConfig} className="h-[250px] w-full max-w-[300px] aspect-square">
+            <ChartContainer config={roleChartConfig} className="h-[280px] w-full max-w-[350px] aspect-square">
               <PieChart accessibilityLayer>
                 <ChartTooltip
                   content={<ChartTooltipContent hideLabel nameKey="role" />}
                 />
-                <Pie data={roleDistributionData} dataKey="value" nameKey="role" labelLine={false} label={({ percent, role }) => `${role}: ${(percent * 100).toFixed(0)}%`}>
+                <Pie 
+                    data={roleDistributionData} 
+                    dataKey="value" 
+                    nameKey="role" 
+                    labelLine={false} 
+                    label={({ percent, role, value }) => `${role}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={100}
+                    paddingAngle={2}
+                >
                   {roleDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                    <Cell key={`cell-${index}`} fill={entry.fill} stroke={entry.fill} />
                   ))}
                 </Pie>
                 <ChartLegend content={<ChartLegendContent />} />
@@ -146,6 +186,47 @@ export default function AdminMetricsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Activity className="mr-2 h-5 w-5 text-primary" />
+            Actividad de Cursos Populares
+          </CardTitle>
+          <CardDescription>Comparativa de inscritos vs. completados en los cursos más destacados.</CardDescription>
+        </CardHeader>
+        <CardContent>
+           <ChartContainer config={courseActivityChartConfig} className="h-[350px] w-full">
+            <ReBarChart
+              accessibilityLayer
+              data={courseActivityData}
+              margin={{ top: 20, right: 20, left: -10, bottom: 5 }}
+              barCategoryGap="20%"
+            >
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis
+                dataKey="name"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                angle={-15}
+                textAnchor="end"
+                height={50}
+                interval={0}
+              />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Bar dataKey="inscritos" fill="var(--color-inscritos)" radius={[4, 4, 0, 0]}>
+                 <LabelList dataKey="inscritos" position="top" offset={5} fontSize={10} />
+              </Bar>
+              <Bar dataKey="completados" fill="var(--color-completados)" radius={[4, 4, 0, 0]}>
+                <LabelList dataKey="completados" position="top" offset={5} fontSize={10} />
+              </Bar>
+            </ReBarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
     </div>
   );
 }
