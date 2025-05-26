@@ -238,12 +238,32 @@ const InstructorDashboardContent = () => {
 };
 
 // Student Dashboard Content
+interface EnrolledCourseData {
+  id: string;
+  title: string;
+  instructorName: string;
+  progress: number;
+  thumbnailUrl: string;
+  dataAiHint: string;
+}
+
 const StudentDashboardContent = () => {
-  const enrolledCourses = [
-    { id: "course-js-adv", name: "JavaScript Avanzado", instructor: "Dr. Ada Lovelace", progress: 75, image: "https://placehold.co/600x300.png?text=JS+Avanzado", dataAiHint: "javascript programming" },
-    { id: "course-python-ds", name: "Bootcamp de Desarrollo Web", instructor: "Prof. Tim Berners-Lee", progress: 40, image: "https://placehold.co/600x300.png?text=Web+Dev", dataAiHint: "web development" },
-    { id: "course-ux-design", name: "Fundamentos de Ciencia de Datos", instructor: "Dr. Alan Turing", progress: 90, image: "https://placehold.co/600x300.png?text=Data+Science", dataAiHint: "data science" },
+  // Consistent data structure for enrolled courses
+  const enrolledCourses: EnrolledCourseData[] = [
+    { id: "course-js-adv", title: "JavaScript Avanzado: Patrones y Prácticas Modernas", instructorName: "Dr. Evelyn Woods", progress: 65, thumbnailUrl: "https://placehold.co/600x300.png?text=JS+Avanzado", dataAiHint: "javascript programming" },
+    { id: "course-python-ds", title: "Python para Ciencia de Datos: De Cero a Héroe", instructorName: "Prof. Ian Stone", progress: 30, thumbnailUrl: "https://placehold.co/600x300.png?text=Python+DS", dataAiHint: "python data" },
+    { id: "course-ux-design", title: "Fundamentos del Diseño de Experiencia de Usuario (UX)", instructorName: "Ana Lima", progress: 95, thumbnailUrl: "https://placehold.co/600x300.png?text=Diseño+UX", dataAiHint: "ux design" },
+    { id: "course-react-native", title: "Desarrollo de Apps Móviles con React Native", instructorName: "Carlos Vega", progress: 100, thumbnailUrl: "https://placehold.co/600x300.png?text=React+Native", dataAiHint: "mobile development"},
   ];
+
+  let courseToContinue: EnrolledCourseData | null = null;
+  if (enrolledCourses.length > 0) {
+    const incompleteCourses = enrolledCourses.filter(course => course.progress < 100);
+    if (incompleteCourses.length > 0) {
+      incompleteCourses.sort((a, b) => a.progress - b.progress); // Sort by progress ascending
+      courseToContinue = incompleteCourses[0];
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -252,20 +272,48 @@ const StudentDashboardContent = () => {
       <Card className="shadow-xl bg-gradient-to-r from-primary/30 to-accent/30 border-primary/50">
         <CardHeader>
           <CardTitle className="text-2xl">Continuar Aprendiendo</CardTitle>
-          <CardDescription>Retoma donde lo dejaste en tu curso más reciente.</CardDescription>
+          <CardDescription>
+            {courseToContinue 
+              ? "Retoma donde lo dejaste en tu curso más reciente." 
+              : (enrolledCourses.length > 0 ? "¡Felicidades! Has completado todos tus cursos inscritos." : "Empieza tu viaje de aprendizaje.")
+            }
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col md:flex-row items-center gap-6">
-          <Image src="https://placehold.co/300x170.png" alt="Curso Reciente" width={300} height={170} className="rounded-lg shadow-md object-cover" data-ai-hint="education learning"/>
-          <div>
-            <h3 className="text-xl font-semibold">Técnicas Avanzadas de JavaScript</h3>
-            <p className="text-sm text-muted-foreground mb-1">Capítulo 5: Programación Asíncrona</p>
-            <div className="w-full bg-muted rounded-full h-2.5 mb-3">
-              <div className="bg-primary h-2.5 rounded-full" style={{ width: `60%` }}></div>
+          {courseToContinue ? (
+            <>
+              <Image 
+                src={courseToContinue.thumbnailUrl} 
+                alt={courseToContinue.title} 
+                width={300} height={170} 
+                className="rounded-lg shadow-md object-cover" 
+                data-ai-hint={courseToContinue.dataAiHint || "education learning"}
+              />
+              <div>
+                <h3 className="text-xl font-semibold">{courseToContinue.title}</h3>
+                <p className="text-sm text-muted-foreground mb-1">Por: {courseToContinue.instructorName}</p>
+                <div className="w-full bg-muted rounded-full h-2.5 mb-3">
+                  <div className="bg-primary h-2.5 rounded-full" style={{ width: `${courseToContinue.progress}%` }}></div>
+                </div>
+                <Button asChild>
+                  <Link href={`/dashboard/courses/${courseToContinue.id}/view`}>Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="text-center w-full py-4">
+              {enrolledCourses.length > 0 ? (
+                <p className="text-lg">¡Excelente trabajo! Considera explorar nuevos cursos.</p>
+              ) : (
+                <p className="text-lg">Aún no estás inscrito en ningún curso.</p>
+              )}
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/courses/explore">
+                  <Library className="mr-2 h-4 w-4" /> Explorar Catálogo de Cursos
+                </Link>
+              </Button>
             </div>
-            <Button asChild>
-              <Link href="/dashboard/courses/course-js-adv/view">Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
-            </Button>
-          </div>
+          )}
         </CardContent>
       </Card>
 
@@ -277,29 +325,38 @@ const StudentDashboardContent = () => {
             </Link>
         </Button>
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {enrolledCourses.map((course) => (
-          <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
-            <Image src={course.image} alt={course.name} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint} />
-            <CardHeader>
-              <CardTitle className="text-lg leading-tight">{course.name}</CardTitle>
-              <CardDescription>Por {course.instructor}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between text-sm text-muted-foreground mb-1">
-                <span>Progreso</span>
-                <span>{course.progress}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div className={`h-2 rounded-full ${course.progress === 100 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.progress}%` }}></div>
-              </div>
-              <Button variant="outline" size="sm" asChild className="w-full mt-4">
-                <Link href={`/dashboard/courses/${course.id}/view`}>{course.progress === 100 ? 'Ver Certificado' : 'Continuar Aprendiendo'}</Link>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {enrolledCourses.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {enrolledCourses.map((course) => (
+            <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
+              <Image src={course.thumbnailUrl} alt={course.title} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint} />
+              <CardHeader>
+                <CardTitle className="text-lg leading-tight">{course.title}</CardTitle>
+                <CardDescription>Por {course.instructorName}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                  <span>Progreso</span>
+                  <span>{course.progress}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div className={`h-2 rounded-full ${course.progress === 100 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.progress}%` }}></div>
+                </div>
+                <Button variant="outline" size="sm" asChild className="w-full mt-4">
+                  <Link href={`/dashboard/courses/${course.id}/view`}>{course.progress === 100 ? 'Revisar Curso' : 'Continuar Aprendiendo'}</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <BookOpen className="mx-auto h-12 w-12 text-muted-foreground mb-3"/>
+            <p className="text-muted-foreground">No tienes cursos inscritos en este momento.</p>
+          </CardContent>
+        </Card>
+      )}
       
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="shadow-lg">
@@ -308,10 +365,10 @@ const StudentDashboardContent = () => {
             <CardDescription>Tus estadísticas de aprendizaje.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">3</span></div>
-            <div className="flex justify-between items-center"><span>Certificados Obtenidos:</span> <span className="font-semibold">2</span></div>
-            <div className="flex justify-between items-center"><span>Puntuación Promedio:</span> <span className="font-semibold">88%</span></div>
-            <Button variant="secondary" className="w-full mt-2">Ver Estadísticas Detalladas</Button>
+            <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{enrolledCourses.filter(c => c.progress === 100).length}</span></div>
+            <div className="flex justify-between items-center"><span>Certificados Obtenidos:</span> <span className="font-semibold">{enrolledCourses.filter(c => c.progress === 100).length}</span></div>
+            <div className="flex justify-between items-center"><span>Puntuación Promedio:</span> <span className="font-semibold">88% (Simulado)</span></div>
+            <Button variant="secondary" className="w-full mt-2" disabled>Ver Estadísticas Detalladas (Próximamente)</Button>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
@@ -407,23 +464,15 @@ function AdminDashboardWrapper() {
 
 
 export default function DashboardHomePage() {
-  const { currentSessionRole, isLoadingRole } = useSessionRole();
+  const { currentSessionRole } = useSessionRole(); // isLoadingRole ya no es necesario aquí porque DashboardLayout lo maneja
 
-  if (isLoadingRole) {
+  if (!currentSessionRole) { // Esta condición es importante si currentSessionRole puede ser null inicialmente
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando panel...</p>
       </div>
     );
-  }
-
-  if (!currentSessionRole) {
-     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
-        <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
-      </div>
-     );
   }
 
   switch (currentSessionRole) {
@@ -443,13 +492,11 @@ export default function DashboardHomePage() {
   }
 }
 
-function StarIcon(props: React.SVGProps<SVGSVGElement>) {
+function StarIcon(props: React.SVGProps<SVGSVGElement>) { // renombrado para consistencia, aunque no se usa directamente aquí
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
     </svg>
   )
 }
-    
-
     
