@@ -101,7 +101,8 @@ export default function FeedbackPage() {
                   <SelectItem value="other">Otro</SelectItem>
                 </SelectContent>
               </Select>
-              {!feedbackData.type && form.formState.isSubmitted && ( // Ejemplo de cómo podrías mostrar un error específico para el select si estuvieras usando react-hook-form
+              {/* La siguiente línea causaba el error y ha sido modificada */}
+              {!feedbackData.type && isSubmitting && ( 
                  <p className="text-xs text-destructive mt-1">Este campo es requerido.</p>
               )}
             </div>
