@@ -40,7 +40,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 
-interface NavItem {
+export interface NavItem {
   id: string;
   href?: string;
   label: string;
@@ -82,12 +82,14 @@ const navItems: NavItem[] = [
       { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
     ],
   },
+   { id: 'nav-admin-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador'] }, // Direct link for admin
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
+
 
 export function AppSidebarNav() {
   const pathname = usePathname();
@@ -107,7 +109,6 @@ export function AppSidebarNav() {
           newItem.children = item.children.filter(child => {
             return !child.roles || child.roles.includes(currentSessionRole!);
           });
-          // Only push the group if it has visible children or if the group itself is a link
           if (newItem.children.length > 0) {
             acc.push(newItem);
           } else if (newItem.href) { 
@@ -130,14 +131,13 @@ export function AppSidebarNav() {
 
     const calculateNewOpenState = (): Record<string, boolean> => {
       const state: Record<string, boolean> = {};
+      // Function to recursively check items and their children
       const checkItems = (items: NavItem[], currentPath: string) => {
         items.forEach(item => {
           if (item.children && item.children.length > 0) {
             const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActiveGroup;
-            // If a group is active, check its children for nested active groups
-            // This is important if a submenu item itself is a group header for another submenu
-            if (isActiveGroup) {
+            if (isActiveGroup) { // Only check children if the group itself is determined to be active
                  checkItems(item.children, currentPath);
             }
           }
@@ -148,7 +148,7 @@ export function AppSidebarNav() {
     };
 
     const newCalculatedOpenState = calculateNewOpenState();
-    setOpenSubmenus(newCalculatedOpenState);
+    setOpenSubmenus(newCalculatedOpenState); // Always set, let React diff
 
   }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
 
@@ -236,7 +236,7 @@ export function AppSidebarNav() {
     });
   };
 
-  if (isLoadingRole) {
+  if (isLoadingRole || !currentSessionRole) {
     return (
         <Sidebar collapsible="icon">
             <SidebarHeader>
@@ -304,3 +304,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
