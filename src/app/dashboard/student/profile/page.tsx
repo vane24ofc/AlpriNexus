@@ -11,17 +11,6 @@ import { Separator } from "@/components/ui/separator";
 import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export default function StudentProfilePage() {
   const { toast } = useToast();
@@ -33,7 +22,6 @@ export default function StudentProfilePage() {
     coursesEnrolled: 5, // Ejemplo
     coursesCompleted: 2, // Ejemplo
   });
-  const [isCertificateModalOpen, setIsCertificateModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -164,14 +152,6 @@ export default function StudentProfilePage() {
             <div>
                 <h3 className="text-lg font-semibold mb-3 text-foreground">Acciones de Cuenta</h3>
                 <div className="space-y-3">
-                    <AlertDialogTrigger asChild>
-                        <Button variant="outline" className="w-full md:w-auto" onClick={() => setIsCertificateModalOpen(true)}>
-                            <Award className="mr-2 h-4 w-4" /> Ver Mis Certificados
-                        </Button>
-                    </AlertDialogTrigger>
-                    <p className="text-xs text-muted-foreground">
-                        Accede a los certificados de los cursos que has completado.
-                    </p>
                     <Button variant="destructive" className="w-full md:w-auto" disabled>
                         Eliminar Cuenta (Próximamente)
                     </Button>
@@ -183,20 +163,6 @@ export default function StudentProfilePage() {
           </CardContent>
         </Card>
       </div>
-
-      <AlertDialog open={isCertificateModalOpen} onOpenChange={setIsCertificateModalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Mis Certificados</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta funcionalidad estará disponible próximamente. Aquí podrás ver y descargar los certificados de los cursos que hayas completado con éxito.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsCertificateModalOpen(false)}>Entendido</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
