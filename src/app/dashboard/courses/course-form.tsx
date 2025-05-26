@@ -13,14 +13,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2 as AiLoader, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, AiLoader, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
-// Importación de generateCourseOutline eliminada
 import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow';
+import { generateLessonContent, type GenerateLessonContentInput } from '@/ai/flows/generate-lesson-content-flow';
+
 
 const lessonSchema = z.object({
   id: z.string().optional(),
@@ -62,10 +63,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const { currentSessionRole } = useSessionRole();
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
-  // Estado isAiGeneratingLessons eliminado
   const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false);
+  const [aiGeneratingLessonContentFor, setAiGeneratingLessonContentFor] = useState<number | null>(null);
 
-  const isAnyAiWorking = isAiGeneratingThumbnail; // Actualizado para reflejar solo la generación de miniaturas
+
+  const isAnyAiWorking = isAiGeneratingThumbnail || aiGeneratingLessonContentFor !== null;
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -85,7 +87,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({ // 'replace' no se usaba y se eliminó
     control: form.control,
     name: "lessons",
   });
@@ -143,7 +145,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
-  // Función handleGenerateOutline eliminada
 
   const handleGenerateThumbnail = async () => {
     const title = form.getValues("title");
@@ -185,6 +186,38 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       });
     } finally {
       setIsAiGeneratingThumbnail(false);
+    }
+  };
+
+  const handleGenerateLessonContent = async (lessonIndex: number) => {
+    const courseTitle = form.getValues("title");
+    const courseDescription = form.getValues("description");
+    const lessonTitle = form.getValues(`lessons.${lessonIndex}.title`);
+
+    if (!courseTitle.trim()) {
+      toast({ variant: "destructive", title: "Falta Título del Curso", description: "Por favor, introduce un título para el curso." });
+      return;
+    }
+    if (!lessonTitle.trim()) {
+      toast({ variant: "destructive", title: "Falta Título de Lección", description: `Por favor, introduce un título para la Lección ${lessonIndex + 1}.` });
+      return;
+    }
+    
+    setAiGeneratingLessonContentFor(lessonIndex);
+    try {
+      const input: GenerateLessonContentInput = { courseTitle, courseDescription, lessonTitle };
+      const result = await generateLessonContent(input);
+      if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
+        form.setValue(`lessons.${lessonIndex}.content`, result.generatedContent);
+        toast({ title: "Contenido Generado por IA", description: `Se ha añadido un borrador de contenido para la Lección ${lessonIndex + 1}.` });
+      } else {
+         toast({ variant: "destructive", title: "Error de IA", description: result.generatedContent || "La IA no pudo generar contenido para la lección." });
+      }
+    } catch (error) {
+      console.error("Error generando contenido de lección con IA:", error);
+      toast({ variant: "destructive", title: "Error de IA", description: "Ocurrió un error al generar contenido para la lección." });
+    } finally {
+      setAiGeneratingLessonContentFor(null);
     }
   };
 
@@ -256,11 +289,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   <CardTitle>Lecciones del Curso</CardTitle>
                   <CardDescription>Añade y organiza las lecciones. Debes añadir al menos una.</CardDescription>
                 </div>
-                {/* Botón de Sugerir Lecciones con IA eliminado */}
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((field, index) => {
                   const currentLessonType = form.watch(`lessons.${index}.contentType`);
+                  const isCurrentLessonAiGenerating = aiGeneratingLessonContentFor === index;
                   return (
                   <div key={field.id} className="flex flex-col gap-3 p-4 border rounded-md bg-muted/30 shadow-sm">
                     <div className="flex items-start gap-3">
@@ -310,7 +343,20 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                             name={`lessons.${index}.content`}
                             render={({ field: lessonContentField }) => (
                               <FormItem>
-                                <FormLabel>Contenido de Texto</FormLabel>
+                                <div className="flex justify-between items-center mb-1">
+                                  <FormLabel>Contenido de Texto</FormLabel>
+                                  <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={() => handleGenerateLessonContent(index)} 
+                                    disabled={formDisabled || isCurrentLessonAiGenerating || !form.getValues("title") || !form.getValues(`lessons.${index}.title`)}
+                                    className="text-xs px-2 py-1 h-auto leading-tight"
+                                  >
+                                    {isCurrentLessonAiGenerating ? <AiLoader className="animate-spin mr-1.5 h-3 w-3" /> : <Sparkles className="mr-1.5 h-3 w-3" />}
+                                    {isCurrentLessonAiGenerating ? 'Generando...' : 'IA Borrador'}
+                                  </Button>
+                                </div>
                                 <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...lessonContentField} rows={4} disabled={formDisabled}/></FormControl>
                                 <FormMessage />
                               </FormItem>
@@ -398,7 +444,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     </FormItem>
                   )}
                 />
-                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={formDisabled}>
+                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={formDisabled || !form.getValues("title") || !form.getValues("description")}>
                   {isAiGeneratingThumbnail ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
                   {isAiGeneratingThumbnail ? 'Generando...' : 'Generar Miniatura con IA'}
                 </Button>
