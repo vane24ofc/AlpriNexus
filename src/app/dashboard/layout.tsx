@@ -1,18 +1,20 @@
 
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image'; // Importar Image
+import Image from 'next/image';
 import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
-import { Loader2 } from 'lucide-react'; 
+import { FullPageLoader } from '@/components/ui/loader';
+import { Button } from '@/components/ui/button';
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
 interface SessionRoleContextType {
-  currentSessionRole: Role | null; 
+  currentSessionRole: Role | null;
+  isLoadingRole: boolean;
 }
 
 const SessionRoleContext = createContext<SessionRoleContextType | undefined>(undefined);
@@ -35,15 +37,13 @@ export default function DashboardLayout({
   const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
-    // This effect runs only on the client after mount
-    const storedRole = localStorage.getItem('sessionRole') as Role;
-    let determinedRole: Role = 'estudiante'; // Default role
+    const storedRole = localStorage.getItem('sessionRole') as Role | null;
+    let determinedRole: Role = 'estudiante'; 
 
     if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-      determinedRole = storedRole; 
+      determinedRole = storedRole;
     }
-    
-    // Path-based role detection can override or set initial if no localStorage.
+
     let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
       roleFromPath = 'administrador';
@@ -54,49 +54,52 @@ export default function DashboardLayout({
     }
 
     if (roleFromPath && roleFromPath !== determinedRole) {
-        determinedRole = roleFromPath;
-        localStorage.setItem('sessionRole', determinedRole); // Update localStorage if path dictates a change
+      determinedRole = roleFromPath;
+      if (determinedRole !== storedRole) {
+        localStorage.setItem('sessionRole', determinedRole);
+      }
     } else if (!roleFromPath && !storedRole) {
-        // If path is generic (e.g. /dashboard, /calendar) AND there was no stored role,
-        // ensure default 'estudiante' is stored.
-        localStorage.setItem('sessionRole', determinedRole); 
+      localStorage.setItem('sessionRole', 'estudiante');
+      determinedRole = 'estudiante';
     }
     
-    setCurrentSessionRole(determinedRole);
+    if (determinedRole !== currentSessionRole) {
+        setCurrentSessionRole(determinedRole);
+    }
     setIsLoadingRole(false);
+  }, [pathname]); // currentSessionRole removed from deps to prevent loops if not careful
 
-  }, [pathname]);
+  const contextValue = useMemo(() => ({
+    currentSessionRole,
+    isLoadingRole
+  }), [currentSessionRole, isLoadingRole]);
 
   if (isLoadingRole) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando panel...</p>
-      </div>
-    );
+    return <FullPageLoader message="Cargando panel..." />;
   }
   
-  if (!currentSessionRole) {
+  if (!currentSessionRole && !isLoadingRole) { // Check if role is still null after loading
      return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background selection:bg-primary/40 selection:text-white">
         <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
+        <Button onClick={() => window.location.reload()}>Recargar</Button>
       </div>
      );
   }
 
   return (
-    <SessionRoleContext.Provider value={{ currentSessionRole }}>
+    <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
         <AppSidebarNav />
         <SidebarInset>
           <AppHeader />
-          <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8"> {/* Añadido relative aquí */}
+          <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             {children}
             <Image
               src="/Logo-Manchas-SAS (2).png"
               alt="Alprigrama S.A.S"
-              width={800} // Ancho original de la imagen
-              height={742} // Alto original de la imagen
+              width={800}
+              height={742}
               className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
               data-ai-hint="brand watermark logo"
             />

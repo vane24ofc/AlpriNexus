@@ -9,7 +9,7 @@ import {
   BookOpen,
   Settings,
   GraduationCap,
-  BarChart3,
+  BarChartBig,
   FolderArchive,
   MessageSquare,
   LifeBuoy,
@@ -18,7 +18,6 @@ import {
   Shield, 
   User as UserIconLucide, 
   CalendarDays,
-  BarChartBig,
   Library,
   PlusCircle,
 } from 'lucide-react';
@@ -42,7 +41,7 @@ import { cn } from '@/lib/utils';
 import { useSessionRole, Role } from '@/app/dashboard/layout'; 
 
 interface NavItem {
-  id: string; // Added unique ID
+  id: string;
   href?: string; 
   label: string;
   icon: React.ElementType;
@@ -59,9 +58,9 @@ const navItems: NavItem[] = [
     icon: Shield, 
     roles: ['administrador'],
     children: [
-      { id: 'nav-admin-users', href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users },
-      { id: 'nav-admin-courses', href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen },
-      { id: 'nav-admin-metrics', href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig },
+      { id: 'nav-admin-users', href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users, roles: ['administrador'] },
+      { id: 'nav-admin-courses', href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen, roles: ['administrador'] },
+      { id: 'nav-admin-metrics', href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig, roles: ['administrador'] },
     ],
   },
   {
@@ -70,8 +69,8 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle },
-      { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen }, 
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor'] },
+      { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] }, 
     ],
   },
   {
@@ -80,7 +79,7 @@ const navItems: NavItem[] = [
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide },
+      { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
     ],
   },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -92,31 +91,32 @@ const navItems: NavItem[] = [
 
 export function AppSidebarNav() {
   const pathname = usePathname();
-  const { currentSessionRole } = useSessionRole(); 
+  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
+  const manualToggleRef = React.useRef<Record<string, boolean>>({});
   
   const dashboardPath = '/dashboard'; 
 
   const filteredNavItems = useMemo(() => {
-    if (!currentSessionRole) return [];
+    if (isLoadingRole || !currentSessionRole) return [];
 
     return navItems.reduce((acc, item) => {
       if (!item.roles || item.roles.includes(currentSessionRole)) {
         let newItem = { ...item };
         
-        if (newItem.label === 'Panel Principal') {
-            newItem.href = dashboardPath;
+        if (newItem.href === '/dashboard' && item.id === 'nav-panel-principal') {
+            // No special override needed here as /dashboard is the unified panel
         }
 
         if (item.children) {
           newItem.children = item.children.filter(child => {
-            if (child.roles && !child.roles.includes(currentSessionRole)) {
+            if (child.roles && !child.roles.includes(currentSessionRole!)) {
               return false;
             }
             return true;
           });
 
-          if (newItem.children.length === 0 && !newItem.href) { 
+          if (newItem.children.length === 0 && !newItem.href && item.id !== 'nav-panel-principal') { 
             return acc; 
           }
         }
@@ -124,78 +124,70 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  }, [currentSessionRole, dashboardPath]);
+  }, [currentSessionRole, isLoadingRole, dashboardPath]);
 
-  const toggleSubmenu = (label: string) => {
-    setOpenSubmenus(prev => ({ ...prev, [label]: !prev[label] }));
+  const toggleSubmenu = (itemId: string) => { // Use itemId
+    setOpenSubmenus(prev => {
+      const newState = !prev[itemId];
+      manualToggleRef.current[itemId] = true; 
+      return { ...prev, [itemId]: newState };
+    });
   };
   
   useEffect(() => {
-    const newActiveSubmenus: Record<string, boolean> = {};
-    let needsUpdate = false;
+    const nextOpenSubmenus = { ...openSubmenus };
+    let updated = false;
 
     filteredNavItems.forEach(item => {
-      if (item.children && item.children.length > 0) {
-        const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-        const isParentEffectivelyActive = item.href && pathname === item.href;
+        if (item.children && item.children.length > 0) {
+            const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href));
+            const isParentItselfActive = item.href && pathname === item.href;
+            const shouldBeOpenDueToRoute = isChildActive || isParentItselfActive;
 
-        if (isChildActive || isParentEffectivelyActive) {
-          if (!openSubmenus[item.label]) {
-            needsUpdate = true;
-          }
-          newActiveSubmenus[item.label] = true;
-        } else if (openSubmenus[item.label]) {
-           // If submenu was open but no longer active, consider it for closing
-           // (This part can be tricky to avoid closing manually opened submenus)
+            if (shouldBeOpenDueToRoute && !nextOpenSubmenus[item.id] && !manualToggleRef.current[item.id]) {
+                nextOpenSubmenus[item.id] = true;
+                updated = true;
+            }
+            // Optionally auto-close if not active and not manually toggled:
+            // else if (!shouldBeOpenDueToRoute && nextOpenSubmenus[item.id] && !manualToggleRef.current[item.id]) {
+            //     nextOpenSubmenus[item.id] = false;
+            //     updated = true;
+            // }
         }
-      }
     });
-    
-    // Check if any currently open submenu is no longer active and wasn't manually toggled (hard to detect)
-    // For simplicity, focus on auto-opening active ones
-    for (const label in openSubmenus) {
-        if (openSubmenus[label] && !newActiveSubmenus[label]) {
-            // If a menu was open, but its associated path is not active anymore,
-            // it MIGHT be a candidate for closing. This logic can be complex.
-            // For now, we'll primarily focus on auto-opening.
-        }
-    }
 
-
-    if (needsUpdate) {
-      setOpenSubmenus(prevOpenSubmenus => {
-        const updatedState = { ...prevOpenSubmenus };
-        for (const label in newActiveSubmenus) {
-          updatedState[label] = true; 
-        }
-        return updatedState;
-      });
+    if (updated) {
+        setOpenSubmenus(nextOpenSubmenus);
     }
-  }, [pathname, filteredNavItems, openSubmenus]);
+    // Reset manual toggle tracker after each path change effect
+    // This ensures that route-based auto-opening works again if user navigates away and back
+    manualToggleRef.current = {}; 
+
+  }, [pathname, filteredNavItems]); // openSubmenus removed from deps to make this effect primarily about route changes
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
-      if (item.children && item.children.length === 0 && !item.href) {
+      if (item.id !== 'nav-panel-principal' && item.children && item.children.length === 0 && !item.href) {
+         // Don't render empty groups unless it's the main panel link
         return null;
       }
 
-      const effectiveHref = item.href || (item.label === 'Panel Principal' ? dashboardPath : undefined);
+      const effectiveHref = item.href || (item.id === 'nav-panel-principal' ? dashboardPath : undefined);
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        const isOpen = openSubmenus[item.label] || false;
+        const isOpen = openSubmenus[item.id] || false; // Use item.id
 
         const isGroupActive = (effectiveHref && pathname === effectiveHref) || 
                               item.children.some(child => child.href && pathname.startsWith(child.href as string));
         
         const isActiveForButton = effectiveHref ? (pathname === effectiveHref) : isGroupActive;
 
-
         return (
-          <SidebarMenuItem key={item.id}> {/* USE item.id AS KEY */}
+          <SidebarMenuItem key={item.id}>
             <Comp
-              onClick={() => toggleSubmenu(item.label)}
+              onClick={() => toggleSubmenu(item.id)} // Use item.id
               className="justify-between"
               isActive={isActiveForButton}
               aria-expanded={isOpen}
@@ -218,24 +210,41 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      // More precise isActive check for top-level items
-      let isActive;
-      if (effectiveHref === dashboardPath) {
-        // For /dashboard, only active if it's exactly /dashboard or /dashboard/
-        // OR if it's one of the specific role paths that now map to /dashboard for content
-        const isExactDashboard = pathname === dashboardPath || pathname === `${dashboardPath}/`;
-        const isRoleDashboard = (currentSessionRole === 'administrador' && pathname.startsWith('/dashboard/admin')) ||
-                                (currentSessionRole === 'instructor' && pathname.startsWith('/dashboard/instructor')) ||
-                                (currentSessionRole === 'estudiante' && pathname.startsWith('/dashboard/student') && !pathname.startsWith('/dashboard/student/profile'));
-        isActive = isExactDashboard && !isRoleDashboard; // Panel principal es activo si es /dashboard y no una subruta de rol
-      } else {
-          isActive = pathname === effectiveHref || 
-                     (pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath);
+      let isActive = pathname === effectiveHref || (pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath);
+      
+      if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
+        // Special handling for the main "Panel Principal" link
+        // It's active if the pathname is exactly /dashboard, or /dashboard/admin, /dashboard/instructor, /dashboard/student
+        // (since /dashboard now shows role-specific content)
+        isActive = pathname === dashboardPath || 
+                     pathname.startsWith(`${dashboardPath}/admin`) || 
+                     pathname.startsWith(`${dashboardPath}/instructor`) ||
+                     pathname.startsWith(`${dashboardPath}/student`);
+         // Make sure it's not active if a more specific child of /dashboard is active, like /dashboard/settings
+        if (pathname !== dashboardPath && (
+            pathname.startsWith(`${dashboardPath}/admin/`) ||
+            pathname.startsWith(`${dashboardPath}/instructor/`) ||
+            pathname.startsWith(`${dashboardPath}/student/profile`) || // Example of more specific student route
+            pathname.startsWith(`${dashboardPath}/courses/`) ||
+            pathname.startsWith(`${dashboardPath}/calendar`) ||
+            pathname.startsWith(`${dashboardPath}/resources`) ||
+            pathname.startsWith(`${dashboardPath}/settings`)
+            ) && !isActive // if already active due to /admin etc, keep it
+        ) {
+            // If we are on a sub-page like /dashboard/settings, "Panel Principal" should not be active
+            // unless the current role's main dashboard IS /dashboard (which it is for all now)
+            // The previous complex logic for isActive might be better:
+            // The main "Panel Principal" link should only be active if pathname is exactly /dashboard
+            // OR if the user is on their role's specific base path (/dashboard/admin, /dashboard/instructor, /dashboard/student)
+            // which now all resolve to /dashboard.
+             isActive = pathname === dashboardPath; // Simplified: active only if exactly /dashboard
+        }
+
       }
 
 
       return (
-        <SidebarMenuItem key={item.id}> {/* USE item.id AS KEY */}
+        <SidebarMenuItem key={item.id}>
           <Comp
             asChild
             isActive={isActive}
@@ -259,7 +268,7 @@ export function AppSidebarNav() {
     });
   };
 
-  if (!currentSessionRole) {
+  if (isLoadingRole) {
     return (
       <Sidebar collapsible="icon">
          <SidebarHeader>
@@ -268,8 +277,11 @@ export function AppSidebarNav() {
             <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
             </Link>
         </SidebarHeader>
-        <SidebarContent>
-            {/* Puedes poner un skeleton loader aquí si lo deseas */}
+        <SidebarContent className="p-2">
+            {/* Skeleton for loading state */}
+            {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-8 w-full bg-muted/50 rounded-md animate-pulse mb-2" />
+            ))}
         </SidebarContent>
       </Sidebar>
     );
