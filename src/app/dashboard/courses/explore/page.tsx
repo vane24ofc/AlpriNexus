@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation'; // Importar useSearchParams
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,6 @@ import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 
 // Usaremos una lista consolidada de cursos de ejemplo que podrían estar "aprobados"
-// Esta lista podría eventualmente venir de un contexto o servicio si se comparte entre más páginas.
 export const allPlatformCourses: Course[] = [
   { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', description: 'Domina los conceptos avanzados de JavaScript, incluyendo promesas, async/await, patrones de diseño y optimización de rendimiento.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Dr. Evelyn Woods', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'javascript programming' },
   { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', description: 'Un curso completo que te llevará desde los fundamentos de Python hasta la aplicación de técnicas de ciencia de datos.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Ian Stone', status: 'approved', lessons: [{id: 'l1', title: 'Intro', content: 'Contenido de la lección 1'}], dataAiHint: 'python data' },
@@ -27,12 +27,13 @@ const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
-  const [searchTerm, setSearchTerm] = useState('');
+  const searchParams = useSearchParams(); // Hook para leer parámetros de URL
+  const initialSearchTerm = searchParams.get('search') || ''; // Obtener 'search' de la URL
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    // Cargar IDs de cursos inscritos desde localStorage al montar
     const storedEnrolledIds = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
     if (storedEnrolledIds) {
       try {
@@ -42,12 +43,21 @@ export default function ExploreCoursesPage() {
         }
       } catch (error) {
         console.error("Error al parsear IDs de cursos inscritos desde localStorage:", error);
-        setEnrolledCourseIds(new Set()); // Resetear si hay error
+        setEnrolledCourseIds(new Set()); 
       }
     }
   }, []);
 
-  // Filtramos solo los cursos aprobados para el catálogo
+  // Actualizar el término de búsqueda si cambia en la URL
+  useEffect(() => {
+    const urlSearchTerm = searchParams.get('search') || '';
+    if (urlSearchTerm !== searchTerm) {
+        setSearchTerm(urlSearchTerm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+
   const approvedCourses = useMemo(() => allPlatformCourses.filter(course => course.status === 'approved'), []);
 
   const filteredCourses = useMemo(() => {
@@ -63,10 +73,12 @@ export default function ExploreCoursesPage() {
   }, [approvedCourses, searchTerm]);
 
   const handleEnroll = (courseId: string, courseTitle: string) => {
-    const newEnrolledIds = new Set(enrolledCourseIds);
-    newEnrolledIds.add(courseId);
-    setEnrolledCourseIds(newEnrolledIds);
-    localStorage.setItem(LOCAL_STORAGE_ENROLLED_KEY, JSON.stringify(Array.from(newEnrolledIds)));
+    setEnrolledCourseIds(prevIds => {
+      const newIds = new Set(prevIds);
+      newIds.add(courseId);
+      localStorage.setItem(LOCAL_STORAGE_ENROLLED_KEY, JSON.stringify(Array.from(newIds)));
+      return newIds;
+    });
     toast({
       title: "¡Inscripción Exitosa! (Simulada)",
       description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
@@ -207,5 +219,3 @@ export default function ExploreCoursesPage() {
     </div>
   );
 }
-
-    

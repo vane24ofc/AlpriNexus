@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation'; 
+import React, { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,39 +25,59 @@ export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
   const { currentSessionRole } = useSessionRole(); 
+  const [searchTerm, setSearchTerm] = useState('');
 
-  let roleDisplay: string = "Usuario"; 
-  let profileLinkPath: string = "/dashboard"; // Perfil para admin e instructor es ahora /dashboard
-  const dashboardPath: string = "/dashboard"; // Todos los roles van a /dashboard
+  let roleDisplay: string = "Estudiante"; 
+  let profileLinkPath: string = "/dashboard/student/profile";
+  let dashboardPath: string = "/dashboard";
 
   switch (currentSessionRole) {
     case 'administrador':
       roleDisplay = 'Administrador';
-      // Perfil de admin es su propio dashboard, que ahora es /dashboard
-      // Si tuvieras una página /dashboard/admin/profile dedicada, se usaría aquí.
       profileLinkPath = '/dashboard'; 
+      dashboardPath = '/dashboard';
       break;
     case 'instructor':
       roleDisplay = 'Instructor';
-      // Perfil de instructor es su propio dashboard, que ahora es /dashboard
-      // Si tuvieras una página /dashboard/instructor/profile dedicada, se usaría aquí.
       profileLinkPath = '/dashboard';
+      dashboardPath = '/dashboard';
       break;
     case 'estudiante':
       roleDisplay = 'Estudiante';
-      profileLinkPath = '/dashboard/student/profile'; // Estudiante sí tiene página de perfil dedicada
+      profileLinkPath = '/dashboard/student/profile'; 
+      dashboardPath = '/dashboard';
       break;
     default:
-      roleDisplay = "Estudiante"; // Fallback
+      // Default to student if role is somehow null or undefined initially
+      roleDisplay = "Estudiante"; 
       profileLinkPath = '/dashboard/student/profile'; 
+      dashboardPath = '/dashboard';
   }
   
-  // Simulación de datos de usuario. En una app real, vendría de la sesión/autenticación.
-  const user = { name: 'Usuario Demo', email: `${currentSessionRole}@example.com`, role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
+  const user = { name: `${roleDisplay} Usuario`, email: `${currentSessionRole || 'student'}@example.com`, role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
 
   const handleLogout = () => {
-    // Aquí iría la lógica de logout real (limpiar sesión, cookies, etc.)
+    localStorage.removeItem('sessionRole'); // Clear the role on logout
     router.push('/login');
+  };
+
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!searchTerm.trim()) return;
+
+    if (currentSessionRole === 'estudiante') {
+      router.push(`/dashboard/courses/explore?search=${encodeURIComponent(searchTerm.trim())}`);
+    } else if (currentSessionRole === 'administrador') {
+      // Placeholder for admin search (e.g., users or all courses)
+      // For now, could also go to explore or a specific admin search page if created
+      router.push(`/dashboard/courses/explore?search=${encodeURIComponent(searchTerm.trim())}`); 
+      console.log("Admin search for:", searchTerm.trim());
+    } else if (currentSessionRole === 'instructor') {
+      // Placeholder for instructor search (e.g., their own courses)
+      console.log("Instructor search for:", searchTerm.trim());
+    }
+    // Optionally clear search term after submission
+    // setSearchTerm(''); 
   };
 
   const getRoleIcon = (role: string) => {
@@ -81,13 +102,15 @@ export function AppHeader() {
          </Link>
       )}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-        <form className="ml-auto flex-1 sm:flex-initial">
+        <form className="ml-auto flex-1 sm:flex-initial" onSubmit={handleSearchSubmit}>
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Buscar cursos, usuarios..."
+              placeholder="Buscar cursos..."
               className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-input"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
         </form>
