@@ -11,40 +11,50 @@ import { Badge } from '@/components/ui/badge';
 import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 // Simulación de cursos creados por el instructor actual
 const sampleInstructorCourses: Course[] = [
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Next.js', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png?text=MongoDB', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png?text=UX', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse4', title: 'Marketing de Contenidos para Redes Sociales', description: 'Estrategias de contenido efectivas.', thumbnailUrl: 'https://placehold.co/150x84.png?text=Marketing', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs web', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'mongodb database', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux design', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse4', title: 'Marketing de Contenidos para Redes Sociales', description: 'Estrategias de contenido efectivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'social media marketing', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
 ];
+
+type CourseStatus = 'pending' | 'approved' | 'rejected';
+interface StatusInfo {
+  text: string;
+  icon: React.ElementType;
+  variant: "default" | "secondary" | "destructive" | "outline" | null | undefined;
+  className: string;
+}
+
 
 export default function MyCoursesPage() {
   const { toast } = useToast();
   const [courses, setCourses] = useState<Course[]>(sampleInstructorCourses);
+  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
 
-  // Simulación de eliminación (en una app real, sería una llamada API)
-  const handleDeleteCourse = (courseId: string) => {
-    const courseTitle = courses.find(c => c.id === courseId)?.title;
-    setCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
-    toast({
-      title: "Curso Eliminado (Simulado)",
-      description: `El curso "${courseTitle}" ha sido eliminado de tu lista.`,
-      variant: "destructive"
-    });
-  };
-  
-  const getStatusInfo = (status: 'pending' | 'approved' | 'rejected') => {
+  const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
       case 'approved':
-        return { text: 'Aprobado', icon: CheckCircle, className: 'bg-accent text-accent-foreground hover:bg-accent/90' };
+        return { text: 'Aprobado', icon: CheckCircle, variant: 'default', className: 'bg-accent text-accent-foreground hover:bg-accent/90' };
       case 'pending':
-        return { text: 'Pendiente de Revisión', icon: AlertTriangle, className: 'bg-yellow-500 text-white hover:bg-yellow-600' };
+        return { text: 'Pendiente de Revisión', icon: AlertTriangle, variant: 'default', className: 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' };
       case 'rejected':
-        return { text: 'Rechazado', icon: XCircle, className: 'bg-destructive text-destructive-foreground hover:bg-destructive/90' };
+        return { text: 'Rechazado', icon: XCircle, variant: 'destructive', className: '' };
       default:
-        return { text: 'Desconocido', icon: AlertTriangle, className: 'bg-gray-500 text-white' };
+        return { text: 'Desconocido', icon: AlertTriangle, variant: 'secondary', className: 'bg-gray-500 text-white' };
     }
   };
 
@@ -96,7 +106,7 @@ export default function MyCoursesPage() {
                           width={80} 
                           height={45} 
                           className="rounded-md object-cover" 
-                          data-ai-hint="course thumbnail education"
+                          data-ai-hint={course.dataAiHint || "course thumbnail education"}
                         />
                       </TableCell>
                       <TableCell className="font-medium max-w-xs truncate">
@@ -104,7 +114,7 @@ export default function MyCoursesPage() {
                         <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
-                        <Badge variant="secondary" className={statusInfo.className}>
+                        <Badge variant={statusInfo.variant} className={statusInfo.className}>
                           <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
                           {statusInfo.text}
                         </Badge>
@@ -123,9 +133,11 @@ export default function MyCoursesPage() {
                             <Edit3 className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas (Próximamente)">
-                          <BarChart2 className="h-4 w-4" />
-                        </Button>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => setIsStatsModalOpen(true)}>
+                            <BarChart2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
                       </TableCell>
                     </TableRow>
                   );
@@ -135,8 +147,20 @@ export default function MyCoursesPage() {
           )}
         </CardContent>
       </Card>
+      
+      <AlertDialog open={isStatsModalOpen} onOpenChange={setIsStatsModalOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estadísticas del Curso</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta funcionalidad estará disponible próximamente. Aquí podrás ver el rendimiento y la participación de tus estudiantes en este curso.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsStatsModalOpen(false)}>Entendido</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-    
