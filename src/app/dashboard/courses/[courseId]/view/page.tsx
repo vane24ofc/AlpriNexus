@@ -75,6 +75,8 @@ export default function StudentCourseViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
+  const [quizStarted, setQuizStarted] = useState<Record<string, boolean>>({});
+
 
   useEffect(() => {
     if (courseId) {
@@ -172,6 +174,15 @@ export default function StudentCourseViewPage() {
     }
   };
 
+  const handleStartQuiz = (lessonId: string) => {
+    setQuizStarted(prev => ({ ...prev, [lessonId]: true }));
+    toast({
+        title: "Quiz Iniciado (Simulación)",
+        description: "Has comenzado el quiz. ¡Mucha suerte!",
+    });
+    // En una aplicación real, aquí se redirigiría a una interfaz de quiz o se cargaría contenido de quiz.
+  };
+
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text'; 
     switch (contentType) {
@@ -202,6 +213,7 @@ export default function StudentCourseViewPage() {
           </div>
         );
       case 'quiz':
+        const isStarted = quizStarted[lesson.id];
         return (
           <div className="p-4 bg-muted/70 rounded-md space-y-3">
             <div className="flex items-center text-primary">
@@ -209,7 +221,14 @@ export default function StudentCourseViewPage() {
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
             <p className="text-sm text-muted-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
-            <Button variant="outline" disabled>Comenzar Quiz (Próximamente)</Button>
+            <Button 
+              variant="outline" 
+              onClick={() => handleStartQuiz(lesson.id)}
+              disabled={isStarted}
+            >
+              {isStarted ? "Quiz en Progreso..." : "Comenzar Quiz"}
+            </Button>
+            {isStarted && <p className="text-xs text-green-600 mt-2">Has iniciado este quiz. Completa las preguntas en la interfaz del quiz (simulado).</p>}
           </div>
         );
       case 'text':
@@ -390,4 +409,6 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+    
+
     
