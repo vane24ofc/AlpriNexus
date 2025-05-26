@@ -25,22 +25,25 @@ import { es } from 'date-fns/locale';
 
 interface CalendarEvent {
   id: string;
-  date: Date;
+  date: Date; // Store as Date object in component state
   title: string;
   description?: string;
 }
 
+// For localStorage, we'll store dates as ISO strings
+interface StoredCalendarEvent {
+  id: string;
+  date: string; // ISO string
+  title: string;
+  description?: string;
+}
+
+const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
+
 export default function CalendarPage() {
   const { currentSessionRole } = useSessionRole();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [events, setEvents] = useState<CalendarEvent[]>([
-    {
-      id: 'sample1',
-      date: startOfDay(new Date()), // Evento de ejemplo para hoy
-      title: 'Reunión de Planificación Semanal',
-      description: 'Discutir tareas y objetivos para la próxima semana.'
-    }
-  ]);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Form state for new event
@@ -48,8 +51,53 @@ export default function CalendarPage() {
   const [newEventDescription, setNewEventDescription] = useState('');
   const [eventDateForDialog, setEventDateForDialog] = useState<Date>(new Date());
 
+  // Load events from localStorage on initial render
+  useEffect(() => {
+    const storedEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
+    if (storedEventsString) {
+      try {
+        const storedEvents: StoredCalendarEvent[] = JSON.parse(storedEventsString);
+        const loadedEvents: CalendarEvent[] = storedEvents.map(event => ({
+          ...event,
+          date: startOfDay(parseISO(event.date)), // Ensure date is consistently start of day
+        }));
+        setEvents(loadedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()));
+      } catch (error) {
+        console.error("Error al cargar eventos del calendario desde localStorage:", error);
+        // Initialize with a sample event if loading fails or no events stored
+        setEvents([
+          {
+            id: 'sample1',
+            date: startOfDay(new Date()),
+            title: 'Reunión de Planificación Semanal',
+            description: 'Discutir tareas y objetivos para la próxima semana.'
+          }
+        ]);
+      }
+    } else {
+      // Initialize with a sample event if nothing in localStorage
+       setEvents([
+        {
+          id: 'sample1',
+          date: startOfDay(new Date()),
+          title: 'Reunión de Planificación Semanal',
+          description: 'Discutir tareas y objetivos para la próxima semana.'
+        }
+      ]);
+    }
+  }, []);
+
+  // Save events to localStorage whenever events state changes
+  useEffect(() => {
+    const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
+      ...event,
+      date: event.date.toISOString(), // Store date as ISO string
+    }));
+    localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
+  }, [events]);
+
+
   const handleOpenDialog = () => {
-    // Set date for dialog to selectedDate or today when dialog is opened
     setEventDateForDialog(startOfDay(selectedDate || new Date()));
     setNewEventTitle('');
     setNewEventDescription('');
@@ -63,7 +111,7 @@ export default function CalendarPage() {
     }
     const newEvent: CalendarEvent = {
       id: crypto.randomUUID(),
-      date: startOfDay(eventDateForDialog), // Ensure only date part is stored consistently
+      date: startOfDay(eventDateForDialog), 
       title: newEventTitle.trim(),
       description: newEventDescription.trim(),
     };
@@ -138,7 +186,7 @@ export default function CalendarPage() {
                         id="event-date"
                         type="date"
                         value={format(eventDateForDialog, 'yyyy-MM-dd')}
-                        onChange={(e) => setEventDateForDialog(parseISO(e.target.value))}
+                        onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))}
                         className="col-span-3"
                     />
                  </div>
