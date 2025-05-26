@@ -99,12 +99,12 @@ export default function StudentCourseViewPage() {
           foundCourse.lessons.forEach(lesson => {
             if (lesson.contentType === 'quiz') {
               initialQuizState[lesson.id] = { started: false, answered: false, selectedOption: null };
-              // Si está completada, se considera lista (aunque el botón estará disabled)
               if (initialCompleted.has(lesson.id)) {
                 initialReadyForCompletion.add(lesson.id);
+                 // Si la lección está completa, asumimos que el quiz fue respondido para la UI
+                initialQuizState[lesson.id] = { started: true, answered: true, selectedOption: 'Simulado' };
               }
             } else {
-                 // Si ya está completada, se considera lista
                  if (initialCompleted.has(lesson.id)) {
                     initialReadyForCompletion.add(lesson.id);
                 }
@@ -134,7 +134,6 @@ export default function StudentCourseViewPage() {
         setIsLoading(false);
       }, 500);
     }
-     // Cleanup timers on unmount
     return () => {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
@@ -215,7 +214,6 @@ export default function StudentCourseViewPage() {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
     const currentActiveLessonIdKey = value?.replace('lesson-', '');
 
-    // Clear timer for previously active lesson if it exists
     if (prevActiveLessonIdKey && engagementTimersRef.current[prevActiveLessonIdKey]) {
       if (!lessonsReadyForCompletion.has(prevActiveLessonIdKey) && !completedLessons.has(prevActiveLessonIdKey)) {
         clearTimeout(engagementTimersRef.current[prevActiveLessonIdKey]);
@@ -241,13 +239,7 @@ export default function StudentCourseViewPage() {
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text'; 
-    const isCompleted = completedLessons.has(lesson.id);
-    let isEngagementMet = lessonsReadyForCompletion.has(lesson.id);
-    if (lesson.contentType === 'quiz' && quizState[lesson.id]?.answered) {
-        isEngagementMet = true;
-    }
-    if (isCompleted) isEngagementMet = true; // If already completed, engagement is implicitly met for button state
-
+    const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
 
     switch (contentType) {
       case 'video':
@@ -277,7 +269,6 @@ export default function StudentCourseViewPage() {
           </div>
         );
       case 'quiz':
-        const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
         return (
           <div className="p-4 bg-muted/70 rounded-md space-y-4">
             <div className="flex items-center text-primary">
@@ -289,6 +280,7 @@ export default function StudentCourseViewPage() {
               <Button 
                 variant="outline" 
                 onClick={() => handleStartQuiz(lesson.id)}
+                disabled={completedLessons.has(lesson.id)} // Disable if lesson is already marked complete
               >
                 Comenzar Quiz
               </Button>
@@ -299,7 +291,7 @@ export default function StudentCourseViewPage() {
                   <Button
                     variant={currentQuizState.selectedOption === 'Opción A' ? 'default' : 'outline'}
                     onClick={() => handleAnswerQuiz(lesson.id, 'Opción A')}
-                    disabled={currentQuizState.answered}
+                    disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
                     className="flex-1"
                   >
                     Opción A
@@ -307,7 +299,7 @@ export default function StudentCourseViewPage() {
                   <Button
                     variant={currentQuizState.selectedOption === 'Opción B' ? 'default' : 'outline'}
                     onClick={() => handleAnswerQuiz(lesson.id, 'Opción B')}
-                    disabled={currentQuizState.answered}
+                    disabled={currentQuizState.answered || completedLessons.has(lesson.id)}
                     className="flex-1"
                   >
                     Opción B
@@ -398,11 +390,14 @@ export default function StudentCourseViewPage() {
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
                     let isEngagementMetForButton = lessonsReadyForCompletion.has(lesson.id);
-                    if (lesson.contentType === 'quiz' && quizState[lesson.id]?.answered) {
-                        isEngagementMetForButton = true;
+                    
+                    // For quizzes, engagement is met if the quiz has been answered or if the lesson is already marked complete.
+                    if (lesson.contentType === 'quiz') {
+                       isEngagementMetForButton = quizState[lesson.id]?.answered || isCompleted;
+                    } else if (isCompleted) {
+                       isEngagementMetForButton = true; // If already completed, engagement is met for text/video.
                     }
-                    // If already completed, engagement is met for button state, but button will be disabled due to completion.
-                    // The primary control is isCompleted. If not completed, then isEngagementMetForButton matters.
+                    
                     const buttonDisabled = isCompleted || !isEngagementMetForButton;
 
                     return (
@@ -504,4 +499,6 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+    
+
     
