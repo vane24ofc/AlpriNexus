@@ -517,8 +517,8 @@ export default function StudentCourseViewPage() {
                     </div>
                 </div>
                 {/* Status Text Paragraph */}
-                <p className={`relative text-sm font-semibold ${allLessonsCompleted ? "text-accent -mt-1 mb-2" : "text-muted-foreground mt-1 mb-2"}`}>
-                    {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}
+                <p className={`text-sm ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground font-medium"} mt-1 mb-2`}>
+                    {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
                 
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-2.5 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
@@ -532,4 +532,6 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+    
+
     
