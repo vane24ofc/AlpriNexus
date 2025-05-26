@@ -1,13 +1,14 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
-import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus } from 'lucide-react';
+import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Role } from '@/app/dashboard/layout';
@@ -21,7 +22,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { Input } from '@/components/ui/input';
 
 interface User {
   id: string;
@@ -39,6 +41,8 @@ const sampleUsers: User[] = [
   { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
   { id: 'user4', name: 'Ana Otro-Estudiante', email: 'student2@example.com', role: 'estudiante', joinDate: '2023-05-01', avatarUrl: 'https://placehold.co/40x40.png?text=AE', status: 'inactive' },
   { id: 'user5', name: 'Roberto Instructor-Jefe', email: 'head.instructor@example.com', role: 'instructor', joinDate: '2023-01-25', status: 'active' },
+  { id: 'user6', name: 'Laura López', email: 'laura.lopez@example.com', role: 'estudiante', joinDate: '2023-06-10', avatarUrl: 'https://placehold.co/40x40.png?text=LL', status: 'active' },
+  { id: 'user7', name: 'Pedro Martinez', email: 'pedro.m@example.com', role: 'instructor', joinDate: '2023-07-01', status: 'inactive' },
 ];
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -48,12 +52,35 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
 };
 
 export default function AdminUsersPage() {
+  const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get('search') || '';
+  
   const [users, setUsers] = useState<User[]>(sampleUsers);
   const { toast } = useToast();
   const [userToModify, setUserToModify] = useState<User | null>(null);
   const [actionType, setActionType] = useState<'delete' | 'changeRole' | null>(null);
   const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 
+  useEffect(() => {
+    // Sincronizar el término de búsqueda si cambia en la URL
+    const urlSearchTerm = searchParams.get('search') || '';
+    if (urlSearchTerm !== searchTerm) {
+      setSearchTerm(urlSearchTerm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return users;
+    }
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    return users.filter(user =>
+      user.name.toLowerCase().includes(lowercasedSearchTerm) ||
+      user.email.toLowerCase().includes(lowercasedSearchTerm)
+    );
+  }, [users, searchTerm]);
 
   const openDialog = (user: User, type: 'delete' | 'changeRole', newRole?: Role) => {
     setUserToModify(user);
@@ -111,13 +138,29 @@ export default function AdminUsersPage() {
         <CardHeader>
           <CardTitle>Listado de Usuarios</CardTitle>
           <CardDescription>
-            Visualiza y gestiona todos los usuarios registrados en la plataforma AlpriNexus.
+            Visualiza, gestiona y busca usuarios registrados en AlpriNexus.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No hay usuarios registrados.</p>
+          <div className="mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar por nombre o correo electrónico..."
+                className="pl-10 w-full md:w-1/2 lg:w-1/3"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {filteredUsers.length === 0 ? (
+            <p className="py-8 text-center text-muted-foreground">
+              {searchTerm ? `No se encontraron usuarios para "${searchTerm}".` : "No hay usuarios registrados."}
+            </p>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -131,7 +174,7 @@ export default function AdminUsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((user) => {
+                {filteredUsers.map((user) => {
                   const roleInfo = roleDisplayInfo[user.role];
                   const RoleIcon = roleInfo.icon;
                   return (
@@ -142,18 +185,18 @@ export default function AdminUsersPage() {
                           <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('').toUpperCase()}</AvatarFallback>
                         </Avatar>
                       </TableCell>
-                      <TableCell className="font-medium max-w-xs truncate">
+                      <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate">
                         {user.name}
                         <p className="text-xs text-muted-foreground md:hidden">{user.email}</p>
                       </TableCell>
-                      <TableCell className="hidden sm:table-cell max-w-xs truncate">{user.email}</TableCell>
+                      <TableCell className="hidden sm:table-cell max-w-[150px] sm:max-w-xs truncate">{user.email}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={`text-xs ${roleInfo.badgeClass} border-current`}>
+                        <Badge variant="outline" className={`text-xs ${roleInfo.badgeClass} border-current whitespace-nowrap`}>
                           <RoleIcon className="mr-1.5 h-3.5 w-3.5" />
                           {roleInfo.label}
                         </Badge>
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
+                      <TableCell className="hidden lg:table-cell whitespace-nowrap">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
                           {user.status === 'active' ? 'Activo' : 'Inactivo'}
@@ -203,6 +246,7 @@ export default function AdminUsersPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -236,5 +280,6 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+    
 
     
