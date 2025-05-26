@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,18 +40,49 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Course } from '@/types/course';
-import { allPlatformCourses } from '@/app/dashboard/courses/explore/page';
 import { Badge } from '@/components/ui/badge';
+
+// Keys for localStorage
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: Role;
+  joinDate: string;
+  avatarUrl?: string;
+  status: 'active' | 'inactive';
+}
 
 
 // Admin Dashboard Content
-const AdminDashboardContent = () => {
+interface AdminDashboardContentProps {
+  allUsers: User[];
+  allCourses: Course[];
+}
+const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses }) => {
+  const userCount = allUsers.length;
+  const activeCourseCount = allCourses.filter(c => c.status === 'approved').length;
+
   const stats = [
-    { title: "Usuarios Totales", value: "1,523", icon: Users, trend: "+5% desde el mes pasado" },
-    { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+2 nuevos esta semana" },
+    { title: "Usuarios Totales", value: userCount.toString(), icon: Users, trend: "+5% desde el mes pasado" },
+    { title: "Cursos Activos", value: activeCourseCount.toString(), icon: BookOpen, trend: "+2 nuevos esta semana" },
     { title: "Salud del Sistema", value: "Óptima", icon: Settings, trend: "Todos los sistemas operativos" },
     { title: "Tasa de Participación", value: "78%", icon: BarChart3, trend: "Aumento del 3%" },
   ];
+
+  // Example recent activity - in a real app, this would come from a backend
+  const recentActivities = [
+    { user: "Alice", action: "registró una nueva cuenta.", time: "hace 5m" },
+    { user: "Bob (Instructor)", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
+    { user: "Charlie", action: "completó 'Introducción a Python'.", time: "hace 2h" },
+    { user: "System", action: "mantenimiento programado para mañana.", time: "hace 4h" },
+  ];
+
 
   return (
     <div className="space-y-6">
@@ -80,12 +111,7 @@ const AdminDashboardContent = () => {
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
-              {[
-                { user: "Alice", action: "registró una nueva cuenta.", time: "hace 5m" },
-                { user: "Bob (Instructor)", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
-                { user: "Charlie", action: "completó 'Introducción a Python'.", time: "hace 2h" },
-                { user: "System", action: "mantenimiento programado para mañana.", time: "hace 4h" },
-              ].map((activity) => (
+              {recentActivities.map((activity) => (
                 <li key={activity.user + activity.time} className="flex items-center space-x-3 text-sm">
                   <Users className="h-4 w-4 text-primary" />
                   <div>
@@ -135,21 +161,37 @@ const AdminDashboardContent = () => {
   );
 };
 
+
 // Instructor Dashboard Content
-const instructorSampleCourses: Course[] = [
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
-];
+interface InstructorDashboardContentProps {
+  allCourses: Course[];
+}
 
+const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ allCourses }) => {
+  // Simulate current instructor - in a real app, this would come from session
+  const currentInstructorName = "Usuario Actual (Instructor)"; 
 
-const InstructorDashboardContent = () => {
+  const instructorCourses = useMemo(() => 
+    allCourses.filter(c => c.instructorName === currentInstructorName),
+    [allCourses, currentInstructorName]
+  );
+
+  const pendingReviewCount = instructorCourses.filter(c => c.status === 'pending').length;
+
   const stats = [
-    { title: "Mis Cursos", value: instructorSampleCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder
-    { title: "Revisiones Pendientes", value: instructorSampleCourses.filter(c => c.status === 'pending').length.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
+    { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
+    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder - would need more complex data
+    { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
     { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
   ];
+  
+  // Example recent comments - in a real app, this would come from a backend
+  const recentFeedbacks = [
+    { student: "Emily R.", course: instructorCourses[0]?.title || "Curso Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
+    { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
+    { student: "Sarah K.", course: instructorCourses[2]?.title || "Tercer Curso", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
+  ].filter(f => f.course !== "Curso Ejemplo" && f.course !== "Otro Curso" && f.course !== "Tercer Curso" || instructorCourses.length > 0);
+
 
   return (
     <div className="space-y-6">
@@ -186,9 +228,9 @@ const InstructorDashboardContent = () => {
             <CardDescription>Un vistazo rápido a tus cursos y su estado.</CardDescription>
           </CardHeader>
           <CardContent>
-            {instructorSampleCourses.length > 0 ? (
+            {instructorCourses.length > 0 ? (
               <ul className="space-y-4">
-                {instructorSampleCourses.slice(0, 3).map((course) => { 
+                {instructorCourses.slice(0, 3).map((course) => { 
                   const students = Math.floor(Math.random() * 200) + 50; 
                   const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; 
                   return (
@@ -200,8 +242,8 @@ const InstructorDashboardContent = () => {
                         <Badge 
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
                           className={`mt-1 text-xs ${
-                            course.status === 'approved' ? 'bg-accent text-accent-foreground' : 
-                            course.status === 'pending' ? 'bg-yellow-500 text-white' : ''
+                            course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
+                            course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
                           }`}
                         >
                           {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente' : 'Rechazado'}
@@ -227,7 +269,7 @@ const InstructorDashboardContent = () => {
             ) : (
               <p className="text-muted-foreground text-center py-4">Aún no has creado cursos.</p>
             )}
-            {instructorSampleCourses.length > 3 && (
+            {instructorCourses.length > 3 && (
                 <Button variant="outline" className="w-full mt-4" asChild>
                     <Link href="/dashboard/instructor/my-courses">Ver todos mis cursos</Link>
                 </Button>
@@ -241,26 +283,26 @@ const InstructorDashboardContent = () => {
             <CardDescription>Últimos comentarios de los estudiantes.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {[
-                { student: "Emily R.", course: "JS Avanzado", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
-                { student: "John B.", course: "Python DSA", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
-                { student: "Sarah K.", course: "Intro UX", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
-              ].map((feedback) => (
-                <li key={feedback.student + feedback.course + feedback.time} className="text-sm border-b border-border pb-2 last:border-b-0">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
-                    <span className="text-xs text-muted-foreground">{feedback.time}</span>
-                  </div>
-                  <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
-                  <div className="flex items-center mt-1">
-                    {Array(5).fill(0).map((_, i) => (
-                      <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {recentFeedbacks.length > 0 ? (
+              <ul className="space-y-3">
+                {recentFeedbacks.map((feedback) => (
+                  <li key={feedback.student + feedback.course + feedback.time} className="text-sm border-b border-border pb-2 last:border-b-0">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
+                      <span className="text-xs text-muted-foreground">{feedback.time}</span>
+                    </div>
+                    <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
+                    <div className="flex items-center mt-1">
+                      {Array(5).fill(0).map((_, i) => (
+                        <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+                <p className="text-muted-foreground text-center py-4">No hay comentarios recientes para tus cursos.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -277,88 +319,70 @@ interface EnrolledCourseData {
   thumbnailUrl: string;
   dataAiHint?: string; 
   lessons?: Array<{id: string}>; 
+  status: 'pending' | 'approved' | 'rejected'; // Added status for filtering
 }
 
-const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+interface StudentDashboardContentProps {
+  allCourses: Course[];
+}
 
-const StudentDashboardContent = () => {
-  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseData[]>([]);
-  const [courseToContinue, setCourseToContinue] = useState<EnrolledCourseData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [numCompletedCourses, setNumCompletedCourses] = useState(0);
-  const [numEnrolledCourses, setNumEnrolledCourses] = useState(0);
+const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCourses }) => {
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
+  const [isLoadingStudentData, setIsLoadingStudentData] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-    let enrolledIds: Set<string> = new Set();
-    if (storedEnrolledIdsString) {
-      try {
-        const parsedIds = JSON.parse(storedEnrolledIdsString);
-        if (Array.isArray(parsedIds)) enrolledIds = new Set(parsedIds);
-      } catch (e) { console.error("Error parsing enrolled IDs", e); }
-    }
-    setNumEnrolledCourses(enrolledIds.size);
+    setIsLoadingStudentData(true);
+    const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+    if (storedEnrolled) setEnrolledCourseIds(new Set(JSON.parse(storedEnrolled)));
 
-    const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
-    let completedIds: Set<string> = new Set();
-    if (storedCompletedIdsString) {
-        try {
-            const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
-            if (Array.isArray(parsedCompletedIds)) completedIds = new Set(parsedCompletedIds);
-        } catch (e) { console.error("Error parsing completed IDs", e); }
-    }
-    setNumCompletedCourses(completedIds.size);
-    
-    const coursesToDisplay = allPlatformCourses
-      .filter(course => enrolledIds.has(course.id))
-      .map(courseFromCatalog => {
-        const fullCourseData = allPlatformCourses.find(c => c.id === courseFromCatalog.id);
-        if (!fullCourseData) return null; 
-
-        const isCompleted = completedIds.has(fullCourseData.id);
-        let progress = 0;
-        if (isCompleted) {
-            progress = 100;
-        } else {
-            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${fullCourseData.id}`;
-            const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
-            if (storedLessonProgressString && fullCourseData.lessons && fullCourseData.lessons.length > 0) {
-                try {
-                    const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
-                    progress = Math.round((completedLessonsForThisCourse.length / fullCourseData.lessons.length) * 100);
-                } catch (e) { progress = Math.floor(Math.random() * 99); } 
-            } else if (fullCourseData.lessons && fullCourseData.lessons.length > 0) {
-                 progress = 0; 
-            } else {
-                progress = 0; 
-            }
-        }
-        return { ...fullCourseData, progress };
-      }).filter(Boolean) as EnrolledCourseData[]; 
-      
-    setEnrolledCourses(coursesToDisplay);
-
-    if (coursesToDisplay.length > 0) {
-      const incompleteCourses = coursesToDisplay.filter(course => course.progress < 100);
-      if (incompleteCourses.length > 0) {
-        incompleteCourses.sort((a, b) => b.progress - a.progress); 
-        setCourseToContinue(incompleteCourses[0]);
-      } else {
-        setCourseToContinue(coursesToDisplay[0]); 
-      }
-    } else {
-      setCourseToContinue(null);
-    }
-    setIsLoading(false);
+    const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
+    if (storedCompleted) setCompletedCourseIds(new Set(JSON.parse(storedCompleted)));
+    setIsLoadingStudentData(false);
   }, []);
 
-  if (isLoading) {
+  const studentCourses = useMemo(() => {
+    return allCourses
+      .filter(course => enrolledCourseIds.has(course.id) && course.status === 'approved')
+      .map(course => {
+        const isCompleted = completedCourseIds.has(course.id);
+        let progress = 0;
+        if (isCompleted) {
+          progress = 100;
+        } else {
+          const lessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
+          const storedLessonProgress = localStorage.getItem(lessonProgressKey);
+          if (storedLessonProgress && course.lessons && course.lessons.length > 0) {
+            try {
+              const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgress);
+              progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
+            } catch (e) { progress = Math.floor(Math.random() * 99); }
+          } else {
+            progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
+          }
+        }
+        return { ...course, progress, isCompleted } as EnrolledCourseData;
+      });
+  }, [allCourses, enrolledCourseIds, completedCourseIds]);
+
+  const courseToContinue = useMemo(() => {
+    if (studentCourses.length === 0) return null;
+    const incompleteCourses = studentCourses.filter(course => !course.isCompleted);
+    if (incompleteCourses.length > 0) {
+      incompleteCourses.sort((a, b) => b.progress - a.progress);
+      return incompleteCourses[0];
+    }
+    return studentCourses.sort((a,b) => b.progress - a.progress)[0]; // Show most recently progressed if all complete
+  }, [studentCourses]);
+
+  const numCompletedCourses = completedCourseIds.size;
+  const numEnrolledCourses = enrolledCourseIds.size;
+
+  if (isLoadingStudentData) {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando tu panel...</p>
+        <p className="text-lg text-muted-foreground">Cargando tu panel de estudiante...</p>
       </div>
     );
   }
@@ -426,9 +450,9 @@ const StudentDashboardContent = () => {
             </Link>
         </Button>
       </div>
-      {enrolledCourses.length > 0 ? (
+      {studentCourses.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {enrolledCourses.map((course) => (
+          {studentCourses.map((course) => (
             <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
               <Image src={course.thumbnailUrl} alt={course.title} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint || "course thumbnail"} />
               <CardHeader>
@@ -519,10 +543,11 @@ function AdminDashboardWrapper() {
     setAnnouncementMessage('');
     setAnnouncementAudience('all'); 
   };
-
+  
+  // Placeholder for allUsers and allCourses, to be fetched in DashboardHomePage
   return (
     <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
-      <AdminDashboardContent />
+      <AdminDashboardContent allUsers={[]} allCourses={[]} /> 
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
             <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
@@ -584,10 +609,36 @@ function AdminDashboardWrapper() {
 
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
 
-  if (isLoadingRole) { 
+  useEffect(() => {
+    const loadData = () => {
+      setIsLoadingDashboardData(true);
+      try {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        setAllCourses(storedCourses ? JSON.parse(storedCourses) : []);
+
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        setAllUsers(storedUsers ? JSON.parse(storedUsers) : []);
+      } catch (error) {
+        console.error("Error loading data from localStorage for dashboard:", error);
+        setAllCourses([]);
+        setAllUsers([]);
+      }
+      setIsLoadingDashboardData(false);
+    };
+
+    if (!isLoadingRole && currentSessionRole) { // Load data only when role is determined
+      loadData();
+    }
+  }, [isLoadingRole, currentSessionRole]);
+
+
+  if (isLoadingRole || isLoadingDashboardData) { 
     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
+      <div className="flex h-[calc(100vh-80px)] flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando panel...</p>
       </div>
@@ -602,17 +653,123 @@ export default function DashboardHomePage() {
      );
   }
 
+  // Wrap AdminDashboardContent in AdminDashboardWrapper to keep its dialog logic
+  const AdminView = () => (
+     <Dialog open={false} onOpenChange={() => {}}> {/* Dummy Dialog for AdminDashboardWrapper */}
+      <AdminDashboardContent allUsers={allUsers} allCourses={allCourses} />
+       {/* The actual dialog for announcements is managed inside AdminDashboardWrapper */}
+    </Dialog>
+  )
+
 
   switch (currentSessionRole) {
     case 'administrador':
-      return <AdminDashboardWrapper />;
+      // AdminDashboardWrapper handles its own dialog for announcements.
+      // We need to pass the fetched allUsers and allCourses to AdminDashboardContent *inside* AdminDashboardWrapper.
+      // This is tricky if AdminDashboardWrapper doesn't accept these as props directly.
+      // For now, I'll modify AdminDashboardWrapper to accept and pass these props.
+      return <AdminDashboardWrapperWithData allUsers={allUsers} allCourses={allCourses} />;
     case 'instructor':
-      return <InstructorDashboardContent />;
+      return <InstructorDashboardContent allCourses={allCourses} />;
     case 'estudiante':
-      return <StudentDashboardContent />;
-    default:
-      return <StudentDashboardContent />; 
+      return <StudentDashboardContent allCourses={allCourses} />;
+    default: // Should ideally not happen if role is always set
+      return <StudentDashboardContent allCourses={allCourses} />; 
   }
+}
+
+// New wrapper component to pass data to AdminDashboardWrapper's child
+interface AdminDashboardWrapperWithDataProps {
+  allUsers: User[];
+  allCourses: Course[];
+}
+
+const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps> = ({ allUsers, allCourses }) => {
+  const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
+  const [announcementTitle, setAnnouncementTitle] = React.useState('');
+  const [announcementMessage, setAnnouncementMessage] = React.useState('');
+  const [announcementAudience, setAnnouncementAudience] = React.useState('all'); 
+  const { toast } = useToast();
+
+  const handleSendAnnouncement = () => {
+    if (!announcementTitle.trim() || !announcementMessage.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Campos Vacíos",
+        description: "Por favor, ingresa un título y un mensaje para el anuncio.",
+      });
+      return;
+    }
+    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
+    toast({
+      title: "Anuncio Enviado (Simulado)",
+      description: `El anuncio "${announcementTitle}" ha sido enviado a "${announcementAudience}".`,
+    });
+    setIsAnnouncementDialogOpen(false);
+    setAnnouncementTitle('');
+    setAnnouncementMessage('');
+    setAnnouncementAudience('all'); 
+  };
+  
+  return (
+    <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
+      <AdminDashboardContent allUsers={allUsers} allCourses={allCourses} /> 
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
+            <DialogDescription>
+            Redacta y envía un anuncio a los usuarios de la plataforma.
+            </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="announcement-title" className="text-right">
+                    Título
+                </Label>
+                <Input
+                    id="announcement-title"
+                    placeholder="Ej: Mantenimiento Programado"
+                    className="col-span-3"
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="announcement-message" className="text-right pt-2">
+                    Mensaje
+                </Label>
+                <Textarea
+                    id="announcement-message"
+                    placeholder="Escribe aquí el contenido del anuncio..."
+                    className="col-span-3"
+                    rows={5}
+                    value={announcementMessage}
+                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="announcement-audience" className="text-right">
+                    Audiencia
+                </Label>
+                <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Seleccionar audiencia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los Usuarios</SelectItem>
+                        <SelectItem value="students">Solo Estudiantes</SelectItem>
+                        <SelectItem value="instructors">Solo Instructores</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+        <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
+            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
     
