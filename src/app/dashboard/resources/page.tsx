@@ -1,15 +1,15 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { FileUploader } from "@/components/uploads/file-uploader";
+import React, { useMemo } from 'react'; // Removed useState
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Search } from 'lucide-react';
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react'; // Removed Search
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole } from '@/app/dashboard/layout';
-import { Input } from '@/components/ui/input'; // Import Input
+import { FileUploader } from "@/components/uploads/file-uploader";
+// Removed Input import as it's no longer used
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 
@@ -49,45 +49,25 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole(); 
-  const [searchTerm, setSearchTerm] = useState('');
+  // const [searchTerm, setSearchTerm] = useState(''); // Removed search term state
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
-  const filterFiles = (files: ResourceFile[], term: string, role: typeof currentSessionRole) => {
-    const lowercasedTerm = term.toLowerCase();
+  const filterFilesByVisibility = (files: ResourceFile[], role: typeof currentSessionRole) => {
     return files.filter(file => {
-      // Visibility check first
-      let isVisible = false;
-      if (role === 'administrador') {
-        isVisible = true;
-      } else if (role === 'instructor') {
-        isVisible = file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private'; // Assuming private for instructor means their own
-      } else { // Estudiante
-        isVisible = file.visibility === 'public';
-      }
-      
-      if (!isVisible) return false;
-
-      // Then search term check
-      if (!lowercasedTerm) return true; // No search term, show all visible files
-      return file.name.toLowerCase().includes(lowercasedTerm) || file.type.toLowerCase().includes(lowercasedTerm);
+      if (role === 'administrador') return true;
+      if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private';
+      return file.visibility === 'public';
     });
   };
 
-  const filteredCompanyResources = useMemo(() => {
-    // Company resources visibility:
-    // Admin: all
-    // Instructor: public & instructors
-    // Student: public
-    return filterFiles(sampleCompanyResources, searchTerm, currentSessionRole);
-  }, [sampleCompanyResources, searchTerm, currentSessionRole]);
+  const companyResourcesForRole = useMemo(() => {
+    return filterFilesByVisibility(sampleCompanyResources, currentSessionRole);
+  }, [currentSessionRole]);
   
-  const filteredLearningResources = useMemo(() => {
-     // Learning resources visibility (assuming private means for the uploader, so admin/instructor might see them for demo):
-    // Admin/Instructor: public, instructors, private (for demo)
-    // Student: public
-    return filterFiles(sampleLearningResources, searchTerm, currentSessionRole);
-  }, [sampleLearningResources, searchTerm, currentSessionRole]);
+  const learningResourcesForRole = useMemo(() => {
+    return filterFilesByVisibility(sampleLearningResources, currentSessionRole);
+  }, [currentSessionRole]);
 
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType, showVisibilityCol: boolean = false) => (
@@ -156,7 +136,7 @@ export default function ResourcesPage() {
           </Table>
         ) : (
           <p className="text-muted-foreground text-center py-8">
-            {searchTerm ? `No se encontraron archivos para "${searchTerm}".` : "No hay archivos disponibles en esta sección para tu rol actual."}
+             No hay archivos disponibles en esta sección para tu rol actual.
           </p>
         )}
       </CardContent>
@@ -174,18 +154,7 @@ export default function ResourcesPage() {
               : "Visualiza y descarga los archivos y recursos disponibles."}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-            <div className="relative mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar archivos por nombre o tipo..."
-                className="pl-10 w-full md:w-2/3 lg:w-1/2"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-        </CardContent>
+        {/* Search input removed from here */}
       </Card>
 
       {canUpload && (
@@ -193,7 +162,7 @@ export default function ResourcesPage() {
       )}
       
       {renderResourceTable(
-        filteredCompanyResources, 
+        companyResourcesForRole, 
         "Recursos de la Empresa", 
         currentSessionRole === 'administrador' 
           ? "Archivos importantes y documentos internos de la organización. Gestiona la visibilidad según sea necesario."
@@ -203,7 +172,7 @@ export default function ResourcesPage() {
       )}
       
       {renderResourceTable(
-        filteredLearningResources,
+        learningResourcesForRole,
         "Archivos de Aprendizaje",
         "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada.",
         BookOpen,
