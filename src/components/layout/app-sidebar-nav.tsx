@@ -37,7 +37,7 @@ import {
   SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 
@@ -110,7 +110,7 @@ export function AppSidebarNav() {
           });
           if (newItem.children.length > 0) {
             acc.push(newItem);
-          } else if (newItem.href) {
+          } else if (newItem.href) { // If it had children but all were filtered out, but it has its own href
             acc.push({ ...newItem, children: undefined });
           }
         } else {
@@ -129,9 +129,6 @@ export function AppSidebarNav() {
           if (item.children && item.children.length > 0) {
             const isActive = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActive;
-            if (isActive) {
-              checkItems(item.children, currentPath); // Recurse for nested active groups
-            }
           }
         });
       };
@@ -139,38 +136,58 @@ export function AppSidebarNav() {
       return state;
     };
 
-    const newCalculatedOpenState = calculateNewOpenState();
+    if (!isLoadingRole && filteredNavItems.length > 0) {
+        const newCalculatedOpenState = calculateNewOpenState();
+        
+        let needsUpdate = false;
+        const allKeys = new Set([...Object.keys(openSubmenus), ...Object.keys(newCalculatedOpenState)]);
 
-    // Only update if the state truly differs to prevent unnecessary re-renders
-    let changed = false;
-    const currentOpenKeys = Object.keys(openSubmenus);
-    const newOpenKeys = Object.keys(newCalculatedOpenState);
-
-    if (currentOpenKeys.length !== newOpenKeys.length) {
-      changed = true;
-    } else {
-      for (const key of newOpenKeys) {
-        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
-          changed = true;
-          break;
+        for (const key of allKeys) {
+        if ((openSubmenus[key] || false) !== (newCalculatedOpenState[key] || false)) {
+            needsUpdate = true;
+            break;
         }
-      }
-    }
-    // Also check if any keys were removed from openSubmenus that are not in newCalculatedOpenState
-    if (!changed) {
-        for (const key of currentOpenKeys) {
-            if (!(key in newCalculatedOpenState) && openSubmenus[key] === true) { // A previously open key is no longer supposed to be open
-                changed = true;
-                break;
+        }
+
+        if (needsUpdate) {
+         // Preserve manually toggled states unless the path dictates otherwise
+          setOpenSubmenus(prevOpenSubmenus => {
+            const finalState: Record<string, boolean> = {};
+            allKeys.forEach(key => {
+              // If the path dictates it should be open, it's open.
+              if (newCalculatedOpenState[key] === true) {
+                finalState[key] = true;
+              } 
+              // If path doesn't dictate, but it was manually opened, keep it open.
+              // This part might need adjustment if we want path to always win.
+              // For now, if path says open, it's open. If path says closed, it's closed.
+              // Manual toggles are for items not dictated by path.
+              else {
+                 finalState[key] = prevOpenSubmenus[key] || false; // Default to false if not in prev
+              }
+            });
+            // Ensure path-based active groups are definitely open
+            for (const key in newCalculatedOpenState) {
+                if (newCalculatedOpenState[key]) {
+                    finalState[key] = true;
+                }
             }
+            // One final comparison to avoid re-render if the merged state is same as current
+            let actuallyNeedsUpdateAfterMerge = false;
+            for (const key of allKeys) {
+                if ((prevOpenSubmenus[key] || false) !== (finalState[key] || false)) {
+                    actuallyNeedsUpdateAfterMerge = true;
+                    break;
+                }
+            }
+            return actuallyNeedsUpdateAfterMerge ? finalState : prevOpenSubmenus;
+          });
         }
     }
+  // Removed openSubmenus from here to simplify and let path dictate.
+  // Re-added openSubmenus to ensure comparison works as expected.
+  }, [pathname, filteredNavItems, isLoadingRole, openSubmenus]); 
 
-
-    if (changed) {
-      setOpenSubmenus(newCalculatedOpenState);
-    }
-  }, [pathname, filteredNavItems, openSubmenus]); // Include openSubmenus for comparison
 
   const toggleSubmenu = (itemId: string) => {
     setOpenSubmenus(prev => ({
@@ -190,8 +207,16 @@ export function AppSidebarNav() {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.id] || false;
-        const isGroupActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-        const isActiveForButton = (effectiveHref && pathname === effectiveHref) ? true : isGroupActive;
+        
+        // An item group is active if any of its children are active
+        const isGroupActive = item.children.some(child => {
+            if (!child.href) return false;
+            // Exact match or startsWith for child href
+            return pathname === child.href || pathname.startsWith(child.href + '/');
+        });
+        
+        const isActiveForButton = (effectiveHref && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
+
 
         return (
           <SidebarMenuItem key={item.id}>
@@ -220,12 +245,15 @@ export function AppSidebarNav() {
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref;
+      // For top-level items that are not the main dashboard, also consider active if path starts with href + '/'
       if (effectiveHref !== dashboardPath && pathname.startsWith(effectiveHref + '/')) {
         isActive = true;
       }
+      // Specifically for the main dashboard link
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-         isActive = pathname === dashboardPath;
+         isActive = pathname === dashboardPath; // Exact match for the main dashboard
       }
+
 
       return (
         <SidebarMenuItem key={item.id}>
@@ -263,7 +291,7 @@ export function AppSidebarNav() {
             </SidebarHeader>
             <SidebarContent className="p-2">
                 <SidebarMenu>
-                    {Array.from({ length: 7 }).map((_, index) => ( // Increased skeleton items
+                    {Array.from({ length: 7 }).map((_, index) => ( 
                         <SidebarMenuSkeleton key={`skeleton-${index}`} showIcon={true} />
                     ))}
                 </SidebarMenu>
@@ -320,3 +348,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
