@@ -3,7 +3,7 @@
 /**
  * @fileOverview Un flujo de Genkit para generar secciones de texto para un informe de métricas.
  *
- * - generateReportSections - Genera resumen ejecutivo y conclusiones.
+ * - generateReportSections - Genera resumen ejecutivo y conclusiones/recomendaciones.
  * - GenerateReportSectionsInput - Tipo de entrada.
  * - GenerateReportSectionsOutput - Tipo de salida.
  */
@@ -25,10 +25,15 @@ const GenerateReportSectionsOutputSchema = z.object({
   executiveSummary: z
     .string()
     .describe('Un resumen ejecutivo conciso y narrativo sobre el estado de la plataforma basado en las métricas.'),
-  conclusionsAndRecommendations: z
-    .string()
+  conclusions: z
+    .array(z.string())
     .describe(
-      'Conclusiones clave derivadas de las métricas y recomendaciones para futuras acciones, presentadas de forma narrativa y detallada.'
+      'Una lista de 2-3 conclusiones clave derivadas de las métricas, presentadas como puntos individuales.'
+    ),
+  recommendations: z
+    .array(z.string())
+    .describe(
+      'Una lista de 2-3 recomendaciones accionables y concretas para futuras acciones, presentadas como puntos individuales y justificadas.'
     ),
 });
 export type GenerateReportSectionsOutput = z.infer<
@@ -46,7 +51,7 @@ const prompt = ai.definePrompt({
   input: {schema: GenerateReportSectionsInputSchema},
   output: {schema: GenerateReportSectionsOutputSchema},
   prompt: `Eres un analista experto en plataformas de e-learning corporativo y estás redactando un informe de actividad para la dirección.
-Tu tarea es generar un "Resumen Ejecutivo" y una sección de "Conclusiones y Recomendaciones" que sean detallados, narrativos, profesionales y basados en las métricas proporcionadas.
+Tu tarea es generar un "Resumen Ejecutivo" y listas separadas de "Conclusiones" y "Recomendaciones" que sean detallados, narrativos, profesionales y basados en las métricas proporcionadas.
 
 Por favor, incluye frases como "A la fecha actual, la plataforma AlpriNexus cuenta con..." o "Durante el último periodo, se observó un cambio en..." para darle un contexto temporal. Analiza las métricas para destacar tendencias o puntos significativos. Por ejemplo, si el número de nuevos estudiantes es alto, coméntalo como un indicador positivo.
 
@@ -59,9 +64,11 @@ Métricas Clave (para el periodo actual):
 Resumen Ejecutivo:
 Debe ser narrativo y resaltar los aspectos más importantes del estado actual de la plataforma, mencionando las cifras clave y su posible impacto. Por ejemplo, "A la fecha, AlpriNexus cuenta con {{{totalUsers}}} usuarios totales, lo que representa una base sólida para nuestras iniciativas de capacitación. Durante el último mes, se unieron {{{newStudentsMonthly}}} nuevos estudiantes, indicando un interés creciente..." (Aproximadamente 3-5 frases).
 
-Conclusiones y Recomendaciones:
-Extrae 2-3 conclusiones principales basadas en un análisis detallado de las métricas. Por ejemplo: "La tasa de finalización promedio del {{{completionRate}}} es un buen indicador, pero podría mejorarse en cursos específicos..." o "El flujo constante de {{{newStudentsMonthly}}} nuevos estudiantes sugiere una buena adopción inicial de la plataforma."
-Luego, proporciona 2-3 recomendaciones accionables, concretas y justificadas para mejorar o capitalizar los hallazgos. Por ejemplo: "Recomendamos implementar un sistema de seguimiento más cercano para los cursos con baja tasa de finalización..." o "Considerar una campaña de bienvenida para los nuevos estudiantes para fomentar su engagement temprano."
+Conclusiones:
+Extrae 2-3 conclusiones principales, presentadas como una lista de cadenas de texto. Cada conclusión debe basarse en un análisis detallado de las métricas. Por ejemplo: "La tasa de finalización promedio del {{{completionRate}}} es un buen indicador, pero podría mejorarse en cursos específicos." o "El flujo constante de {{{newStudentsMonthly}}} nuevos estudiantes sugiere una buena adopción inicial de la plataforma."
+
+Recomendaciones:
+Proporciona 2-3 recomendaciones accionables, concretas y justificadas, presentadas como una lista de cadenas de texto. Cada recomendación debe ser para mejorar o capitalizar los hallazgos de las conclusiones. Por ejemplo: "Implementar un sistema de seguimiento más cercano para los cursos con baja tasa de finalización." o "Considerar una campaña de bienvenida para los nuevos estudiantes para fomentar su engagement temprano."
 `,
 });
 
@@ -73,16 +80,19 @@ const generateReportSectionsFlow = ai.defineFlow(
   },
   async (input) => {
     const {output} = await prompt(input);
-    if (!output) {
-      console.error('La IA no devolvió el contenido del informe esperado.');
+    if (!output || !output.executiveSummary || !output.conclusions || !output.recommendations) {
+      console.error('La IA no devolvió el contenido del informe esperado con la estructura correcta.');
       return {
         executiveSummary:
           'No se pudo generar el resumen ejecutivo en este momento. Revise las métricas manualmente.',
-        conclusionsAndRecommendations:
-          'No se pudieron generar las conclusiones y recomendaciones. Se sugiere un análisis detallado de las métricas.',
+        conclusions: [
+          'No se pudieron generar las conclusiones. Se sugiere un análisis detallado de las métricas.',
+        ],
+        recommendations: [
+          'No se pudieron generar las recomendaciones. Se sugiere un análisis detallado de las métricas.',
+        ],
       };
     }
     return output;
   }
 );
-

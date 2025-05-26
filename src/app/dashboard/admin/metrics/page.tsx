@@ -111,7 +111,8 @@ export default function AdminMetricsPage() {
       console.error("Error generando texto del informe con IA:", error);
       setReportText({
         executiveSummary: "Error al generar resumen con IA. Este es un texto de ejemplo.",
-        conclusionsAndRecommendations: "Error al generar conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones y recomendaciones.",
+        conclusions: ["Error al generar conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones."],
+        recommendations: ["Error al generar recomendaciones con IA. Por favor, elabore sus propias recomendaciones."],
       });
       toast({
         variant: "destructive",
@@ -134,7 +135,14 @@ export default function AdminMetricsPage() {
 
   const defaultReportText: GenerateReportSectionsOutput = {
     executiveSummary: "El informe de actividad para AlpriNexus muestra un crecimiento saludable en la base de usuarios y una participación constante en los cursos. Se identifican oportunidades para mejorar la tasa de finalización en ciertos cursos clave.",
-    conclusionsAndRecommendations: "Conclusión Principal: La plataforma está experimentando una adopción positiva.\nRecomendación 1: Implementar estrategias de gamificación para aumentar la finalización de cursos.\nRecomendación 2: Fomentar la creación de más contenido interactivo por parte de los instructores."
+    conclusions: [
+        "Conclusión Principal: La plataforma está experimentando una adopción positiva.",
+        "La tasa de finalización es estable pero con margen de mejora."
+    ],
+    recommendations: [
+        "Implementar estrategias de gamificación para aumentar la finalización de cursos.",
+        "Fomentar la creación de más contenido interactivo por parte de los instructores."
+    ]
   };
 
   return (
@@ -398,10 +406,29 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-8">
-              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Conclusiones y Recomendaciones</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                 {isAiLoadingReportText && !reportText?.conclusionsAndRecommendations ? "Generando..." : (reportText?.conclusionsAndRecommendations || defaultReportText.conclusionsAndRecommendations)}
-              </p>
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Conclusiones</h3>
+              {isAiLoadingReportText && !reportText?.conclusions ? (
+                 <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+              ) : (
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
+                  {(reportText?.conclusions || defaultReportText.conclusions).map((conclusion, index) => (
+                    <li key={`conclusion-${index}`}>{conclusion}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="mb-8">
+                <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">5. Recomendaciones</h3>
+                {isAiLoadingReportText && !reportText?.recommendations ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+                ) : (
+                    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
+                    {(reportText?.recommendations || defaultReportText.recommendations).map((recommendation, index) => (
+                        <li key={`recommendation-${index}`}>{recommendation}</li>
+                    ))}
+                    </ul>
+                )}
             </section>
             
             <footer className="mt-12 pt-8 border-t border-border text-xs text-muted-foreground text-center flex flex-col items-center space-y-2">
@@ -431,8 +458,4 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
-    
-
-
-
     
