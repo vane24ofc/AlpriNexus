@@ -90,6 +90,8 @@ export default function AdminMetricsPage() {
     setIsGeneratingReport(true);
     setIsAiLoadingReportText(true);
     setReportText(null); 
+    setIsPreviewReportOpen(true); // Open dialog immediately to show loading state
+
     toast({
       title: "Generando Informe...",
       description: "El informe de actividad de usuarios se está procesando. Esto puede tardar unos segundos.",
@@ -108,8 +110,8 @@ export default function AdminMetricsPage() {
     } catch (error) {
       console.error("Error generando texto del informe con IA:", error);
       setReportText({
-        executiveSummary: "No se pudo generar el resumen con IA. Este es un texto de ejemplo.",
-        conclusionsAndRecommendations: "No se pudieron generar las conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones y recomendaciones.",
+        executiveSummary: "Error al generar resumen con IA. Este es un texto de ejemplo.",
+        conclusionsAndRecommendations: "Error al generar conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones y recomendaciones.",
       });
       toast({
         variant: "destructive",
@@ -119,7 +121,7 @@ export default function AdminMetricsPage() {
     } finally {
       setIsAiLoadingReportText(false);
       setIsGeneratingReport(false);
-      setIsPreviewReportOpen(true);
+      // Dialog is already open
     }
   };
 
@@ -341,29 +343,36 @@ export default function AdminMetricsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto p-4 border rounded-md bg-card text-card-foreground">
-            {isAiLoadingReportText ? (
+            {isAiLoadingReportText && !reportText ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">Cargando contenido del informe generado por IA...</p>
+                <p className="text-muted-foreground">Generando contenido del informe con IA...</p>
               </div>
             ) : (
             <>
             <div className="text-center mb-6">
-              <Image src="/width_800.png" alt="NexusAlpri Logo" width={150} height={150 * (326/413)} className="mx-auto mb-2" data-ai-hint="company logo"/>
-              <h2 className="text-xl font-semibold">Informe de Actividad de la Plataforma AlpriNexus</h2>
+              <Image 
+                src="/width_800.png" 
+                alt="NexusAlpri Logo" 
+                width={150} 
+                height={150 * (326/413)} // Mantener aspect ratio
+                className="mx-auto mb-2"
+                data-ai-hint="company logo"
+              />
+              <h2 className="text-xl font-semibold text-foreground">Informe de Actividad de la Plataforma AlpriNexus</h2>
               <p className="text-sm text-muted-foreground">Fecha de Generación: {currentDate}</p>
             </div>
 
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">1. Resumen Ejecutivo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {reportText?.executiveSummary || defaultReportText.executiveSummary}
+                {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || defaultReportText.executiveSummary)}
               </p>
             </section>
 
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">2. Métricas Clave de Usuarios</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-2">
                 <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'totalUsers')?.value}</span> ({stats.find(s => s.key === 'totalUsers')?.trend})</li>
                 <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats.find(s => s.key === 'newStudentsMonthly')?.value}</span> ({stats.find(s => s.key === 'newStudentsMonthly')?.trend})</li>
                 <li>Instructores Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeInstructors')?.value}</span> ({stats.find(s => s.key === 'activeInstructors')?.trend})</li>
@@ -377,7 +386,7 @@ export default function AdminMetricsPage() {
 
             <section className="mb-6">
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">3. Actividad de Cursos</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 pl-2">
                 <li>Cursos Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeCourses')?.value}</span> ({stats.find(s => s.key === 'activeCourses')?.trend})</li>
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'completionRate')?.value}</span> ({stats.find(s => s.key === 'completionRate')?.trend})</li>
                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'coursesInReview')?.value}</span> ({stats.find(s => s.key === 'coursesInReview')?.trend})</li>
@@ -392,7 +401,7 @@ export default function AdminMetricsPage() {
             <section>
               <h3 className="text-lg font-semibold border-b pb-1 mb-2 text-primary">4. Conclusiones y Recomendaciones</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                 {reportText?.conclusionsAndRecommendations || defaultReportText.conclusionsAndRecommendations}
+                 {isAiLoadingReportText && !reportText?.conclusionsAndRecommendations ? "Generando..." : (reportText?.conclusionsAndRecommendations || defaultReportText.conclusionsAndRecommendations)}
               </p>
             </section>
             
@@ -415,7 +424,4 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
-
-    
-
     
