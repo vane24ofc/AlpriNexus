@@ -1,14 +1,15 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { FileUploader } from "@/components/uploads/file-uploader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react';
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole } from '@/app/dashboard/layout';
+import { Input } from '@/components/ui/input'; // Import Input
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 
@@ -19,14 +20,15 @@ interface ResourceFile {
   size: string;
   uploadDate: string;
   url?: string; 
-  visibility: FileVisibility; // Aseguramos que visibility siempre esté presente
+  visibility: FileVisibility;
 }
 
 const sampleCompanyResources: ResourceFile[] = [
   { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors' },
-  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private' }, // 'private' aquí significa solo admin
+  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private' }, 
   { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public' },
   { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public'},
+  { id: 'cr5', name: 'Presentación de Ventas Global.pptx', type: 'Presentación', size: '4.5 MB', uploadDate: '2024-02-01', url: '#', visibility: 'instructors'},
 ];
 
 const sampleLearningResources: ResourceFile[] = [
@@ -35,6 +37,7 @@ const sampleLearningResources: ResourceFile[] = [
   { id: 'lr3', name: 'Presentación - Desarrollo Web Moderno.pptx', type: 'Presentación', size: '3.5 MB', uploadDate: '2023-10-28', url: '#', visibility: 'instructors' },
   { id: 'lr4', name: 'Glosario de Términos de IA.docx', type: 'Documento', size: '450 KB', uploadDate: '2023-11-10', url: '#', visibility: 'instructors' },
   { id: 'lr5', name: 'Notas Privadas del Instructor sobre Web Avanzado.docx', type: 'Documento', size: '50 KB', uploadDate: '2023-11-12', url: '#', visibility: 'private' },
+  { id: 'lr6', name: 'Video Tutorial de React Hooks.mp4', type: 'Video', size: '120 MB', uploadDate: '2024-01-20', url: '#', visibility: 'public'},
 ];
 
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -46,27 +49,46 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole(); 
+  const [searchTerm, setSearchTerm] = useState('');
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
-  const filteredCompanyResources = sampleCompanyResources.filter(file => {
-    if (currentSessionRole === 'administrador') return true; // Admin ve todos los recursos de la empresa
-    if (file.visibility === 'public') return true;
-    if (file.visibility === 'instructors' && currentSessionRole === 'instructor') return true;
-    // 'private' en company resources implica que solo el admin los puede ver (ya cubierto)
-    return false;
-  });
+  const filterFiles = (files: ResourceFile[], term: string, role: typeof currentSessionRole) => {
+    const lowercasedTerm = term.toLowerCase();
+    return files.filter(file => {
+      // Visibility check first
+      let isVisible = false;
+      if (role === 'administrador') {
+        isVisible = true;
+      } else if (role === 'instructor') {
+        isVisible = file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private'; // Assuming private for instructor means their own
+      } else { // Estudiante
+        isVisible = file.visibility === 'public';
+      }
+      
+      if (!isVisible) return false;
 
-  const filteredLearningResources = sampleLearningResources.filter(file => {
-    if (file.visibility === 'public') return true;
-    if ((currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) {
-      if (file.visibility === 'instructors') return true;
-      // Para 'private' en learning resources: en una app real, se validaría si es el dueño.
-      // Por ahora, si es admin/instructor, puede ver los 'private' de ejemplo.
-      if (file.visibility === 'private') return true; 
-    }
-    return false;
-  });
+      // Then search term check
+      if (!lowercasedTerm) return true; // No search term, show all visible files
+      return file.name.toLowerCase().includes(lowercasedTerm) || file.type.toLowerCase().includes(lowercasedTerm);
+    });
+  };
+
+  const filteredCompanyResources = useMemo(() => {
+    // Company resources visibility:
+    // Admin: all
+    // Instructor: public & instructors
+    // Student: public
+    return filterFiles(sampleCompanyResources, searchTerm, currentSessionRole);
+  }, [sampleCompanyResources, searchTerm, currentSessionRole]);
+  
+  const filteredLearningResources = useMemo(() => {
+     // Learning resources visibility (assuming private means for the uploader, so admin/instructor might see them for demo):
+    // Admin/Instructor: public, instructors, private (for demo)
+    // Student: public
+    return filterFiles(sampleLearningResources, searchTerm, currentSessionRole);
+  }, [sampleLearningResources, searchTerm, currentSessionRole]);
+
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType, showVisibilityCol: boolean = false) => (
     <Card className="shadow-lg">
@@ -134,7 +156,7 @@ export default function ResourcesPage() {
           </Table>
         ) : (
           <p className="text-muted-foreground text-center py-8">
-            No hay archivos disponibles en esta sección para tu rol actual.
+            {searchTerm ? `No se encontraron archivos para "${searchTerm}".` : "No hay archivos disponibles en esta sección para tu rol actual."}
           </p>
         )}
       </CardContent>
@@ -152,6 +174,18 @@ export default function ResourcesPage() {
               : "Visualiza y descarga los archivos y recursos disponibles."}
           </CardDescription>
         </CardHeader>
+        <CardContent>
+            <div className="relative mb-6">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar archivos por nombre o tipo..."
+                className="pl-10 w-full md:w-2/3 lg:w-1/2"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+        </CardContent>
       </Card>
 
       {canUpload && (
@@ -165,7 +199,7 @@ export default function ResourcesPage() {
           ? "Archivos importantes y documentos internos de la organización. Gestiona la visibilidad según sea necesario."
           : "Documentos y recursos generales de la empresa disponibles para ti.",
         Shield,
-        true // Siempre mostrar columna de visibilidad para recursos de empresa
+        true 
       )}
       
       {renderResourceTable(
@@ -173,7 +207,7 @@ export default function ResourcesPage() {
         "Archivos de Aprendizaje",
         "Materiales de estudio, videos, y documentos para los cursos. Visibilidad controlada.",
         BookOpen,
-        true // Mostrar columna de visibilidad
+        true 
       )}
     </div>
   );
