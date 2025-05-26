@@ -2,7 +2,8 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare } from "lucide-react";
+import { Button } from "@/components/ui/button"; // Asegurarse de que Button esté importado
+import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare, FileText, Download, Loader2 } from "lucide-react";
 import {
   ChartContainer,
   ChartTooltip,
@@ -12,6 +13,8 @@ import {
 } from "@/components/ui/chart";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, Bar, BarChart as ReBarChart, LabelList } from 'recharts';
 import type { ChartConfig } from "@/components/ui/chart";
+import { useToast } from "@/hooks/use-toast"; // Importar useToast
+import React, { useState } from 'react'; // Importar useState
 
 const userGrowthData = [
   { month: "Ene", users: 65 },
@@ -58,6 +61,9 @@ const courseActivityChartConfig = {
 
 
 export default function AdminMetricsPage() {
+  const { toast } = useToast();
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
   const stats = [
     { title: "Usuarios Totales", value: "1,523", icon: Users, trend: "+5% último mes" },
     { title: "Cursos Activos", value: "87", icon: BookOpen, trend: "+3 esta semana" },
@@ -66,6 +72,27 @@ export default function AdminMetricsPage() {
     { title: "Instructores Activos", value: "42", icon: Users, trend: "+2 este mes" },
     { title: "Cursos en Revisión", value: "7", icon: CheckSquare, trend: "Nuevos hoy: 1" },
   ];
+
+  const handleGenerateReport = () => {
+    setIsGeneratingReport(true);
+    toast({
+      title: "Generando Informe...",
+      description: "El informe de actividad de usuarios se está procesando.",
+    });
+    setTimeout(() => {
+      setIsGeneratingReport(false);
+      toast({
+        title: "Informe Generado (Simulado)",
+        description: "El informe 'Actividad de Usuarios Q1 2024.pdf' está listo para descargar.",
+        action: (
+          <Button variant="outline" size="sm" onClick={() => alert('Descarga simulada iniciada.')}>
+            <Download className="mr-2 h-4 w-4" />
+            Descargar
+          </Button>
+        ),
+      });
+    }, 2500);
+  };
 
   return (
     <div className="space-y-8">
@@ -76,7 +103,7 @@ export default function AdminMetricsPage() {
         </h1>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3"> {/* Ajustado para 3 columnas en pantallas grandes */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {stats.slice(0,3).map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -90,7 +117,7 @@ export default function AdminMetricsPage() {
           </Card>
         ))}
       </div>
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3"> {/* Nuevo grid para la segunda fila de stats */}
+       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {stats.slice(3,6).map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -227,6 +254,36 @@ export default function AdminMetricsPage() {
           </ChartContainer>
         </CardContent>
       </Card>
+
+      <Card className="shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <FileText className="mr-2 h-5 w-5 text-primary" />
+            Generación de Informes
+          </CardTitle>
+          <CardDescription>Genera informes escritos detallados para un mayor soporte y análisis.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <p className="text-muted-foreground flex-1">
+              Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación.
+            </p>
+            <Button 
+              onClick={handleGenerateReport} 
+              disabled={isGeneratingReport}
+              className="w-full sm:w-auto"
+            >
+              {isGeneratingReport ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              {isGeneratingReport ? "Generando..." : "Generar Informe de Actividad"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
