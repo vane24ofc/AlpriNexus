@@ -70,7 +70,7 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] }, // Visible for admin too
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] }, 
       { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] }, 
     ],
   },
@@ -109,11 +109,10 @@ export function AppSidebarNav() {
           newItem.children = item.children.filter(child => {
             return !child.roles || child.roles.includes(currentSessionRole!);
           });
-          // Only keep the group if it has children after filtering
           if (newItem.children.length > 0) {
             acc.push(newItem);
-          } else if (newItem.href) { // Keep parent if it's a link itself and has no children
-             acc.push({...newItem, children: undefined}); // Remove empty children array
+          } else if (newItem.href) {
+             acc.push({...newItem, children: undefined});
           }
         } else {
           acc.push(newItem);
@@ -125,58 +124,48 @@ export function AppSidebarNav() {
 
   const toggleSubmenu = (itemId: string) => {
     setOpenSubmenus(prev => {
-      manualToggleRef.current[itemId] = !(prev[itemId] || false); // Record manual toggle intention
-      return { ...prev, [itemId]: !(prev[itemId] || false) };
+      const newManualState = !(prev[itemId] || false);
+      manualToggleRef.current[itemId] = newManualState;
+      return { ...prev, [itemId]: newManualState };
     });
   };
   
   useEffect(() => {
-    setOpenSubmenus(prevOpenSubmenus => {
-        const newCalculatedOpenState: Record<string, boolean> = {};
-        let hasChanged = false;
-
-        filteredNavItems.forEach(item => {
-            if (item.children && item.children.length > 0) {
-                const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
-                let shouldBeOpen = isChildActive;
-
-                // If manually toggled, respect that unless path makes it active
-                if (manualToggleRef.current[item.id] !== undefined) {
-                    shouldBeOpen = manualToggleRef.current[item.id]!; // Use the recorded manual state
-                } else if (isChildActive) {
-                    shouldBeOpen = true; // Path dictates open
-                } else {
-                    shouldBeOpen = prevOpenSubmenus[item.id] || false; // Preserve previous state if not path active
-                }
-                
-                newCalculatedOpenState[item.id] = shouldBeOpen;
-                if (prevOpenSubmenus[item.id] !== shouldBeOpen) {
-                    hasChanged = true;
-                }
-            }
-        });
-        
-        // Prune keys from prevOpenSubmenus that are no longer in filteredNavItems
-        for (const key in prevOpenSubmenus) {
-            if (!filteredNavItems.find(navItem => navItem.id === key && navItem.children && navItem.children.length > 0)) {
-                // This key is no longer relevant, if it's not in newCalculatedOpenState, it means it should be removed
-                if (!(key in newCalculatedOpenState) && prevOpenSubmenus[key]) {
-                     // No need to explicitly delete, as we are building newCalculatedOpenState from scratch based on current items
-                }
-            } else if (!(key in newCalculatedOpenState)) {
-                 // If a key from prev existed and is in filtered, but not set by path, it should be false (or its prev state if we want to keep it)
-                 // The current logic already handles preserving previous state if not path active
-            }
-        }
-        const prevKeys = Object.keys(prevOpenSubmenus);
-        const newKeys = Object.keys(newCalculatedOpenState);
-        if (prevKeys.length !== newKeys.length) {
+    setOpenSubmenus(prevOpenState => {
+      let newOpenState: Record<string, boolean> = {};
+      let hasChanged = false;
+  
+      filteredNavItems.forEach(item => {
+        if (item.children && item.children.length > 0) {
+          const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
+          
+          let shouldBeOpen: boolean;
+          if (manualToggleRef.current[item.id] !== undefined) {
+            shouldBeOpen = manualToggleRef.current[item.id]!;
+          } else {
+            shouldBeOpen = isChildActive || (prevOpenState[item.id] || false);
+          }
+          
+          newOpenState[item.id] = shouldBeOpen;
+          if ((prevOpenState[item.id] || false) !== shouldBeOpen) {
             hasChanged = true;
+          }
         }
+      });
+  
+      // Limpiar entradas de manualToggleRef si ya no son relevantes o se han procesado
+      const currentSubmenuIds = new Set(filteredNavItems.filter(item => item.children && item.children.length > 0).map(item => item.id));
+      for (const id in manualToggleRef.current) {
+        if (!currentSubmenuIds.has(id)) {
+          delete manualToggleRef.current[id];
+        }
+      }
+      
+      const prevKeysCount = Object.keys(prevOpenState).length;
+      const newKeysCount = Object.keys(newOpenState).length;
+      if (prevKeysCount !== newKeysCount) hasChanged = true;
 
-        manualToggleRef.current = {}; // Reset manual toggle state after consuming it for this update cycle
-
-        return hasChanged ? newCalculatedOpenState : prevOpenSubmenus;
+      return hasChanged ? newOpenState : prevOpenState;
     });
   }, [pathname, filteredNavItems]);
 
@@ -223,11 +212,9 @@ export function AppSidebarNav() {
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref;
-      // For non-exact matches (e.g., parent route highlighting)
       if (effectiveHref !== dashboardPath && pathname.startsWith(effectiveHref + '/')) {
           isActive = true;
       }
-      // Ensure "Panel Principal" is only active for exact match with dashboardPath
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
          isActive = pathname === dashboardPath; 
       }
@@ -296,7 +283,7 @@ export function AppSidebarNav() {
           <SidebarMenu>
             <SidebarMenuItem key="nav-help">
                 <SidebarMenuButton asChild tooltip="Ayuda y Soporte">
-                    <Link href="#">
+                    <Link href="/dashboard/help">
                         <LifeBuoy />
                         <span className="group-data-[collapsible=icon]:hidden">Ayuda y Soporte</span>
                     </Link>
@@ -304,7 +291,7 @@ export function AppSidebarNav() {
             </SidebarMenuItem>
              <SidebarMenuItem key="nav-feedback">
                 <SidebarMenuButton asChild tooltip="Enviar Comentarios">
-                    <Link href="#">
+                    <Link href="/dashboard/feedback">
                         <MessageSquare />
                         <span className="group-data-[collapsible=icon]:hidden">Enviar Comentarios</span>
                     </Link>
