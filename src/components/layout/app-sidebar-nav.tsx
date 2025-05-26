@@ -69,7 +69,6 @@ const navItems: NavItem[] = [
     icon: BookOpen,
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] },
       { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] },
     ],
   },
@@ -82,7 +81,7 @@ const navItems: NavItem[] = [
       { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
     ],
   },
-   { id: 'nav-admin-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador'] }, // Direct link for admin
+   { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -111,7 +110,9 @@ export function AppSidebarNav() {
           });
           if (newItem.children.length > 0) {
             acc.push(newItem);
-          } else if (newItem.href) { 
+          } else if (newItem.href && (!item.children || item.children.length === 0)) { // Only add if it has href and no relevant children
+            // This case might be tricky: a group item without children but with an href
+            // We should treat it as a direct link then.
             acc.push({ ...newItem, children: undefined });
           }
         } else {
@@ -125,20 +126,21 @@ export function AppSidebarNav() {
 
   useEffect(() => {
     if (isLoadingRole || !currentSessionRole) {
-      setOpenSubmenus({}); // Reset if role is not ready
+      if (Object.keys(openSubmenus).length > 0) {
+        setOpenSubmenus({});
+      }
       return;
     }
 
     const calculateNewOpenState = (): Record<string, boolean> => {
       const state: Record<string, boolean> = {};
-      // Function to recursively check items and their children
       const checkItems = (items: NavItem[], currentPath: string) => {
         items.forEach(item => {
           if (item.children && item.children.length > 0) {
             const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActiveGroup;
-            if (isActiveGroup) { // Only check children if the group itself is determined to be active
-                 checkItems(item.children, currentPath);
+            if (isActiveGroup) {
+              checkItems(item.children, currentPath);
             }
           }
         });
@@ -148,9 +150,24 @@ export function AppSidebarNav() {
     };
 
     const newCalculatedOpenState = calculateNewOpenState();
-    setOpenSubmenus(newCalculatedOpenState); // Always set, let React diff
 
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole]);
+    const currentKeys = Object.keys(openSubmenus);
+    const newKeys = Object.keys(newCalculatedOpenState);
+    let needsUpdate = currentKeys.length !== newKeys.length;
+
+    if (!needsUpdate) {
+      for (const key of newKeys) {
+        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
+          needsUpdate = true;
+          break;
+        }
+      }
+    }
+
+    if (needsUpdate) {
+      setOpenSubmenus(newCalculatedOpenState);
+    }
+  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole, openSubmenus]);
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -163,7 +180,7 @@ export function AppSidebarNav() {
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
       if (item.children && item.children.length === 0 && !item.href) {
-        return null;
+        return null; // Do not render group items with no children and no direct href
       }
 
       const effectiveHref = item.href;
@@ -174,9 +191,11 @@ export function AppSidebarNav() {
         
         const isGroupActive = item.children.some(child => {
             if (!child.href) return false;
+            // A child is active if the pathname is exactly its href OR starts with its href + '/'
             return pathname === child.href || pathname.startsWith(child.href + '/');
         });
         
+        // A group button itself can be considered active if its own href matches, OR if any of its children are active
         const isActiveForButton = (effectiveHref && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
 
         return (
@@ -202,9 +221,11 @@ export function AppSidebarNav() {
         );
       }
 
-      if (!effectiveHref) return null;
+      if (!effectiveHref) return null; // Don't render if no href and not a group with children
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
+      // For non-group items, active means exact match or starts with + '/'
+      // For the "Panel Principal" link, it should only be active if pathname is exactly dashboardPath
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
        if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
          isActive = pathname === dashboardPath; 
@@ -304,4 +325,3 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
-
