@@ -36,12 +36,12 @@ import {
   SidebarGroupLabel,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import { useSessionRole, Role } from '@/app/dashboard/layout'; 
+import { useSessionRole, type Role } from '@/app/dashboard/layout'; 
 
 interface NavItem {
-  id: string;
+  id: string; // Added for stable keys
   href?: string; 
   label: string;
   icon: React.ElementType;
@@ -66,10 +66,10 @@ const navItems: NavItem[] = [
   {
     id: 'nav-instructor-tools-group',
     label: 'Herramientas de Instructor',
-    icon: BookOpen,
+    icon: BookOpen, // Main group icon
     roles: ['instructor'],
     children: [
-      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor'] },
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor', 'administrador'] }, // Admin can also create
       { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] }, 
     ],
   },
@@ -91,23 +91,19 @@ const navItems: NavItem[] = [
 
 export function AppSidebarNav() {
   const pathname = usePathname();
-  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const { currentSessionRole } = useSessionRole(); 
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
-  const manualToggleRef = React.useRef<Record<string, boolean>>({});
+  const manualToggleRef = useRef<Record<string, boolean>>({});
   
   const dashboardPath = '/dashboard'; 
 
   const filteredNavItems = useMemo(() => {
-    if (isLoadingRole || !currentSessionRole) return [];
+    if (!currentSessionRole) return []; 
 
     return navItems.reduce((acc, item) => {
       if (!item.roles || item.roles.includes(currentSessionRole)) {
         let newItem = { ...item };
         
-        if (newItem.href === '/dashboard' && item.id === 'nav-panel-principal') {
-            // No special override needed here as /dashboard is the unified panel
-        }
-
         if (item.children) {
           newItem.children = item.children.filter(child => {
             if (child.roles && !child.roles.includes(currentSessionRole!)) {
@@ -124,9 +120,9 @@ export function AppSidebarNav() {
       }
       return acc;
     }, [] as NavItem[]);
-  }, [currentSessionRole, isLoadingRole, dashboardPath]);
+  }, [currentSessionRole, dashboardPath]);
 
-  const toggleSubmenu = (itemId: string) => { // Use itemId
+  const toggleSubmenu = (itemId: string) => {
     setOpenSubmenus(prev => {
       const newState = !prev[itemId];
       manualToggleRef.current[itemId] = true; 
@@ -135,41 +131,55 @@ export function AppSidebarNav() {
   };
   
   useEffect(() => {
-    const nextOpenSubmenus = { ...openSubmenus };
-    let updated = false;
+    const newOpenState: Record<string, boolean> = {};
+    let stateChanged = false;
 
     filteredNavItems.forEach(item => {
-        if (item.children && item.children.length > 0) {
-            const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href));
-            const isParentItselfActive = item.href && pathname === item.href;
-            const shouldBeOpenDueToRoute = isChildActive || isParentItselfActive;
+      if (item.children && item.children.length > 0) {
+        const isChildActive = item.children.some(child => child.href && pathname.startsWith(child.href));
+        const isParentItselfActive = item.href && pathname === item.href; // Though item.href is usually undefined for groups
+        const shouldBeOpenByRoute = isChildActive || isParentItselfActive;
 
-            if (shouldBeOpenDueToRoute && !nextOpenSubmenus[item.id] && !manualToggleRef.current[item.id]) {
-                nextOpenSubmenus[item.id] = true;
-                updated = true;
-            }
-            // Optionally auto-close if not active and not manually toggled:
-            // else if (!shouldBeOpenDueToRoute && nextOpenSubmenus[item.id] && !manualToggleRef.current[item.id]) {
-            //     nextOpenSubmenus[item.id] = false;
-            //     updated = true;
-            // }
+        if (manualToggleRef.current[item.id]) {
+          // If manually toggled, respect that state for this cycle
+          newOpenState[item.id] = openSubmenus[item.id] || false;
+        } else if (shouldBeOpenByRoute) {
+          newOpenState[item.id] = true;
+        } else {
+          newOpenState[item.id] = false; // Default to closed if not active by route and not manually toggled
         }
+
+        if (openSubmenus[item.id] !== newOpenState[item.id]) {
+          stateChanged = true;
+        }
+      }
     });
-
-    if (updated) {
-        setOpenSubmenus(nextOpenSubmenus);
+    
+    // Only update if the computed state is different from the current one
+    if (stateChanged) {
+        // We need to construct the full new state, including items not iterated if they were previously open
+        const finalNewState = {...openSubmenus, ...newOpenState};
+        // Filter out keys that are no longer in filteredNavItems (e.g. due to role change)
+        const relevantKeys = new Set(filteredNavItems.map(i => i.id));
+        const cleanedFinalState: Record<string, boolean> = {};
+        for (const key in finalNewState) {
+            if (relevantKeys.has(key) && finalNewState[key] !== undefined) {
+                 cleanedFinalState[key] = finalNewState[key];
+            }
+        }
+       
+        if(JSON.stringify(cleanedFinalState) !== JSON.stringify(openSubmenus)){
+            setOpenSubmenus(cleanedFinalState);
+        }
     }
-    // Reset manual toggle tracker after each path change effect
-    // This ensures that route-based auto-opening works again if user navigates away and back
-    manualToggleRef.current = {}; 
+    manualToggleRef.current = {}; // Reset manual toggle tracking after each path change effect
 
-  }, [pathname, filteredNavItems]); // openSubmenus removed from deps to make this effect primarily about route changes
+  }, [pathname, filteredNavItems, openSubmenus]);
 
 
   const renderNavItems = (items: NavItem[], isSubmenu = false) => {
     return items.map((item) => {
       if (item.id !== 'nav-panel-principal' && item.children && item.children.length === 0 && !item.href) {
-         // Don't render empty groups unless it's the main panel link
         return null;
       }
 
@@ -177,17 +187,15 @@ export function AppSidebarNav() {
 
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-        const isOpen = openSubmenus[item.id] || false; // Use item.id
+        const isOpen = openSubmenus[item.id] || false;
 
-        const isGroupActive = (effectiveHref && pathname === effectiveHref) || 
-                              item.children.some(child => child.href && pathname.startsWith(child.href as string));
-        
-        const isActiveForButton = effectiveHref ? (pathname === effectiveHref) : isGroupActive;
+        const isGroupActive = item.children.some(child => child.href && pathname.startsWith(child.href as string));
+        const isActiveForButton = (effectiveHref && pathname === effectiveHref) ? true : isGroupActive;
 
         return (
           <SidebarMenuItem key={item.id}>
             <Comp
-              onClick={() => toggleSubmenu(item.id)} // Use item.id
+              onClick={() => toggleSubmenu(item.id)}
               className="justify-between"
               isActive={isActiveForButton}
               aria-expanded={isOpen}
@@ -210,36 +218,12 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null; 
 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      let isActive = pathname === effectiveHref || (pathname.startsWith(effectiveHref) && effectiveHref !== dashboardPath);
+      // More specific check for active state: exact match or prefix match if it's not the dashboard root
+      let isActive = pathname === effectiveHref || (effectiveHref !== dashboardPath && pathname.startsWith(effectiveHref + '/'));
       
+      // Special handling for the main "Panel Principal" link
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-        // Special handling for the main "Panel Principal" link
-        // It's active if the pathname is exactly /dashboard, or /dashboard/admin, /dashboard/instructor, /dashboard/student
-        // (since /dashboard now shows role-specific content)
-        isActive = pathname === dashboardPath || 
-                     pathname.startsWith(`${dashboardPath}/admin`) || 
-                     pathname.startsWith(`${dashboardPath}/instructor`) ||
-                     pathname.startsWith(`${dashboardPath}/student`);
-         // Make sure it's not active if a more specific child of /dashboard is active, like /dashboard/settings
-        if (pathname !== dashboardPath && (
-            pathname.startsWith(`${dashboardPath}/admin/`) ||
-            pathname.startsWith(`${dashboardPath}/instructor/`) ||
-            pathname.startsWith(`${dashboardPath}/student/profile`) || // Example of more specific student route
-            pathname.startsWith(`${dashboardPath}/courses/`) ||
-            pathname.startsWith(`${dashboardPath}/calendar`) ||
-            pathname.startsWith(`${dashboardPath}/resources`) ||
-            pathname.startsWith(`${dashboardPath}/settings`)
-            ) && !isActive // if already active due to /admin etc, keep it
-        ) {
-            // If we are on a sub-page like /dashboard/settings, "Panel Principal" should not be active
-            // unless the current role's main dashboard IS /dashboard (which it is for all now)
-            // The previous complex logic for isActive might be better:
-            // The main "Panel Principal" link should only be active if pathname is exactly /dashboard
-            // OR if the user is on their role's specific base path (/dashboard/admin, /dashboard/instructor, /dashboard/student)
-            // which now all resolve to /dashboard.
-             isActive = pathname === dashboardPath; // Simplified: active only if exactly /dashboard
-        }
-
+         isActive = pathname === dashboardPath; // Active only if exactly /dashboard
       }
 
 
@@ -268,26 +252,6 @@ export function AppSidebarNav() {
     });
   };
 
-  if (isLoadingRole) {
-    return (
-      <Sidebar collapsible="icon">
-         <SidebarHeader>
-            <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
-            <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
-            <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
-            </Link>
-        </SidebarHeader>
-        <SidebarContent className="p-2">
-            {/* Skeleton for loading state */}
-            {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-8 w-full bg-muted/50 rounded-md animate-pulse mb-2" />
-            ))}
-        </SidebarContent>
-      </Sidebar>
-    );
-  }
-
-
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -296,7 +260,7 @@ export function AppSidebarNav() {
           <span className="font-semibold group-data-[collapsible=icon]:hidden">NexusAlpri</span>
         </Link>
       </SidebarHeader>
-      <SidebarContent>
+      <SidebarContent className="p-2">
         <SidebarMenu>
           {renderNavItems(filteredNavItems)}
         </SidebarMenu>
@@ -322,7 +286,6 @@ export function AppSidebarNav() {
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
-
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
@@ -333,3 +296,5 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
+    
