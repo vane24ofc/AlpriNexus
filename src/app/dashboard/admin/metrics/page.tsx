@@ -2,7 +2,7 @@
 "use client";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button"; // Asegurarse de que Button esté importado
+import { Button } from "@/components/ui/button";
 import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare, FileText, Download, Loader2 } from "lucide-react";
 import {
   ChartContainer,
@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/chart";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, Bar, BarChart as ReBarChart, LabelList } from 'recharts';
 import type { ChartConfig } from "@/components/ui/chart";
-import { useToast } from "@/hooks/use-toast"; // Importar useToast
-import React, { useState } from 'react'; // Importar useState
+import { useToast } from "@/hooks/use-toast";
+import React, { useState } from 'react';
 
 const userGrowthData = [
   { month: "Ene", users: 65 },
@@ -287,3 +287,4 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
+
