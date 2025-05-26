@@ -20,7 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { PlusCircle, Trash2, CalendarDays } from 'lucide-react';
 import { useSessionRole } from '@/app/dashboard/layout';
-import { format, isSameDay, parseISO, startOfDay } from 'date-fns';
+import { format, isSameDay, parseISO, startOfDay, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 interface CalendarEvent {
@@ -28,6 +28,7 @@ interface CalendarEvent {
   date: Date; // Store as Date object in component state
   title: string;
   description?: string;
+  time?: string; // Optional time for the event
 }
 
 // For localStorage, we'll store dates as ISO strings
@@ -36,6 +37,7 @@ interface StoredCalendarEvent {
   date: string; // ISO string
   title: string;
   description?: string;
+  time?: string;
 }
 
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
@@ -49,6 +51,7 @@ export default function CalendarPage() {
   // Form state for new event
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
+  const [newEventTime, setNewEventTime] = useState('');
   const [eventDateForDialog, setEventDateForDialog] = useState<Date>(new Date());
 
   // Load events from localStorage on initial render
@@ -60,28 +63,37 @@ export default function CalendarPage() {
         const loadedEvents: CalendarEvent[] = storedEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)), // Ensure date is consistently start of day
+          time: event.time || undefined,
         }));
-        setEvents(loadedEvents.sort((a, b) => a.date.getTime() - b.date.getTime()));
+        setEvents(loadedEvents.sort((a, b) => {
+            const dateComparison = a.date.getTime() - b.date.getTime();
+            if (dateComparison !== 0) return dateComparison;
+            // If dates are the same, sort by time (if available)
+            if (a.time && b.time) {
+                return a.time.localeCompare(b.time);
+            }
+            return 0;
+        }));
       } catch (error) {
         console.error("Error al cargar eventos del calendario desde localStorage:", error);
-        // Initialize with a sample event if loading fails or no events stored
         setEvents([
           {
             id: 'sample1',
             date: startOfDay(new Date()),
             title: 'Reunión de Planificación Semanal',
-            description: 'Discutir tareas y objetivos para la próxima semana.'
+            description: 'Discutir tareas y objetivos para la próxima semana.',
+            time: '10:00'
           }
         ]);
       }
     } else {
-      // Initialize with a sample event if nothing in localStorage
        setEvents([
         {
           id: 'sample1',
           date: startOfDay(new Date()),
           title: 'Reunión de Planificación Semanal',
-          description: 'Discutir tareas y objetivos para la próxima semana.'
+          description: 'Discutir tareas y objetivos para la próxima semana.',
+          time: '10:00'
         }
       ]);
     }
@@ -91,7 +103,8 @@ export default function CalendarPage() {
   useEffect(() => {
     const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
       ...event,
-      date: event.date.toISOString(), // Store date as ISO string
+      date: event.date.toISOString(),
+      time: event.time || undefined,
     }));
     localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
   }, [events]);
@@ -101,6 +114,7 @@ export default function CalendarPage() {
     setEventDateForDialog(startOfDay(selectedDate || new Date()));
     setNewEventTitle('');
     setNewEventDescription('');
+    setNewEventTime('');
     setIsDialogOpen(true);
   };
 
@@ -114,8 +128,14 @@ export default function CalendarPage() {
       date: startOfDay(eventDateForDialog), 
       title: newEventTitle.trim(),
       description: newEventDescription.trim(),
+      time: newEventTime || undefined,
     };
-    setEvents(prevEvents => [...prevEvents, newEvent].sort((a, b) => a.date.getTime() - b.date.getTime()));
+    setEvents(prevEvents => [...prevEvents, newEvent].sort((a, b) => {
+        const dateComparison = a.date.getTime() - b.date.getTime();
+        if (dateComparison !== 0) return dateComparison;
+        if (a.time && b.time) return a.time.localeCompare(b.time);
+        return 0;
+    }));
     setIsDialogOpen(false);
   };
 
@@ -130,6 +150,19 @@ export default function CalendarPage() {
   const eventDayModifier = events.map(event => event.date);
 
   const canManageEvents = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
+
+  const formatTime = (timeString?: string) => {
+    if (!timeString) return '';
+    try {
+        // Parse time string "HH:mm" and format it to "h:mm a" (e.g., "10:00 AM")
+        const dateWithTime = parse(timeString, 'HH:mm', new Date());
+        return format(dateWithTime, 'p', { locale: es });
+    } catch (error) {
+        console.warn("Error formateando hora:", error);
+        return timeString; // Fallback to original string if parsing fails
+    }
+  };
+
 
   return (
     <div className="space-y-6">
@@ -190,6 +223,18 @@ export default function CalendarPage() {
                         className="col-span-3"
                     />
                  </div>
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="event-time" className="text-right">
+                        Hora (Opc.)
+                    </Label>
+                    <Input
+                        id="event-time"
+                        type="time"
+                        value={newEventTime}
+                        onChange={(e) => setNewEventTime(e.target.value)}
+                        className="col-span-3"
+                    />
+                 </div>
               </div>
               <DialogFooter>
                 <DialogClose asChild>
@@ -240,7 +285,10 @@ export default function CalendarPage() {
             {selectedDate && eventsForSelectedDay.length > 0 ? (
               eventsForSelectedDay.map(event => (
                 <div key={event.id} className="p-3 border rounded-lg bg-card hover:bg-muted/50 transition-colors relative group">
-                  <h4 className="font-semibold text-md mb-0.5">{event.title}</h4>
+                  <h4 className="font-semibold text-md mb-0.5">
+                    {event.time && <span className="text-primary mr-2">{formatTime(event.time)}</span>}
+                    {event.title}
+                  </h4>
                   {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
                   {canManageEvents && (
                       <Button 
