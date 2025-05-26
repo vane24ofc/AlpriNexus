@@ -39,12 +39,12 @@ body {
 
     --radius: 0.5rem; /* 8px. Buttons/Cards will use rounded-lg (8px). Inputs will use rounded-md (6px) */
 
-    /* Chart colors */
-    --chart-1: hsl(var(--primary)); /* Azul (color primario) */
-    --chart-2: hsl(var(--accent)); /* Teal (color de acento) */
-    --chart-3: 250 70% 60%; /* Púrpura/Violeta */
-    --chart-4: 30 90% 55%;  /* Naranja */
-    --chart-5: 130 60% 50%; /* Verde lima */
+    /* Chart colors - NUEVA PALETA */
+    --chart-1: 200 80% 55%; /* Azul Cielo Brillante */
+    --chart-2: 340 85% 60%; /* Rosa/Magenta Vibrante */
+    --chart-3: 45 100% 50%; /* Amarillo Dorado */
+    --chart-4: 150 70% 45%; /* Verde Esmeralda */
+    --chart-5: 280 75% 65%; /* Lavanda */
 
 
     /* Sidebar specific colors, matching the theme */
