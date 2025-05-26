@@ -27,7 +27,7 @@ const sampleCourses: Course[] = [
       {id: 'l1-js', title: 'Introducción a ESNext', contentType: 'text', content: 'Exploraremos las últimas características de ECMAScript, como let/const, arrow functions, template literals, y más. Veremos cómo estas adiciones mejoran la legibilidad y mantenibilidad del código JavaScript.'},
       {id: 'l2-js', title: 'Programación Asíncrona Profunda', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Este módulo cubre promesas, async/await, y cómo manejar operaciones asíncronas de manera efectiva. También discutiremos el event loop y cómo funciona en JavaScript.'},
       {id: 'l3-js', title: 'Patrones de Diseño en JS', contentType: 'text', content: 'Aprende patrones comunes como Singleton, Factory, Observer y Module, y cómo aplicarlos en JavaScript para crear soluciones más robustas y reutilizables.'},
-      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', contentType: 'quiz', quizPlaceholder: 'Pon a prueba tus conocimientos sobre optimización en JS.', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
+      {id: 'l4-js', title: 'Optimización y Buenas Prácticas', contentType: 'quiz', quizPlaceholder: 'Pregunta de ejemplo: ¿Cuál es la principal ventaja de usar "async/await" sobre las promesas puras para manejar código asíncrono en JavaScript?', content: 'Descubre técnicas para optimizar el rendimiento de tu código JavaScript y las mejores prácticas para escribir código limpio, eficiente y fácil de mantener.'}
     ],
     interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">Material complementario disponible abajo.</p>'
   },
@@ -43,7 +43,7 @@ const sampleCourses: Course[] = [
       {id: 'l1-py', title: 'Fundamentos de Python', contentType: 'text', content: 'Comenzaremos con los conceptos básicos de Python, incluyendo tipos de datos, variables, operadores, estructuras de control (if/else, bucles) y funciones.'},
       {id: 'l2-py', title: 'Pandas para Manipulación de Datos', contentType: 'text', content: 'Introducción a la librería Pandas para la carga, limpieza, transformación y análisis de datos tabulares.'},
       {id: 'l3-py', title: 'Visualización de Datos con Matplotlib', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/NgsQjG1qN4k', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'},
-      {id: 'l4-py', title: 'Intro a Machine Learning con Scikit-learn', contentType: 'quiz', quizPlaceholder: 'Evalúa tu comprensión de los conceptos básicos de ML.', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
+      {id: 'l4-py', title: 'Intro a Machine Learning con Scikit-learn', contentType: 'quiz', quizPlaceholder: '¿Qué librería de Python se utiliza comúnmente para construir modelos de Machine Learning?', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
     ],
     interactiveContent: '<div><p class="text-center p-2">Este curso incluye un Jupyter Notebook interactivo.</p><button class="w-full bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">Descargar Notebook (Simulado)</button></div>'
   },
@@ -59,7 +59,7 @@ const sampleCourses: Course[] = [
       {id: 'l1-ux', title: '¿Qué es UX?', contentType: 'text', content: 'Definición de Experiencia de Usuario, su importancia y los diferentes roles dentro del campo del diseño UX.'},
       {id: 'l2-ux', title: 'Investigación de Usuarios', contentType: 'text', content: 'Métodos para entender a tus usuarios, sus necesidades y comportamientos, incluyendo entrevistas, encuestas y personas.'},
       {id: 'l3-ux', title: 'Wireframing y Prototipado', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/6301pG42H7E', content: 'Cómo crear wireframes de baja y alta fidelidad, y prototipos interactivos para probar tus diseños.'},
-      {id: 'l4-ux', title: 'Pruebas de Usabilidad', contentType: 'quiz', quizPlaceholder: 'Evalúa tus diseños con pruebas de usabilidad.', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
+      {id: 'l4-ux', title: 'Pruebas de Usabilidad', contentType: 'quiz', quizPlaceholder: '¿Cuál es el objetivo principal de una prueba de usabilidad?', content: 'Planifica y conduce pruebas de usabilidad para obtener feedback valioso y mejorar tus diseños.'}
     ],
   },
 ];
@@ -75,7 +75,7 @@ export default function StudentCourseViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-  const [quizStarted, setQuizStarted] = useState<Record<string, boolean>>({});
+  const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
 
 
   useEffect(() => {
@@ -85,19 +85,24 @@ export default function StudentCourseViewPage() {
         const foundCourse = sampleCourses.find(c => c.id === courseId);
         if (foundCourse) {
           setCourse(foundCourse);
-          // Load completed lessons for this course from localStorage
           const storedCompleted = localStorage.getItem(`${COMPLETED_COURSES_KEY}_${courseId}`);
           const initialCompleted = storedCompleted ? new Set<string>(JSON.parse(storedCompleted)) : new Set<string>();
           setCompletedLessons(initialCompleted);
 
+          const initialQuizState: Record<string, { started: boolean; answered: boolean; selectedOption: string | null }> = {};
+          foundCourse.lessons.forEach(lesson => {
+            if (lesson.contentType === 'quiz') {
+              initialQuizState[lesson.id] = { started: false, answered: false, selectedOption: null };
+            }
+          });
+          setQuizState(initialQuizState);
+
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
-             // If all lessons are completed, don't auto-open one, otherwise open first uncompleted or first.
             const allDone = initialCompleted.size === foundCourse.lessons.length;
             if (!allDone) {
                 const firstUncompleted = foundCourse.lessons.find(l => !initialCompleted.has(l.id));
                 setActiveAccordionItem(firstUncompleted ? `lesson-${firstUncompleted.id}` : `lesson-${foundCourse.lessons[0].id}`);
             } else {
-                // Optionally keep the first lesson open for review if all completed
                  setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
             }
           }
@@ -134,13 +139,10 @@ export default function StudentCourseViewPage() {
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
         
-        // Save to localStorage for this specific course
         localStorage.setItem(`${COMPLETED_COURSES_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
 
-        // Check if all lessons are now completed
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000 });
-            // Add to global list of completed courses
             const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_KEY) || '[]');
             if (!globalCompleted.includes(courseId)) {
                 globalCompleted.push(courseId);
@@ -162,7 +164,7 @@ export default function StudentCourseViewPage() {
     const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
-    } else if (course.lessons.length > 0) { // Should not happen if allLessonsCompleted is false but good fallback
+    } else if (course.lessons.length > 0) {
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -175,12 +177,17 @@ export default function StudentCourseViewPage() {
   };
 
   const handleStartQuiz = (lessonId: string) => {
-    setQuizStarted(prev => ({ ...prev, [lessonId]: true }));
+    setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], started: true, answered: false, selectedOption: null } }));
+  };
+
+  const handleAnswerQuiz = (lessonId: string, option: string) => {
+    setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
     toast({
-        title: "Quiz Iniciado (Simulación)",
-        description: "Has comenzado el quiz. ¡Mucha suerte!",
+        title: "Respuesta Enviada (Simulación)",
+        description: `Has seleccionado la ${option}.`,
     });
-    // En una aplicación real, aquí se redirigiría a una interfaz de quiz o se cargaría contenido de quiz.
+    // Aquí podrías marcar la lección como completada automáticamente si lo deseas.
+    // handleToggleLessonComplete(lessonId);
   };
 
   const renderLessonContent = (lesson: Lesson) => {
@@ -213,22 +220,45 @@ export default function StudentCourseViewPage() {
           </div>
         );
       case 'quiz':
-        const isStarted = quizStarted[lesson.id];
+        const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
         return (
-          <div className="p-4 bg-muted/70 rounded-md space-y-3">
+          <div className="p-4 bg-muted/70 rounded-md space-y-4">
             <div className="flex items-center text-primary">
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
-            <p className="text-sm text-muted-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
-            <Button 
-              variant="outline" 
-              onClick={() => handleStartQuiz(lesson.id)}
-              disabled={isStarted}
-            >
-              {isStarted ? "Quiz en Progreso..." : "Comenzar Quiz"}
-            </Button>
-            {isStarted && <p className="text-xs text-green-600 mt-2">Has iniciado este quiz. Completa las preguntas en la interfaz del quiz (simulado).</p>}
+            <p className="text-sm text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
+            {!currentQuizState.started ? (
+              <Button 
+                variant="outline" 
+                onClick={() => handleStartQuiz(lesson.id)}
+              >
+                Comenzar Quiz
+              </Button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">Pregunta de ejemplo: {lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Button
+                    variant={currentQuizState.selectedOption === 'Opción A' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerQuiz(lesson.id, 'Opción A')}
+                    disabled={currentQuizState.answered}
+                    className="flex-1"
+                  >
+                    Opción A
+                  </Button>
+                  <Button
+                    variant={currentQuizState.selectedOption === 'Opción B' ? 'default' : 'outline'}
+                    onClick={() => handleAnswerQuiz(lesson.id, 'Opción B')}
+                    disabled={currentQuizState.answered}
+                    className="flex-1"
+                  >
+                    Opción B
+                  </Button>
+                </div>
+                {currentQuizState.answered && <p className="text-xs text-green-600 mt-2">Respuesta enviada. ¡Buen trabajo!</p>}
+              </div>
+            )}
           </div>
         );
       case 'text':
@@ -412,3 +442,4 @@ export default function StudentCourseViewPage() {
     
 
     
+
