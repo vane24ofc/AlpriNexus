@@ -365,7 +365,7 @@ export default function StudentCourseViewPage() {
                 <CardTitle className="text-xl">Contenido Interactivo Adicional</CardTitle>
               </CardHeader>
               <CardContent>
-                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} className="prose prose-sm dark:prose-invert max-w-none"/>
+                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
               </CardContent>
             </Card>
           )}

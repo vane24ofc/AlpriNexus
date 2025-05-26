@@ -31,7 +31,7 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(),
+  quizPlaceholder: z.string().optional(), // Aseguramos que este campo esté en el schema
 });
 
 const courseFormSchema = z.object({
@@ -53,7 +53,7 @@ interface CourseFormProps {
 const lessonTypeOptions = [
   { value: 'text', label: 'Texto', icon: FileText },
   { value: 'video', label: 'Video (YouTube Embed)', icon: Video },
-  { value: 'quiz', label: 'Quiz (Placeholder)', icon: Puzzle },
+  { value: 'quiz', label: 'Quiz (Interactivo)', icon: Puzzle },
 ];
 
 export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }: CourseFormProps) {
@@ -164,7 +164,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         const newLessons = result.lessonTitles.map(lessonTitle => ({
             title: lessonTitle,
             contentType: 'text' as 'text' | 'video' | 'quiz',
-            content: '', videoUrl: '', quizPlaceholder: ''
+            content: '', videoUrl: '', quizPlaceholder: `Quiz sobre: ${lessonTitle}` // Placeholder dinámico
         }));
         replace(newLessons);
         toast({
@@ -209,6 +209,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       const result = await generateCourseThumbnail(input);
       if (result.thumbnailDataUri) {
         setThumbnailPreview(result.thumbnailDataUri);
+        // No establecemos thumbnailFile aquí porque la IA devuelve un Data URI, no un File.
+        // La lógica de envío tomará thumbnailPreview si existe.
         form.setValue('thumbnailFile', null); 
         toast({
           title: "Miniatura Generada por IA",
@@ -238,24 +240,30 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     let finalThumbnailUrl = initialData?.thumbnailUrl;
 
     if (thumbnailPreview && thumbnailPreview !== initialData?.thumbnailUrl) {
-        finalThumbnailUrl = thumbnailPreview;
+        finalThumbnailUrl = thumbnailPreview; // Puede ser un Data URI de la IA o un Data URI de un archivo local.
     } else if (!thumbnailPreview && initialData?.thumbnailUrl) {
-        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
+        // Si no hay preview (no se cambió ni se generó nueva) pero había una inicial, se mantiene.
+        finalThumbnailUrl = initialData.thumbnailUrl;
     } else if (!thumbnailPreview && !initialData?.thumbnailUrl && !data.thumbnailFile) {
-        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso";
+        // Si no hay nada (ni preview, ni inicial, ni archivo seleccionado)
+        finalThumbnailUrl = "https://placehold.co/600x400.png?text=Curso"; // Placeholder por defecto
     }
-    
+    // Si data.thumbnailFile existe, la simulación de subida y la URL final se manejarían en onSubmitCourse.
+    // Por ahora, priorizamos thumbnailPreview si existe.
+
     const lessonsWithDefaults = data.lessons.map(lesson => ({
         ...lesson,
         id: lesson.id || crypto.randomUUID(),
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
-        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
         contentType: lesson.contentType || 'text'
     }));
 
     await onSubmitCourse({...data, lessons: lessonsWithDefaults}, finalThumbnailUrl);
   };
+  
+  const formDisabled = isSubmitting || isAnyAiWorking;
 
   return (
     <Form {...form}>
@@ -274,7 +282,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Título del Curso</FormLabel>
-                      <FormControl><Input placeholder="Ej: Desarrollo Web Moderno con React" {...field} disabled={isAnyAiWorking} /></FormControl>
+                      <FormControl><Input placeholder="Ej: Desarrollo Web Moderno con React" {...field} disabled={formDisabled} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -285,7 +293,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Descripción del Curso</FormLabel>
-                      <FormControl><Textarea placeholder="Describe de qué trata tu curso, a quién va dirigido, y qué aprenderán los estudiantes." {...field} rows={5} disabled={isAnyAiWorking} /></FormControl>
+                      <FormControl><Textarea placeholder="Describe de qué trata tu curso, a quién va dirigido, y qué aprenderán los estudiantes." {...field} rows={5} disabled={formDisabled} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -299,7 +307,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   <CardTitle>Lecciones del Curso</CardTitle>
                   <CardDescription>Añade y organiza las lecciones. Debes añadir al menos una.</CardDescription>
                 </div>
-                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={isAnyAiWorking || isSubmitting}>
+                <Button type="button" variant="outline" onClick={handleGenerateOutline} disabled={formDisabled}>
                   {isAiGeneratingLessons ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Wand2 className="mr-2 h-5 w-5" />}
                   {isAiGeneratingLessons ? 'Generando...' : 'Sugerir Lecciones con IA'}
                 </Button>
@@ -318,7 +326,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           render={({ field: lessonTitleField }) => (
                             <FormItem>
                               <FormLabel>Título de la Lección</FormLabel>
-                              <FormControl><Input placeholder={`Título para Lección ${index + 1}`} {...lessonTitleField} disabled={isAnyAiWorking} /></FormControl>
+                              <FormControl><Input placeholder={`Título para Lección ${index + 1}`} {...lessonTitleField} disabled={formDisabled} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -329,7 +337,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           render={({ field: lessonTypeField }) => (
                             <FormItem>
                               <FormLabel>Tipo de Contenido</FormLabel>
-                              <Select onValueChange={lessonTypeField.onChange} defaultValue={lessonTypeField.value} disabled={isAnyAiWorking}>
+                              <Select onValueChange={lessonTypeField.onChange} defaultValue={lessonTypeField.value} disabled={formDisabled}>
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Seleccionar tipo de contenido" />
@@ -357,7 +365,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                             render={({ field: lessonContentField }) => (
                               <FormItem>
                                 <FormLabel>Contenido de Texto</FormLabel>
-                                <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...lessonContentField} rows={4} disabled={isAnyAiWorking}/></FormControl>
+                                <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...lessonContentField} rows={4} disabled={formDisabled}/></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -370,7 +378,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                             render={({ field: lessonVideoUrlField }) => (
                               <FormItem>
                                 <FormLabel>URL del Video (YouTube Embed)</FormLabel>
-                                <FormControl><Input placeholder="Ej: https://www.youtube.com/embed/VIDEO_ID" {...lessonVideoUrlField} disabled={isAnyAiWorking} /></FormControl>
+                                <FormControl><Input placeholder="Ej: https://www.youtube.com/embed/VIDEO_ID" {...lessonVideoUrlField} disabled={formDisabled} /></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -383,7 +391,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                             render={({ field: lessonQuizField }) => (
                               <FormItem>
                                 <FormLabel>Texto Descriptivo del Quiz</FormLabel>
-                                <FormControl><Input placeholder="Ej: Evalúa tus conocimientos sobre el Módulo 1." {...lessonQuizField} disabled={isAnyAiWorking} /></FormControl>
+                                <FormControl><Input placeholder="Ej: Evalúa tus conocimientos sobre el Módulo 1." {...lessonQuizField} disabled={formDisabled} /></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
@@ -391,7 +399,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                         )}
                       </div>
                       {fields.length > 1 && (
-                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-1" aria-label="Eliminar lección" disabled={isAnyAiWorking || isSubmitting}>
+                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-1" aria-label="Eliminar lección" disabled={formDisabled}>
                               <Trash2 className="h-5 w-5" />
                           </Button>
                       )}
@@ -399,7 +407,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   </div>
                   );
                 })}
-                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: '' })} className="w-full mt-4" disabled={isAnyAiWorking || isSubmitting}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: '' })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
@@ -435,16 +443,16 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     <FormItem>
                       <FormLabel className="sr-only">Archivo de Miniatura</FormLabel>
                       <FormControl>
-                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={isAnyAiWorking || isSubmitting}/>
+                        <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={formDisabled}/>
                       </FormControl>
-                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={isAnyAiWorking || isSubmitting}>
+                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={formDisabled}>
                          <ImageUp className="mr-2 h-4 w-4" /> {thumbnailPreview ? 'Cambiar Miniatura' : 'Seleccionar Miniatura'}
                        </Button>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={isAnyAiWorking || isSubmitting}>
+                <Button type="button" variant="outline" onClick={handleGenerateThumbnail} className="w-full" disabled={formDisabled}>
                   {isAiGeneratingThumbnail ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
                   {isAiGeneratingThumbnail ? 'Generando...' : 'Generar Miniatura con IA'}
                 </Button>
@@ -463,7 +471,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="sr-only">Contenido Interactivo</FormLabel>
-                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={isAnyAiWorking || isSubmitting} /></FormControl>
+                      <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={formDisabled} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -475,10 +483,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         </div>
 
         <div className="flex justify-end gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()} disabled={isSubmitting || isAnyAiWorking}>
+          <Button type="button" variant="outline" onClick={() => router.back()} disabled={formDisabled}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting || isAnyAiWorking} className="min-w-[120px]">
+          <Button type="submit" disabled={formDisabled} className="min-w-[120px]">
             {isSubmitting ? <AiLoader className="animate-spin mr-2 h-5 w-5" /> : (currentSessionRole === 'instructor' ? <Send className="mr-2 h-5 w-5" /> : <Save className="mr-2 h-5 w-5" />)}
             {isSubmitting ? 'Guardando...' : (currentSessionRole === 'instructor' ? 'Enviar a Revisión' : 'Guardar Curso')}
           </Button>
@@ -487,5 +495,3 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     </Form>
   );
 }
-
-    
