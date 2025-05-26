@@ -43,7 +43,7 @@ const sampleCourses: Course[] = [
       {id: 'l3-py', title: 'Visualización de Datos', content: 'Aprende a crear visualizaciones efectivas utilizando Matplotlib y Seaborn para explorar y comunicar tus hallazgos.'}, 
       {id: 'l4-py', title: 'Intro a Machine Learning', content: 'Una visión general de los conceptos de machine learning y cómo usar Scikit-learn para modelos básicos de predicción y clasificación.'}
     ], 
-    interactiveContent: '<div><p>Este curso incluye un Jupyter Notebook interactivo que puedes descargar.</p><Button>Descargar Notebook</Button></div>' 
+    interactiveContent: '<div><p class="text-center p-2">Este curso incluye un Jupyter Notebook interactivo.</p><button class="w-full bg-primary text-primary-foreground hover:bg-primary/90 p-2 rounded-md">Descargar Notebook (Simulado)</button></div>' 
   },
   { 
     id: 'course-ux-design', 
@@ -95,7 +95,12 @@ export default function StudentCourseViewPage() {
         if (foundCourse) {
           setCourse(foundCourse);
           const initialCompleted = new Set<string>();
+          // Simulación: marcar las primeras n lecciones como completadas si se desea
+          // if (foundCourse.lessons && foundCourse.lessons.length > 1) {
+          //   initialCompleted.add(foundCourse.lessons[0].id);
+          // }
           setCompletedLessons(initialCompleted);
+          // Abrir la primera lección por defecto
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`); 
           }
@@ -135,13 +140,16 @@ export default function StudentCourseViewPage() {
   const handleContinueCourse = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
     if (allLessonsCompleted) {
+        // Si todo está completo, quizás abrir la primera lección para revisión
         setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
         return;
     }
+    // Encontrar la primera lección no completada
     const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
+      // Si todas están completadas (aunque allLessonsCompleted podría manejar esto) o algo raro, abrir la primera.
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -268,7 +276,7 @@ export default function StudentCourseViewPage() {
                 <CardTitle className="text-xl">Contenido Interactivo</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video" dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
+                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
               </CardContent>
             </Card>
           )}
@@ -277,10 +285,11 @@ export default function StudentCourseViewPage() {
               <CardTitle className="text-xl">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center">
+                {/* Circular Progress */}
                 <div className="relative w-24 h-24 mx-auto mb-2">
                     <svg className="w-full h-full" viewBox="0 0 36 36">
                         <path
-                        className="text-muted/30"
+                        className="text-muted/30" // Background circle
                         strokeWidth="3"
                         fill="none"
                         stroke="currentColor"
@@ -289,7 +298,7 @@ export default function StudentCourseViewPage() {
                             a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
-                        className="text-primary"
+                        className="text-primary" // Foreground circle (progress)
                         strokeWidth="3"
                         fill="none"
                         stroke="currentColor"
@@ -304,6 +313,7 @@ export default function StudentCourseViewPage() {
                     </div>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">{allLessonsCompleted ? "¡Curso Completado!" : "Completado"}</p>
+                {/* Linear Progress Bar */}
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className="h-2 mb-4" />
                 <Button className="w-full" onClick={handleContinueCourse}>
                     {allLessonsCompleted ? "Revisar Curso" : "Continuar donde lo dejaste"}
