@@ -6,11 +6,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search } from 'lucide-react';
+import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2 } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -25,14 +25,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 
-const sampleCourses: Course[] = [
-  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course4', title: 'Marketing Digital Estratégico', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "digital marketing", instructorName: 'Admin User', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course5', title: 'Cocina Internacional Fácil', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course6', title: 'Introducción a la Inteligencia Artificial', description: 'Conceptos básicos de IA.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "artificial intelligence", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}]},
-  { id: 'course7', title: 'Desarrollo de APIs con Node.js y Express', description: 'Crea APIs robustas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "nodejs api", instructorName: 'Instructor B', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}]},
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+
+// This will be the initial seed data if localStorage is empty.
+const initialSeedCourses: Course[] = [
+  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
+  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
+  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
+  { id: 'seedCourse4', title: 'Marketing Digital Estratégico (Seed)', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "digital marketing", instructorName: 'Admin User Seed', status: 'approved', lessons: [{id: 'l1-s4', title: 'Intro Seed Marketing'}]},
+  { id: 'seedCourse5', title: 'Cocina Internacional Fácil (Seed)', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1-s5', title: 'Intro Seed Cocina'}]},
 ];
 
 
@@ -41,10 +42,49 @@ export default function AdminCoursesPage() {
   const searchParams = useSearchParams();
   const initialSearchTerm = searchParams.get('search') || '';
   
-  const [courses, setCourses] = useState<Course[]>(sampleCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load courses from localStorage on mount
+  useEffect(() => {
+    setIsLoading(true);
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      if (storedCourses) {
+        setCourses(JSON.parse(storedCourses));
+      } else {
+        // If no courses in localStorage, use initial seed and save it
+        setCourses(initialSeedCourses);
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+      }
+    } catch (error) {
+      console.error("Error loading courses from localStorage:", error);
+      setCourses(initialSeedCourses); // Fallback to seed if parsing fails
+      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+    }
+    setIsLoading(false);
+  }, []);
+
+  // Persist courses to localStorage whenever the courses state changes
+  useEffect(() => {
+    // Avoid saving during initial load or if courses haven't been set yet
+    if (!isLoading && courses.length > 0) { 
+        try {
+            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
+        } catch (error) {
+            console.error("Error saving courses to localStorage:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de Guardado Local",
+                description: "No se pudieron guardar los cambios de los cursos localmente."
+            })
+        }
+    }
+  }, [courses, isLoading, toast]);
+
 
   useEffect(() => {
     const urlSearchTerm = searchParams.get('search') || '';
@@ -90,8 +130,8 @@ export default function AdminCoursesPage() {
     const lowercasedSearchTerm = searchTerm.toLowerCase();
     return courses.filter(course =>
       course.title.toLowerCase().includes(lowercasedSearchTerm) ||
-      course.instructorName.toLowerCase().includes(lowercasedSearchTerm) ||
-      course.description.toLowerCase().includes(lowercasedSearchTerm)
+      (course.instructorName && course.instructorName.toLowerCase().includes(lowercasedSearchTerm)) ||
+      (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
     );
   }, [courses, searchTerm]);
 
@@ -121,12 +161,12 @@ export default function AdminCoursesPage() {
       </TableCell>
       <TableCell className="text-right space-x-1 md:space-x-0">
         {(course.status === 'pending' || course.status === 'rejected') && (
-          <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1">
+          <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1" title="Aprobar Curso">
             <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
           </Button>
         )}
         {course.status === 'pending' && (
-          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')}>
+          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')} title="Rechazar Curso">
             <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
           </Button>
         )}
@@ -146,6 +186,14 @@ export default function AdminCoursesPage() {
   );
 
   const renderCourseTable = (courseList: Course[], emptyMessage: string) => {
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Cargando cursos...</p>
+            </div>
+        );
+    }
     if (courseList.length === 0) {
       return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
     }
@@ -200,6 +248,7 @@ export default function AdminCoursesPage() {
                 className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
             </div>
         </CardContent>
@@ -207,14 +256,14 @@ export default function AdminCoursesPage() {
 
       <Tabs defaultValue="pending">
         <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="pending">
-            Pendientes ({pendingCourses.length})
+          <TabsTrigger value="pending" disabled={isLoading}>
+            Pendientes ({isLoading ? '...' : pendingCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="published">
-            Publicados ({publishedCourses.length})
+          <TabsTrigger value="published" disabled={isLoading}>
+            Publicados ({isLoading ? '...' : publishedCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex">
-            Rechazados ({rejectedCourses.length})
+          <TabsTrigger value="rejected" className="flex" disabled={isLoading}>
+            Rechazados ({isLoading ? '...' : rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
 
@@ -287,5 +336,4 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
-
     

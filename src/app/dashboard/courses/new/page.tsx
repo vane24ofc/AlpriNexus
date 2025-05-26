@@ -2,12 +2,14 @@
 "use client";
 
 import React, { useState } from 'react';
-import CourseForm, { simulateFileUpload } from '@/app/dashboard/courses/course-form';
-import type { Course, Lesson } from '@/types/course';
+import CourseForm from '@/app/dashboard/courses/course-form';
+import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { PlusCircle, Loader2 } from 'lucide-react';
+
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
 export default function CreateCoursePage() {
   const { toast } = useToast();
@@ -17,41 +19,51 @@ export default function CreateCoursePage() {
 
   const handleSubmit = async (data: any, thumbnailUrl?: string) => {
     setIsSubmitting(true);
-    console.log("Datos del curso a crear:", data);
-    console.log("URL de Miniatura (simulada/existente):", thumbnailUrl);
-
+    
     const newCourse: Course = {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID(), // Generate a unique ID
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: "Usuario Actual",
+      instructorName: currentSessionRole === 'instructor' ? "Usuario Actual (Instructor)" : "Administrador", // Placeholder
       status: currentSessionRole === 'instructor' ? 'pending' : 'approved',
       lessons: data.lessons.map((lesson: any) => ({
-        id: crypto.randomUUID(),
+        id: lesson.id || crypto.randomUUID(),
         title: lesson.title,
         contentType: lesson.contentType || 'text',
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
-        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
       })),
       interactiveContent: data.interactiveContent,
+      dataAiHint: data.title.substring(0,20) // Simple data-ai-hint from title
     };
 
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      const courses: Course[] = storedCourses ? JSON.parse(storedCourses) : [];
+      courses.push(newCourse);
+      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+      toast({
+        title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
+        description: `El curso "${newCourse.title}" ha sido ${currentSessionRole === 'instructor' ? 'enviado para su revisión' : 'creado y añadido localmente'}.`,
+      });
 
-    toast({
-      title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
-      description: `El curso "${newCourse.title}" ha sido ${currentSessionRole === 'instructor' ? 'enviado para su revisión' : 'creado'}.`,
-    });
-
-    setIsSubmitting(false);
-
-    if (currentSessionRole === 'administrador') {
-      router.push('/dashboard/admin/courses');
-    } else {
-      router.push('/dashboard/instructor/my-courses');
+      if (currentSessionRole === 'administrador') {
+        router.push('/dashboard/admin/courses');
+      } else {
+        router.push('/dashboard/instructor/my-courses');
+      }
+    } catch (error) {
+        console.error("Error saving new course to localStorage:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al Guardar",
+            description: "No se pudo guardar el nuevo curso localmente."
+        });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -67,5 +79,4 @@ export default function CreateCoursePage() {
     </div>
   );
 }
-
     

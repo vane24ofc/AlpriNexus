@@ -3,21 +3,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import CourseForm, { simulateFileUpload } from '@/app/dashboard/courses/course-form';
-import type { Course, Lesson } from '@/types/course';
+import CourseForm from '@/app/dashboard/courses/course-form';
+import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { Edit3, Loader2 } from 'lucide-react';
 
-// Sample courses to simulate fetching data - in a real app, this would come from an API
-const sampleCourses: Course[] = [
-  { id: 'course1', title: 'Fundamentos de JavaScript Moderno', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=JS', instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-js', title: 'Intro JS', contentType: 'text', content: 'Contenido de la lección 1 de JS.'}]},
-  { id: 'course2', title: 'Python para Ciencia de Datos', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Python', instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-py', title: 'Intro Python', contentType: 'text', content: 'Contenido de la lección 1 de Python.'}]},
-  { id: 'course3', title: 'Diseño UX/UI para Principiantes', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/600x400.png?text=UX/UI', instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-ux', title: 'Intro UX', contentType: 'text', content: 'Contenido de la lección 1 de UX.'}]},
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/600x400.png?text=Next.js', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1-next', title: 'Intro Next.js', contentType: 'text', content: 'Este es el contenido de la introducción a Next.js.'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/600x400.png?text=MongoDB', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1-mongo', title: 'Intro MongoDB', contentType: 'text', content: 'Este es el contenido de la introducción a MongoDB.'}] },
-];
-
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
 export default function EditCoursePage() {
   const { toast } = useToast();
@@ -33,67 +25,130 @@ export default function EditCoursePage() {
   useEffect(() => {
     if (courseId) {
       setIsLoadingCourse(true);
-      setTimeout(() => {
-        const courseToEdit = sampleCourses.find(c => c.id === courseId);
-        if (courseToEdit) {
-          setInitialCourseData(courseToEdit);
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Curso no encontrado",
-            description: "No se pudo encontrar el curso para editar.",
-          });
-          if (currentSessionRole === 'administrador') {
-            router.push('/dashboard/admin/courses');
-          } else if (currentSessionRole === 'instructor') {
-            router.push('/dashboard/instructor/my-courses');
+      try {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        if (storedCourses) {
+          const courses: Course[] = JSON.parse(storedCourses);
+          const courseToEdit = courses.find(c => c.id === courseId);
+          if (courseToEdit) {
+            // Ensure lessons are in the correct format for the form
+            const formattedCourse = {
+              ...courseToEdit,
+              lessons: courseToEdit.lessons.map(l => ({
+                id: l.id,
+                title: l.title,
+                contentType: l.contentType || 'text',
+                content: l.content || '',
+                videoUrl: l.videoUrl || '',
+                quizPlaceholder: l.quizPlaceholder || ''
+              }))
+            };
+            setInitialCourseData(formattedCourse);
           } else {
-            router.push('/dashboard');
+            toast({
+              variant: "destructive",
+              title: "Curso no encontrado",
+              description: "No se pudo encontrar el curso para editar en el almacenamiento local.",
+            });
+            // Redirect based on role if course not found
+             if (currentSessionRole === 'administrador') {
+                router.push('/dashboard/admin/courses');
+            } else if (currentSessionRole === 'instructor') {
+                router.push('/dashboard/instructor/my-courses');
+            } else {
+                router.push('/dashboard');
+            }
           }
+        } else {
+             toast({
+                variant: "destructive",
+                title: "Datos no encontrados",
+                description: "No hay cursos guardados localmente para editar.",
+            });
+             if (currentSessionRole === 'administrador') {
+                router.push('/dashboard/admin/courses');
+            } else if (currentSessionRole === 'instructor') {
+                router.push('/dashboard/instructor/my-courses');
+            } else {
+                router.push('/dashboard');
+            }
         }
+      } catch (error) {
+        console.error("Error loading course for editing from localStorage:", error);
+        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el curso para editar." });
+      } finally {
         setIsLoadingCourse(false);
-      }, 500);
+      }
     }
   }, [courseId, router, toast, currentSessionRole]);
 
-  const handleSubmit = async (data: any, thumbnailUrl?: string) => {
+  const handleSubmit = async (data: any, thumbnailUrlFromForm?: string) => {
     setIsSubmitting(true);
-    console.log("Datos del curso a actualizar:", data);
-    console.log("URL de Miniatura (simulada/existente):", thumbnailUrl);
 
+    if (!initialCourseData) {
+        toast({ variant: "destructive", title: "Error", description: "No hay datos iniciales del curso para actualizar." });
+        setIsSubmitting(false);
+        return;
+    }
+    
     const updatedCourse: Course = {
-      id: courseId,
+      ...initialCourseData, // Preserve existing ID, instructorName
       title: data.title,
       description: data.description,
-      thumbnailUrl: thumbnailUrl || initialCourseData?.thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: initialCourseData?.instructorName || "Usuario Actual",
-      status: initialCourseData?.status || (currentSessionRole === 'instructor' ? 'pending' : 'approved'),
+      thumbnailUrl: thumbnailUrlFromForm || initialCourseData.thumbnailUrl,
       lessons: data.lessons.map((lesson: any) => ({
         id: lesson.id || crypto.randomUUID(),
         title: lesson.title,
         contentType: lesson.contentType || 'text',
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
-        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
       })),
       interactiveContent: data.interactiveContent,
+      dataAiHint: data.title.substring(0,20), // Update dataAiHint
+      // Admin can change status directly, instructor's edits might revert to 'pending'
+      status: currentSessionRole === 'administrador' ? (data.status || initialCourseData.status) : 'pending',
     };
+     // For instructors, if they edit an approved/rejected course, it should go back to pending.
+     // Admins can change status directly if we add a status field to CourseForm (not done yet).
+     // For now, admin edits retain original status unless explicitly changed.
+    if (currentSessionRole === 'instructor') {
+        updatedCourse.status = 'pending';
+    } else if (currentSessionRole === 'administrador') {
+        // If admin edits, keep existing status unless they specifically change it.
+        // (We haven't added a status field to the form for direct admin change yet)
+        updatedCourse.status = initialCourseData.status; 
+    }
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    toast({
-      title: "Curso Actualizado Exitosamente",
-      description: `El curso "${updatedCourse.title}" ha sido actualizado.`,
-    });
+    try {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        let courses: Course[] = storedCourses ? JSON.parse(storedCourses) : [];
+        const courseIndex = courses.findIndex(c => c.id === courseId);
 
-    setIsSubmitting(false);
+        if (courseIndex > -1) {
+            courses[courseIndex] = updatedCourse;
+            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
+            toast({
+                title: "Curso Actualizado Exitosamente",
+                description: `El curso "${updatedCourse.title}" ha sido actualizado localmente.`,
+            });
+        } else {
+            toast({ variant: "destructive", title: "Error de Actualización", description: "No se encontró el curso para actualizar." });
+        }
 
-    if (currentSessionRole === 'administrador') {
-      router.push('/dashboard/admin/courses');
-    } else if (currentSessionRole === 'instructor') {
-      router.push('/dashboard/instructor/my-courses');
-    } else {
-      router.push('/dashboard');
+        if (currentSessionRole === 'administrador') {
+            router.push('/dashboard/admin/courses');
+        } else if (currentSessionRole === 'instructor') {
+            router.push('/dashboard/instructor/my-courses');
+        } else {
+            router.push('/dashboard');
+        }
+    } catch (error) {
+        console.error("Error updating course in localStorage:", error);
+        toast({ variant: "destructive", title: "Error al Guardar", description: "No se pudo guardar el curso actualizado localmente." });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -107,6 +162,7 @@ export default function EditCoursePage() {
   }
 
   if (!initialCourseData) {
+    // Message already shown by useEffect if course not found
     return (
          <div className="flex h-screen flex-col items-center justify-center space-y-4">
             <p className="text-lg text-destructive">No se pudieron cargar los datos del curso para editar.</p>
@@ -130,5 +186,4 @@ export default function EditCoursePage() {
     </div>
   );
 }
-
     
