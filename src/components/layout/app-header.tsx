@@ -2,8 +2,8 @@
 "use client";
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation'; 
-import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,45 +19,49 @@ import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, Gra
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
-import { useSessionRole } from '@/app/dashboard/layout'; 
+import { useSessionRole } from '@/app/dashboard/layout';
 
 export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const { currentSessionRole } = useSessionRole(); 
+  const { currentSessionRole } = useSessionRole();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchPlaceholder, setSearchPlaceholder] = useState('Buscar cursos...');
 
-  let roleDisplay: string = "Estudiante"; 
+  let roleDisplay: string = "Estudiante";
   let profileLinkPath: string = "/dashboard/student/profile";
   let dashboardPath: string = "/dashboard";
 
-  switch (currentSessionRole) {
-    case 'administrador':
-      roleDisplay = 'Administrador';
-      profileLinkPath = '/dashboard'; 
-      dashboardPath = '/dashboard';
-      break;
-    case 'instructor':
-      roleDisplay = 'Instructor';
-      profileLinkPath = '/dashboard';
-      dashboardPath = '/dashboard';
-      break;
-    case 'estudiante':
-      roleDisplay = 'Estudiante';
-      profileLinkPath = '/dashboard/student/profile'; 
-      dashboardPath = '/dashboard';
-      break;
-    default:
-      // Default to student if role is somehow null or undefined initially
-      roleDisplay = "Estudiante"; 
-      profileLinkPath = '/dashboard/student/profile'; 
-      dashboardPath = '/dashboard';
-  }
-  
+  useEffect(() => {
+    switch (currentSessionRole) {
+      case 'administrador':
+        roleDisplay = 'Administrador';
+        profileLinkPath = '/dashboard'; // Admins go to their main dashboard
+        dashboardPath = '/dashboard';
+        setSearchPlaceholder('Buscar usuarios, cursos...');
+        break;
+      case 'instructor':
+        roleDisplay = 'Instructor';
+        profileLinkPath = '/dashboard'; // Instructors go to their main dashboard
+        dashboardPath = '/dashboard';
+        setSearchPlaceholder('Buscar en mis cursos...');
+        break;
+      case 'estudiante':
+      default:
+        roleDisplay = 'Estudiante';
+        profileLinkPath = '/dashboard/student/profile';
+        dashboardPath = '/dashboard';
+        setSearchPlaceholder('Buscar cursos...');
+        break;
+    }
+  }, [currentSessionRole]);
+
   const user = { name: `${roleDisplay} Usuario`, email: `${currentSessionRole || 'student'}@example.com`, role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
 
   const handleLogout = () => {
-    localStorage.removeItem('sessionRole'); // Clear the role on logout
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sessionRole');
+    }
     router.push('/login');
   };
 
@@ -65,19 +69,23 @@ export function AppHeader() {
     event.preventDefault();
     if (!searchTerm.trim()) return;
 
-    if (currentSessionRole === 'estudiante') {
-      router.push(`/dashboard/courses/explore?search=${encodeURIComponent(searchTerm.trim())}`);
-    } else if (currentSessionRole === 'administrador') {
-      // Placeholder for admin search (e.g., users or all courses)
-      // For now, could also go to explore or a specific admin search page if created
-      router.push(`/dashboard/courses/explore?search=${encodeURIComponent(searchTerm.trim())}`); 
-      console.log("Admin search for:", searchTerm.trim());
-    } else if (currentSessionRole === 'instructor') {
-      // Placeholder for instructor search (e.g., their own courses)
-      console.log("Instructor search for:", searchTerm.trim());
+    const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
+
+    switch (currentSessionRole) {
+      case 'administrador':
+        // Podría buscar usuarios, cursos, etc. Por ahora, vamos a simular búsqueda de usuarios.
+        router.push(`/dashboard/admin/users?search=${encodedSearchTerm}`);
+        break;
+      case 'instructor':
+        // Podría buscar en sus propios cursos.
+        router.push(`/dashboard/instructor/my-courses?search=${encodedSearchTerm}`);
+        break;
+      case 'estudiante':
+      default:
+        router.push(`/dashboard/courses/explore?search=${encodedSearchTerm}`);
+        break;
     }
-    // Optionally clear search term after submission
-    // setSearchTerm(''); 
+    // setSearchTerm(''); // Opcional: limpiar el término después de la búsqueda
   };
 
   const getRoleIcon = (role: string) => {
@@ -98,7 +106,7 @@ export function AppHeader() {
       {isMobile && <SidebarTrigger />}
       {!isMobile && (
          <Link href={dashboardPath} className="hidden items-center gap-2 md:flex">
-            <Logo className="h-8 w-auto" href={null} /> 
+            <Logo className="h-8 w-auto" href={null} />
          </Link>
       )}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
@@ -107,7 +115,7 @@ export function AppHeader() {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Buscar cursos..."
+              placeholder={searchPlaceholder}
               className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
