@@ -2,57 +2,53 @@
 "use client";
 
 import React, { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // No se usa directamente con FormField, pero puede ser útil en otros contextos.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+
+const feedbackFormSchema = z.object({
+  subject: z.string().min(5, { message: "El asunto debe tener al menos 5 caracteres." }),
+  type: z.string({ required_error: "Por favor, selecciona un tipo de comentario." }).min(1, { message: "Por favor, selecciona un tipo de comentario."}),
+  message: z.string().min(10, { message: "El mensaje debe tener al menos 10 caracteres." }),
+});
+
+type FeedbackFormValues = z.infer<typeof feedbackFormSchema>;
 
 export default function FeedbackPage() {
   const { toast } = useToast();
-  const [feedbackData, setFeedbackData] = useState({
-    subject: '',
-    type: '',
-    message: '',
+  const [isSubmitting, setIsSubmitting] = useState(false); // Todavía se usa para el estado del botón
+
+  const form = useForm<FeedbackFormValues>({
+    resolver: zodResolver(feedbackFormSchema),
+    defaultValues: {
+      subject: '',
+      type: '',
+      message: '',
+    },
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFeedbackData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleTypeChange = (value: string) => {
-    setFeedbackData(prev => ({ ...prev, type: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!feedbackData.subject.trim() || !feedbackData.type || !feedbackData.message.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Campos Incompletos",
-        description: "Por favor, completa todos los campos requeridos.",
-      });
-      return;
-    }
+  const onSubmit = async (data: FeedbackFormValues) => {
     setIsSubmitting(true);
-    console.log("Enviando comentario (simulado):", feedbackData);
+    console.log("Enviando comentario (simulado):", data);
 
     // Simular envío
-    setTimeout(() => {
-      toast({
-        title: "Comentario Enviado (Simulado)",
-        description: "Gracias por tus comentarios. Hemos recibido tu mensaje.",
-      });
-      setFeedbackData({ subject: '', type: '', message: '' });
-      // Reset the select value visually if using a controlled select or by resetting the form
-      // For now, clearing the state is sufficient for uncontrolled aspects
-      setIsSubmitting(false);
-    }, 1500);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    toast({
+      title: "Comentario Enviado (Simulado)",
+      description: "Gracias por tus comentarios. Hemos recibido tu mensaje.",
+    });
+    form.reset(); // Resetea el formulario usando react-hook-form
+    setIsSubmitting(false);
   };
 
   return (
@@ -73,63 +69,75 @@ export default function FeedbackPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <Label htmlFor="subject" className="font-semibold">Asunto <span className="text-primary">*</span></Label>
-              <Input
-                id="subject"
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
                 name="subject"
-                placeholder="Ej: Problema al cargar un video en el curso X"
-                value={feedbackData.subject}
-                onChange={handleInputChange}
-                required
-                className="mt-1"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Asunto <span className="text-primary">*</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej: Problema al cargar un video en el curso X" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <div>
-              <Label htmlFor="type" className="font-semibold">Tipo de Comentario <span className="text-primary">*</span></Label>
-              <Select value={feedbackData.type} onValueChange={handleTypeChange} required>
-                <SelectTrigger id="type" className="mt-1">
-                  <SelectValue placeholder="Selecciona un tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bug">Reportar un Error (Bug)</SelectItem>
-                  <SelectItem value="suggestion">Sugerencia de Mejora</SelectItem>
-                  <SelectItem value="question">Pregunta General</SelectItem>
-                  <SelectItem value="compliment">Felicitación</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
-                </SelectContent>
-              </Select>
-              {/* La siguiente línea causaba el error y ha sido modificada */}
-              {!feedbackData.type && isSubmitting && ( 
-                 <p className="text-xs text-destructive mt-1">Este campo es requerido.</p>
-              )}
-            </div>
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tipo de Comentario <span className="text-primary">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un tipo..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="bug">Reportar un Error (Bug)</SelectItem>
+                        <SelectItem value="suggestion">Sugerencia de Mejora</SelectItem>
+                        <SelectItem value="question">Pregunta General</SelectItem>
+                        <SelectItem value="compliment">Felicitación</SelectItem>
+                        <SelectItem value="other">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <div>
-              <Label htmlFor="message" className="font-semibold">Mensaje <span className="text-primary">*</span></Label>
-              <Textarea
-                id="message"
+              <FormField
+                control={form.control}
                 name="message"
-                placeholder="Describe detalladamente tu comentario o problema aquí..."
-                rows={6}
-                value={feedbackData.message}
-                onChange={handleInputChange}
-                required
-                className="mt-1"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mensaje <span className="text-primary">*</span></FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Describe detalladamente tu comentario o problema aquí..."
+                        rows={6}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            <Button type="submit" className="w-full text-base py-3" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="mr-2 h-5 w-5" />
-              )}
-              {isSubmitting ? 'Enviando...' : 'Enviar Comentario'}
-            </Button>
-          </form>
+              <Button type="submit" className="w-full text-base py-3" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-5 w-5" />
+                )}
+                {isSubmitting ? 'Enviando...' : 'Enviar Comentario'}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
