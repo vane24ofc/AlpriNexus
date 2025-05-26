@@ -64,7 +64,7 @@ const sampleCourses: Course[] = [
   },
 ];
 
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
 const ENGAGEMENT_DURATION = 3000; // 3 segundos para simular compromiso
 
 export default function StudentCourseViewPage() {
@@ -76,8 +76,8 @@ export default function StudentCourseViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-  const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
   
+  const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -85,36 +85,47 @@ export default function StudentCourseViewPage() {
   useEffect(() => {
     if (courseId) {
       setIsLoading(true);
+      // Simulate API call
       setTimeout(() => {
         const foundCourse = sampleCourses.find(c => c.id === courseId);
         if (foundCourse) {
           setCourse(foundCourse);
-          const storedCompleted = localStorage.getItem(`${COMPLETED_COURSES_KEY}_${courseId}`);
-          const initialCompleted = storedCompleted ? new Set<string>(JSON.parse(storedCompleted)) : new Set<string>();
+          const storedCompletedKey = `${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`;
+          const storedCompletedLessons = localStorage.getItem(storedCompletedKey);
+          const initialCompleted = storedCompletedLessons ? new Set<string>(JSON.parse(storedCompletedLessons)) : new Set<string>();
           setCompletedLessons(initialCompleted);
 
-          const initialQuizState: Record<string, { started: boolean; answered: boolean; selectedOption: string | null }> = {};
-          const initialReadyForCompletion = new Set<string>();
+          const initialQuizStateFromStorage: Record<string, { started: boolean; answered: boolean; selectedOption: string | null }> = {};
+          const initialReadyForCompletionFromStorage = new Set<string>();
 
           foundCourse.lessons.forEach(lesson => {
             if (lesson.contentType === 'quiz') {
               const isLessonCompleted = initialCompleted.has(lesson.id);
-              initialQuizState[lesson.id] = { 
-                started: isLessonCompleted, // If lesson is complete, assume quiz was started for UI consistency
-                answered: isLessonCompleted, // And answered
-                selectedOption: isLessonCompleted ? 'Simulado' : null // Placeholder for completed quiz
-              };
-              if (isLessonCompleted) {
-                initialReadyForCompletion.add(lesson.id);
+              // Attempt to load quiz state for this specific lesson if it exists
+              const storedQuizStateForLesson = localStorage.getItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lesson.id}`);
+              if (storedQuizStateForLesson) {
+                try {
+                    initialQuizStateFromStorage[lesson.id] = JSON.parse(storedQuizStateForLesson);
+                    if (initialQuizStateFromStorage[lesson.id].answered) {
+                        initialReadyForCompletionFromStorage.add(lesson.id);
+                    }
+                } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
+              } else {
+                 initialQuizStateFromStorage[lesson.id] = { 
+                    started: isLessonCompleted, 
+                    answered: isLessonCompleted, 
+                    selectedOption: isLessonCompleted ? 'Simulado' : null 
+                };
               }
-            } else {
-                 if (initialCompleted.has(lesson.id)) {
-                    initialReadyForCompletion.add(lesson.id);
-                }
+              if (isLessonCompleted) {
+                initialReadyForCompletionFromStorage.add(lesson.id);
+              }
+            } else if (initialCompleted.has(lesson.id)) {
+                 initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
-          setQuizState(initialQuizState);
-          setLessonsReadyForCompletion(initialReadyForCompletion);
+          setQuizState(initialQuizStateFromStorage);
+          setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
 
 
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
@@ -137,7 +148,7 @@ export default function StudentCourseViewPage() {
         setIsLoading(false);
       }, 500);
     }
-    return () => {
+     return () => {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,7 +160,7 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const allLessonsCompleted = useMemo(() => {
-    if (!course || !course.lessons) return false;
+    if (!course || !course.lessons || course.lessons.length === 0) return false; // Handle case of no lessons
     return completedLessons.size === course.lessons.length;
   }, [course, completedLessons]);
 
@@ -163,14 +174,14 @@ export default function StudentCourseViewPage() {
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
         
-        localStorage.setItem(`${COMPLETED_COURSES_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
+        localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
 
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000 });
-            const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_KEY) || '[]');
+            const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_STORAGE_KEY) || '[]');
             if (!globalCompleted.includes(courseId)) {
                 globalCompleted.push(courseId);
-                localStorage.setItem(COMPLETED_COURSES_KEY, JSON.stringify(globalCompleted));
+                localStorage.setItem(COMPLETED_COURSES_STORAGE_KEY, JSON.stringify(globalCompleted));
             }
         }
       }
@@ -201,12 +212,21 @@ export default function StudentCourseViewPage() {
   };
 
   const handleStartQuiz = (lessonId: string) => {
-    setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], started: true, answered: false, selectedOption: null } }));
+    const newState = { ...quizState, [lessonId]: { started: true, answered: false, selectedOption: null } };
+    setQuizState(newState);
+    localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify(newState[lessonId]));
   };
 
   const handleAnswerQuiz = (lessonId: string, option: string) => {
-    setQuizState(prev => ({ ...prev, [lessonId]: { ...prev[lessonId], answered: true, selectedOption: option } }));
-    setLessonsReadyForCompletion(prev => new Set(prev).add(lessonId));
+    const newState = { ...quizState, [lessonId]: { ...quizState[lessonId], answered: true, selectedOption: option } };
+    setQuizState(newState);
+    localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_quiz_${lessonId}`, JSON.stringify(newState[lessonId]));
+
+    setLessonsReadyForCompletion(prev => {
+        const newSet = new Set(prev);
+        newSet.add(lessonId);
+        return newSet;
+    });
     toast({
         title: "Respuesta Registrada",
         description: `Has seleccionado la ${option}. ¡Buen trabajo!`,
@@ -231,7 +251,11 @@ export default function StudentCourseViewPage() {
       if (lesson && (lesson.contentType === 'text' || lesson.contentType === 'video')) {
         if (!completedLessons.has(lesson.id) && !lessonsReadyForCompletion.has(lesson.id)) {
           engagementTimersRef.current[lesson.id] = setTimeout(() => {
-            setLessonsReadyForCompletion(prev => new Set(prev).add(lesson.id));
+            setLessonsReadyForCompletion(prev => {
+                const newSet = new Set(prev);
+                newSet.add(lesson.id); // Asegurarse que es lesson.id
+                return newSet;
+            });
             delete engagementTimersRef.current[lesson.id]; 
           }, ENGAGEMENT_DURATION);
         }
@@ -243,7 +267,7 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text'; 
     const currentQuizState = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; // Example options
+    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; 
 
     switch (contentType) {
       case 'video':
@@ -485,7 +509,7 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-2xl font-bold ${allLessonsCompleted ? "text-accent" : "text-primary"}`}>{courseProgress}%</span>
+                        <span className={`text-2xl font-bold ${allLessonsCompleted ? "text-accent-foreground" : "text-primary-foreground"}`}>{courseProgress}%</span>
                     </div>
                 </div>
                 <p className={`text-sm mb-3 ${allLessonsCompleted ? "text-accent font-semibold" : "text-muted-foreground"}`}>{allLessonsCompleted ? "¡Curso Completado!" : `${completedLessons.size} de ${course.lessons?.length || 0} lecciones completadas`}</p>
