@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search } from 'lucide-react';
+import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -24,6 +24,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+} from "@/components/ui/chart";
+import type { ChartConfig } from "@/components/ui/chart";
+import { Bar, BarChart as ReBarChart, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList } from 'recharts';
+
 
 // Simulación de cursos creados por el instructor actual
 const sampleInstructorCourses: Course[] = [
@@ -41,6 +51,20 @@ interface StatusInfo {
   className: string;
 }
 
+interface CourseStats {
+  enrolledStudents: number;
+  averageCompletionRate: number;
+  averageRating: number;
+  progressDistribution: { name: string; value: number }[];
+}
+
+const studentProgressChartConfig = {
+  value: {
+    label: "Estudiantes",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
 
 export default function MyCoursesPage() {
   const { toast } = useToast();
@@ -48,7 +72,8 @@ export default function MyCoursesPage() {
   const initialSearchTerm = searchParams.get('search') || '';
   
   const [courses, setCourses] = useState<Course[]>(sampleInstructorCourses);
-  const [isStatsModalOpen, setIsStatsModalOpen] = useState(false);
+  const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
+  const [simulatedStats, setSimulatedStats] = useState<CourseStats | null>(null);
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
 
   useEffect(() => {
@@ -81,6 +106,40 @@ export default function MyCoursesPage() {
       default:
         return { text: 'Desconocido', icon: AlertTriangle, variant: 'secondary', className: 'bg-gray-500 text-white' };
     }
+  };
+
+  const generateSimulatedStats = (course: Course): CourseStats => {
+    // Simple random data for demonstration
+    const enrolled = Math.floor(Math.random() * 300) + 50; // 50-350 students
+    const completion = Math.floor(Math.random() * 70) + 30; // 30-100%
+    const rating = parseFloat((Math.random() * 1.5 + 3.5).toFixed(1)); // 3.5-5.0 stars
+
+    const dist1 = Math.floor(Math.random() * (enrolled * 0.3));
+    const dist2 = Math.floor(Math.random() * (enrolled * 0.4));
+    const dist3 = Math.floor(Math.random() * (enrolled * 0.2));
+    const dist4 = enrolled - dist1 - dist2 - dist3 > 0 ? enrolled - dist1 - dist2 - dist3 : 0;
+
+    return {
+      enrolledStudents: enrolled,
+      averageCompletionRate: completion,
+      averageRating: rating,
+      progressDistribution: [
+        { name: '0-25%', value: dist1 },
+        { name: '26-50%', value: dist2 },
+        { name: '51-75%', value: dist3 },
+        { name: '76-100%', value: dist4 },
+      ],
+    };
+  };
+
+  const handleOpenStatsModal = (course: Course) => {
+    setSelectedCourseForStats(course);
+    setSimulatedStats(generateSimulatedStats(course));
+  };
+
+  const handleCloseStatsModal = () => {
+    setSelectedCourseForStats(null);
+    setSimulatedStats(null);
   };
 
   return (
@@ -160,7 +219,7 @@ export default function MyCoursesPage() {
                       <TableCell className="hidden lg:table-cell">
                         {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
                       </TableCell>
-                      <TableCell className="text-right space-x-1 md:space-x-2">
+                      <TableCell className="text-right space-x-1 md:space-x-0">
                         <Button variant="ghost" size="icon" asChild>
                           <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
                             <Eye className="h-4 w-4" />
@@ -172,7 +231,7 @@ export default function MyCoursesPage() {
                           </Link>
                         </Button>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => setIsStatsModalOpen(true)}>
+                          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => handleOpenStatsModal(course)}>
                             <BarChart2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -186,22 +245,75 @@ export default function MyCoursesPage() {
         </CardContent>
       </Card>
       
-      <AlertDialog open={isStatsModalOpen} onOpenChange={setIsStatsModalOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Estadísticas del Curso</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta funcionalidad estará disponible próximamente. Aquí podrás ver el rendimiento y la participación de tus estudiantes en este curso.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsStatsModalOpen(false)}>Entendido</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {selectedCourseForStats && simulatedStats && (
+        <AlertDialog open={!!selectedCourseForStats} onOpenChange={handleCloseStatsModal}>
+          <AlertDialogContent className="sm:max-w-lg md:max-w-xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl">Estadísticas del Curso: {selectedCourseForStats.title}</AlertDialogTitle>
+              <AlertDialogDescription>
+                Un resumen del rendimiento y la participación de los estudiantes en este curso.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="grid gap-6 py-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="bg-muted/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Estudiantes Inscritos</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{simulatedStats.enrolledStudents}</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Tasa de Finalización</CardTitle>
+                    <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{simulatedStats.averageCompletionRate}%</div>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/50">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Calificación Promedio</CardTitle>
+                    <Star className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{simulatedStats.averageRating}/5</div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              <Card className="col-span-1 sm:col-span-3">
+                <CardHeader>
+                    <CardTitle className="flex items-center">
+                        <Activity className="mr-2 h-5 w-5 text-primary" />
+                        Distribución de Progreso de Estudiantes
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="pl-2">
+                    <ChartContainer config={studentProgressChartConfig} className="h-[250px] w-full">
+                        <ReBarChart data={simulatedStats.progressDistribution} layout="vertical" margin={{ right: 30, left:10 }}>
+                            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
+                            <XAxis type="number" />
+                            <YAxis dataKey="name" type="category" tickLine={false} axisLine={false} />
+                            <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                            <Bar dataKey="value" fill="var(--color-value)" radius={4}>
+                                <LabelList dataKey="value" position="right" offset={8} className="fill-foreground" fontSize={10} />
+                            </Bar>
+                        </ReBarChart>
+                    </ChartContainer>
+                </CardContent>
+              </Card>
+
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={handleCloseStatsModal}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-
-
-    
