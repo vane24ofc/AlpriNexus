@@ -32,47 +32,52 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null); // Initialize with null
+  const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
     // This effect runs only on the client
-    setIsLoadingRole(true); 
-    let determinedRole: Role = 'estudiante'; // Fallback
-
-    const storedRole = localStorage.getItem('sessionRole') as Role | null;
+    setIsLoadingRole(true);
+    
+    const storedRole = typeof window !== 'undefined' ? localStorage.getItem('sessionRole') as Role | null : null;
+    let activeRoleDetermination: Role = 'estudiante'; // Fallback default
 
     let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
       roleFromPath = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
       roleFromPath = 'instructor';
-    } else if (pathname.startsWith('/dashboard/student')) { 
+    } else if (pathname.startsWith('/dashboard/student')) {
       roleFromPath = 'estudiante';
     }
 
     if (roleFromPath) {
-      determinedRole = roleFromPath;
-      if (storedRole !== determinedRole) { 
-        localStorage.setItem('sessionRole', determinedRole);
+      activeRoleDetermination = roleFromPath;
+      if (typeof window !== 'undefined' && storedRole !== activeRoleDetermination) {
+        localStorage.setItem('sessionRole', activeRoleDetermination);
       }
     } else if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-      determinedRole = storedRole; 
-    } else { 
-      localStorage.setItem('sessionRole', 'estudiante');
-      determinedRole = 'estudiante';
+      activeRoleDetermination = storedRole;
+    } else {
+      // If no role from path and no valid stored role, default to 'estudiante' and store it.
+      if (typeof window !== 'undefined') {
+          localStorage.setItem('sessionRole', 'estudiante');
+      }
+      activeRoleDetermination = 'estudiante';
     }
     
-    setCurrentSessionRole(determinedRole);
+    // Only update state if it's different, to avoid unnecessary re-renders.
+    if (currentSessionRole !== activeRoleDetermination) {
+      setCurrentSessionRole(activeRoleDetermination);
+    }
     setIsLoadingRole(false); 
-  }, [pathname]);
+  }, [pathname]); // Depend only on pathname. currentSessionRole removed to prevent potential loops.
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  // Render FullPageLoader if still loading role OR if role hasn't been determined yet (currentSessionRole is null)
   if (isLoadingRole || !currentSessionRole) { 
     return <FullPageLoader message="Determinando rol y cargando panel..." />;
   }
