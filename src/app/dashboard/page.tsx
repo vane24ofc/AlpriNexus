@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSessionRole, Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // Admin Dashboard Content
 const AdminDashboardContent = () => {
@@ -248,21 +249,89 @@ interface EnrolledCourseData {
 }
 
 const StudentDashboardContent = () => {
-  // Consistent data structure for enrolled courses
-  const enrolledCourses: EnrolledCourseData[] = [
-    { id: "course-js-adv", title: "JavaScript Avanzado: Patrones y Prácticas Modernas", instructorName: "Dr. Evelyn Woods", progress: 65, thumbnailUrl: "https://placehold.co/600x300.png?text=JS+Avanzado", dataAiHint: "javascript programming" },
-    { id: "course-python-ds", title: "Python para Ciencia de Datos: De Cero a Héroe", instructorName: "Prof. Ian Stone", progress: 30, thumbnailUrl: "https://placehold.co/600x300.png?text=Python+DS", dataAiHint: "python data" },
-    { id: "course-ux-design", title: "Fundamentos del Diseño de Experiencia de Usuario (UX)", instructorName: "Ana Lima", progress: 95, thumbnailUrl: "https://placehold.co/600x300.png?text=Diseño+UX", dataAiHint: "ux design" },
-    { id: "course-react-native", title: "Desarrollo de Apps Móviles con React Native", instructorName: "Carlos Vega", progress: 100, thumbnailUrl: "https://placehold.co/600x300.png?text=React+Native", dataAiHint: "mobile development"},
-  ];
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseData[]>([]);
+  const [courseToContinue, setCourseToContinue] = useState<EnrolledCourseData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+  const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
-  let courseToContinue: EnrolledCourseData | null = null;
-  if (enrolledCourses.length > 0) {
-    const incompleteCourses = enrolledCourses.filter(course => course.progress < 100);
-    if (incompleteCourses.length > 0) {
-      incompleteCourses.sort((a, b) => a.progress - b.progress); // Sort by progress ascending
-      courseToContinue = incompleteCourses[0];
+  useEffect(() => {
+    setIsLoading(true);
+    const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+    let enrolledIds: Set<string> = new Set();
+    if (storedEnrolledIdsString) {
+      try {
+        const parsedIds = JSON.parse(storedEnrolledIdsString);
+        if (Array.isArray(parsedIds)) enrolledIds = new Set(parsedIds);
+      } catch (e) { console.error("Error parsing enrolled IDs", e); }
     }
+
+    const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
+    let completedIds: Set<string> = new Set();
+    if (storedCompletedIdsString) {
+        try {
+            const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
+            if (Array.isArray(parsedCompletedIds)) completedIds = new Set(parsedCompletedIds);
+        } catch (e) { console.error("Error parsing completed IDs", e); }
+    }
+    
+    // Simulación de allPlatformCourses para evitar dependencia directa de otro archivo
+    // En una app real, esto vendría de una API o un estado global.
+    const allPlatformCoursesSample: any[] = [ // Usar 'any' para flexibilidad en datos de ejemplo
+        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', thumbnailUrl: 'https://placehold.co/600x300.png?text=JS+Avanzado', dataAiHint: 'javascript programming', lessons: [{id:'l1'},{id:'l2'}]},
+        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', thumbnailUrl: 'https://placehold.co/600x300.png?text=Python+DS', dataAiHint: 'python data', lessons: [{id:'l1'},{id:'l2'},{id:'l3'}]},
+        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', thumbnailUrl: 'https://placehold.co/600x300.png?text=Diseño+UX', dataAiHint: 'ux design', lessons: [{id:'l1'}]},
+        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', thumbnailUrl: 'https://placehold.co/600x300.png?text=React+Native', dataAiHint: 'mobile development', lessons: []},
+    ];
+
+
+    const coursesToDisplay = allPlatformCoursesSample
+      .filter(course => enrolledIds.has(course.id))
+      .map(course => {
+        const isCompleted = completedIds.has(course.id);
+        let progress = 0;
+        if (isCompleted) {
+            progress = 100;
+        } else {
+            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
+            const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
+            if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
+                try {
+                    const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
+                    progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
+                } catch (e) { progress = Math.floor(Math.random() * 99); }
+            } else if (course.lessons && course.lessons.length > 0) {
+                 progress = 0;
+            } else {
+                progress = Math.floor(Math.random() * 99);
+            }
+        }
+        return { ...course, progress };
+      });
+    setEnrolledCourses(coursesToDisplay);
+
+    if (coursesToDisplay.length > 0) {
+      const incompleteCourses = coursesToDisplay.filter(course => course.progress < 100);
+      if (incompleteCourses.length > 0) {
+        incompleteCourses.sort((a, b) => a.progress - b.progress);
+        setCourseToContinue(incompleteCourses[0]);
+      } else {
+        setCourseToContinue(coursesToDisplay[0]); // Show first completed if all are done
+      }
+    } else {
+      setCourseToContinue(null);
+    }
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando tu panel...</p>
+      </div>
+    );
   }
 
   return (
@@ -274,7 +343,7 @@ const StudentDashboardContent = () => {
           <CardTitle className="text-2xl">Continuar Aprendiendo</CardTitle>
           <CardDescription>
             {courseToContinue 
-              ? "Retoma donde lo dejaste en tu curso más reciente." 
+              ? (courseToContinue.progress < 100 ? "Retoma donde lo dejaste en tu curso más reciente." : "¡Felicidades! Has completado este curso. Puedes revisarlo o explorar otros.")
               : (enrolledCourses.length > 0 ? "¡Felicidades! Has completado todos tus cursos inscritos." : "Empieza tu viaje de aprendizaje.")
             }
           </CardDescription>
@@ -296,7 +365,10 @@ const StudentDashboardContent = () => {
                   <div className="bg-primary h-2.5 rounded-full" style={{ width: `${courseToContinue.progress}%` }}></div>
                 </div>
                 <Button asChild>
-                  <Link href={`/dashboard/courses/${courseToContinue.id}/view`}>Reanudar Curso <Zap className="ml-2 h-4 w-4"/></Link>
+                  <Link href={`/dashboard/courses/${courseToContinue.id}/view`}>
+                    {courseToContinue.progress < 100 ? "Reanudar Curso" : "Revisar Curso"}
+                    <Zap className="ml-2 h-4 w-4"/>
+                  </Link>
                 </Button>
               </div>
             </>
@@ -395,6 +467,7 @@ function AdminDashboardWrapper() {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
+  const [announcementAudience, setAnnouncementAudience] = React.useState('all');
   const { toast } = useToast();
 
   const handleSendAnnouncement = () => {
@@ -406,20 +479,21 @@ function AdminDashboardWrapper() {
       });
       return;
     }
-    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage });
+    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
     toast({
       title: "Anuncio Enviado (Simulado)",
-      description: `El anuncio "${announcementTitle}" ha sido enviado.`,
+      description: `El anuncio "${announcementTitle}" ha sido enviado a "${announcementAudience}".`,
     });
     setIsAnnouncementDialogOpen(false);
     setAnnouncementTitle('');
     setAnnouncementMessage('');
+    setAnnouncementAudience('all');
   };
 
   return (
     <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
       <AdminDashboardContent />
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
             <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
             <DialogDescription>
@@ -428,29 +502,44 @@ function AdminDashboardWrapper() {
         </DialogHeader>
         <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="announcement-title" className="text-right">
-                Título
-            </Label>
-            <Input
-                id="announcement-title"
-                placeholder="Ej: Mantenimiento Programado"
-                className="col-span-3"
-                value={announcementTitle}
-                onChange={(e) => setAnnouncementTitle(e.target.value)}
-            />
+                <Label htmlFor="announcement-title" className="text-right">
+                    Título
+                </Label>
+                <Input
+                    id="announcement-title"
+                    placeholder="Ej: Mantenimiento Programado"
+                    className="col-span-3"
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="announcement-message" className="text-right pt-2">
+                    Mensaje
+                </Label>
+                <Textarea
+                    id="announcement-message"
+                    placeholder="Escribe aquí el contenido del anuncio..."
+                    className="col-span-3"
+                    rows={5}
+                    value={announcementMessage}
+                    onChange={(e) => setAnnouncementMessage(e.target.value)}
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="announcement-message" className="text-right">
-                Mensaje
-            </Label>
-            <Textarea
-                id="announcement-message"
-                placeholder="Escribe aquí el contenido del anuncio..."
-                className="col-span-3"
-                rows={5}
-                value={announcementMessage}
-                onChange={(e) => setAnnouncementMessage(e.target.value)}
-            />
+                <Label htmlFor="announcement-audience" className="text-right">
+                    Audiencia
+                </Label>
+                <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
+                    <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Seleccionar audiencia" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos los Usuarios</SelectItem>
+                        <SelectItem value="students">Solo Estudiantes</SelectItem>
+                        <SelectItem value="instructors">Solo Instructores</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
         </div>
         <DialogFooter>
@@ -464,9 +553,9 @@ function AdminDashboardWrapper() {
 
 
 export default function DashboardHomePage() {
-  const { currentSessionRole } = useSessionRole(); // isLoadingRole ya no es necesario aquí porque DashboardLayout lo maneja
+  const { currentSessionRole } = useSessionRole(); 
 
-  if (!currentSessionRole) { // Esta condición es importante si currentSessionRole puede ser null inicialmente
+  if (!currentSessionRole) {
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -492,7 +581,7 @@ export default function DashboardHomePage() {
   }
 }
 
-function StarIcon(props: React.SVGProps<SVGSVGElement>) { // renombrado para consistencia, aunque no se usa directamente aquí
+function StarIcon(props: React.SVGProps<SVGSVGElement>) { 
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
@@ -500,3 +589,4 @@ function StarIcon(props: React.SVGProps<SVGSVGElement>) { // renombrado para con
   )
 }
     
+
