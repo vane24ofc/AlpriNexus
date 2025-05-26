@@ -49,6 +49,8 @@ export default function FeedbackPage() {
         description: "Gracias por tus comentarios. Hemos recibido tu mensaje.",
       });
       setFeedbackData({ subject: '', type: '', message: '' });
+      // Reset the select value visually if using a controlled select or by resetting the form
+      // For now, clearing the state is sufficient for uncontrolled aspects
       setIsSubmitting(false);
     }, 1500);
   };
@@ -66,6 +68,9 @@ export default function FeedbackPage() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle>Detalles del Comentario</CardTitle>
+          <CardDescription>
+            Utiliza este formulario para informarnos sobre errores, sugerencias o cualquier otra consulta que tengas.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -74,7 +79,7 @@ export default function FeedbackPage() {
               <Input
                 id="subject"
                 name="subject"
-                placeholder="Ej: Problema al cargar un video"
+                placeholder="Ej: Problema al cargar un video en el curso X"
                 value={feedbackData.subject}
                 onChange={handleInputChange}
                 required
@@ -84,7 +89,7 @@ export default function FeedbackPage() {
 
             <div>
               <Label htmlFor="type" className="font-semibold">Tipo de Comentario <span className="text-primary">*</span></Label>
-              <Select value={feedbackData.type} onValueChange={handleTypeChange}>
+              <Select value={feedbackData.type} onValueChange={handleTypeChange} required>
                 <SelectTrigger id="type" className="mt-1">
                   <SelectValue placeholder="Selecciona un tipo..." />
                 </SelectTrigger>
@@ -96,7 +101,9 @@ export default function FeedbackPage() {
                   <SelectItem value="other">Otro</SelectItem>
                 </SelectContent>
               </Select>
-              {!feedbackData.type && <p className="text-xs text-destructive mt-1">Este campo es requerido.</p>}
+              {!feedbackData.type && form.formState.isSubmitted && ( // Ejemplo de cómo podrías mostrar un error específico para el select si estuvieras usando react-hook-form
+                 <p className="text-xs text-destructive mt-1">Este campo es requerido.</p>
+              )}
             </div>
 
             <div>
