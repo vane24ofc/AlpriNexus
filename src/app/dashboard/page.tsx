@@ -38,6 +38,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Course } from '@/types/course';
+import { allPlatformCourses } from '@/app/dashboard/courses/explore/page';
 
 // Admin Dashboard Content
 const AdminDashboardContent = () => {
@@ -131,12 +133,20 @@ const AdminDashboardContent = () => {
 };
 
 // Instructor Dashboard Content
+// Simulación de cursos creados por el instructor actual (similar a MyCoursesPage)
+const instructorSampleCourses: Course[] = [
+  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
+  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
+];
+
+
 const InstructorDashboardContent = () => {
   const stats = [
-    { title: "Mis Cursos", value: "12", icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, 
-    { title: "Revisiones Pendientes", value: "8", icon: MessageSquare, link: "#" },
-    { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" },
+    { title: "Mis Cursos", value: instructorSampleCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
+    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder
+    { title: "Revisiones Pendientes", value: instructorSampleCourses.filter(c => c.status === 'pending').length.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
+    { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
   ];
 
   return (
@@ -170,52 +180,70 @@ const InstructorDashboardContent = () => {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2 shadow-lg">
           <CardHeader>
-            <CardTitle>Mis Cursos Activos</CardTitle>
-            <CardDescription>Resumen de tus cursos actualmente activos.</CardDescription>
+            <CardTitle>Mis Cursos (Resumen)</CardTitle>
+            <CardDescription>Un vistazo rápido a tus cursos y su estado.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-4">
-              {[
-                { id: "c1", name: "JavaScript Avanzado", students: 120, progress: 75, lastUpdate: "hace 2 días" },
-                { id: "c2", name: "Estructuras de Datos en Python", students: 85, progress: 40, lastUpdate: "hace 5 días" },
-                { id: "c3", name: "Fundamentos de Machine Learning", students: 145, progress: 60, lastUpdate: "Ayer" },
-              ].map((course) => (
-                <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-lg">{course.name}</h3>
-                      <p className="text-sm text-muted-foreground">{course.students} estudiantes inscritos</p>
+            {instructorSampleCourses.length > 0 ? (
+              <ul className="space-y-4">
+                {instructorSampleCourses.slice(0, 3).map((course) => { // Mostrar solo los primeros 3 como resumen
+                  const students = Math.floor(Math.random() * 200) + 50; // Placeholder
+                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; // Placeholder
+                  return (
+                  <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-semibold text-lg">{course.title}</h3>
+                        <p className="text-sm text-muted-foreground">{students} estudiantes inscritos</p>
+                        <Badge 
+                          variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
+                          className={`mt-1 text-xs ${
+                            course.status === 'approved' ? 'bg-accent text-accent-foreground' : 
+                            course.status === 'pending' ? 'bg-yellow-500 text-white' : ''
+                          }`}
+                        >
+                          {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente' : 'Rechazado'}
+                        </Badge>
+                      </div>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/dashboard/courses/${course.id}/edit`}>
+                            <Edit3 className="mr-2 h-4 w-4" />Gestionar
+                        </Link>
+                      </Button>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/dashboard/courses/${course.id}/edit`}>Gestionar</Link>
-                    </Button>
-                  </div>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                      <span>Progreso: {course.progress}%</span>
-                      <span>Última Actualización: {course.lastUpdate}</span>
+                    <div className="mt-3">
+                      <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                        <span>Progreso promedio estudiantes (simulado): {progress}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2.5">
+                        <div className={`h-2.5 rounded-full ${progress > 70 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
+                      </div>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2.5">
-                      <div className="bg-primary h-2.5 rounded-full" style={{ width: `${course.progress}%` }}></div>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                )})}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground text-center py-4">Aún no has creado cursos.</p>
+            )}
+            {instructorSampleCourses.length > 3 && (
+                <Button variant="outline" className="w-full mt-4" asChild>
+                    <Link href="/dashboard/instructor/my-courses">Ver todos mis cursos</Link>
+                </Button>
+            )}
           </CardContent>
         </Card>
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Comentarios Recientes de Estudiantes</CardTitle>
-            <CardDescription>Últimos comentarios y calificaciones de los estudiantes.</CardDescription>
+            <CardTitle>Comentarios Recientes</CardTitle>
+            <CardDescription>Últimos comentarios de los estudiantes.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-3">
               {[
                 { student: "Emily R.", course: "JS Avanzado", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
                 { student: "John B.", course: "Python DSA", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
-                { student: "Sarah K.", course: "Intro ML", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
+                { student: "Sarah K.", course: "Intro UX", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
               ].map((feedback, index) => (
                 <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
                   <div className="flex justify-between items-center">
@@ -225,7 +253,7 @@ const InstructorDashboardContent = () => {
                   <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
                   <div className="flex items-center mt-1">
                     {Array(5).fill(0).map((_, i) => (
-                      <Star key={i} className={`h-3 w-3 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
                     ))}
                   </div>
                 </li>
@@ -245,26 +273,19 @@ interface EnrolledCourseData {
   instructorName: string;
   progress: number;
   thumbnailUrl: string;
-  dataAiHint?: string; // Make optional
+  dataAiHint?: string; 
+  lessons?: Array<{id: string}>; 
 }
+
+const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
 const StudentDashboardContent = () => {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseData[]>([]);
   const [courseToContinue, setCourseToContinue] = useState<EnrolledCourseData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-  const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
-
-  // Hardcoded list of all available platform courses with more details
-    const allPlatformCoursesSample: Array<EnrolledCourseData & { lessons?: Array<{id: string}> }> = [ 
-        { id: 'course-js-adv', title: 'JavaScript Avanzado: Patrones y Prácticas Modernas', instructorName: 'Dr. Evelyn Woods', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'javascript programming', lessons: [{id:'l1-js'},{id:'l2-js'}, {id:'l3-js'}, {id:'l4-js'}]},
-        { id: 'course-python-ds', title: 'Python para Ciencia de Datos: De Cero a Héroe', instructorName: 'Prof. Ian Stone', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'python data', lessons: [{id:'l1-py'},{id:'l2-py'}, {id:'l3-py'}, {id:'l4-py'}]},
-        { id: 'course-ux-design', title: 'Fundamentos del Diseño de Experiencia de Usuario (UX)', instructorName: 'Ana Lima', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'ux design', lessons: [{id:'l1-ux'},{id:'l2-ux'}, {id:'l3-ux'}, {id:'l4-ux'}]},
-        { id: 'course-react-native', title: 'Desarrollo de Apps Móviles con React Native', instructorName: 'Carlos Vega', progress: 0, thumbnailUrl: 'https://placehold.co/600x300.png', dataAiHint: 'mobile development', lessons: []},
-        { id: 'course-digital-marketing', title: 'Marketing Digital Estratégico para Negocios', description: 'Descubre cómo crear y ejecutar estrategias de marketing digital efectivas para hacer crecer tu negocio.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Laura Morales', status: 'approved', lessons: [{id: 'l1-dm', title: 'Intro DM'}], dataAiHint: 'digital marketing', progress: 0 },
-        { id: 'course-project-management', title: 'Gestión de Proyectos Ágil con Scrum', description: 'Domina Scrum y aprende a gestionar proyectos de forma ágil y eficiente para entregar valor continuamente.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Roberto Diaz', status: 'approved', lessons: [{id: 'l1-pm', title: 'Intro PM'}], dataAiHint: 'project management', progress: 0 },
-    ];
+  const [numCompletedCourses, setNumCompletedCourses] = useState(0);
+  const [numEnrolledCourses, setNumEnrolledCourses] = useState(0);
 
   useEffect(() => {
     setIsLoading(true);
@@ -276,6 +297,7 @@ const StudentDashboardContent = () => {
         if (Array.isArray(parsedIds)) enrolledIds = new Set(parsedIds);
       } catch (e) { console.error("Error parsing enrolled IDs", e); }
     }
+    setNumEnrolledCourses(enrolledIds.size);
 
     const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
     let completedIds: Set<string> = new Set();
@@ -285,43 +307,44 @@ const StudentDashboardContent = () => {
             if (Array.isArray(parsedCompletedIds)) completedIds = new Set(parsedCompletedIds);
         } catch (e) { console.error("Error parsing completed IDs", e); }
     }
+    setNumCompletedCourses(completedIds.size);
     
-    const coursesToDisplay = allPlatformCoursesSample
+    const coursesToDisplay = allPlatformCourses
       .filter(course => enrolledIds.has(course.id))
-      .map(course => {
-        const isCompleted = completedIds.has(course.id);
+      .map(courseFromCatalog => {
+        // Find full course data from allPlatformCourses to ensure 'lessons' array is present
+        const fullCourseData = allPlatformCourses.find(c => c.id === courseFromCatalog.id);
+        if (!fullCourseData) return null; // Should not happen if logic is correct
+
+        const isCompleted = completedIds.has(fullCourseData.id);
         let progress = 0;
         if (isCompleted) {
             progress = 100;
         } else {
-            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
+            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${fullCourseData.id}`;
             const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
-            if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
+            if (storedLessonProgressString && fullCourseData.lessons && fullCourseData.lessons.length > 0) {
                 try {
                     const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
-                    progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-                } catch (e) { progress = Math.floor(Math.random() * 99); } // Fallback for parsing error
-            } else if (course.lessons && course.lessons.length > 0) {
-                 progress = 0; // Default to 0 if no specific lesson progress found but lessons exist
+                    progress = Math.round((completedLessonsForThisCourse.length / fullCourseData.lessons.length) * 100);
+                } catch (e) { progress = Math.floor(Math.random() * 99); } 
+            } else if (fullCourseData.lessons && fullCourseData.lessons.length > 0) {
+                 progress = 0; 
             } else {
-                // Fallback if course has no lessons (or lessons array is empty/undefined)
-                // This case might imply the course structure is incomplete or it's a different type of resource
-                progress = 0; // Or some other logic, e.g., consider it 100% if no lessons needed
+                progress = 0; 
             }
         }
-        return { ...course, progress };
-      });
+        return { ...fullCourseData, progress };
+      }).filter(Boolean) as EnrolledCourseData[]; // Filter out nulls and assert type
+      
     setEnrolledCourses(coursesToDisplay);
 
     if (coursesToDisplay.length > 0) {
-      // Prioritize incomplete courses with the most progress (or least progress, depending on desired logic)
-      // Here, we'll pick the one with the most progress that isn't 100%
       const incompleteCourses = coursesToDisplay.filter(course => course.progress < 100);
       if (incompleteCourses.length > 0) {
-        incompleteCourses.sort((a, b) => b.progress - a.progress); // Sort by progress descending
+        incompleteCourses.sort((a, b) => b.progress - a.progress); 
         setCourseToContinue(incompleteCourses[0]);
       } else {
-        // If all are complete, pick the first one (or most recently completed)
         setCourseToContinue(coursesToDisplay[0]); 
       }
     } else {
@@ -332,7 +355,7 @@ const StudentDashboardContent = () => {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4 bg-background">
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando tu panel...</p>
       </div>
@@ -349,7 +372,7 @@ const StudentDashboardContent = () => {
           <CardDescription>
             {courseToContinue 
               ? (courseToContinue.progress < 100 ? "Retoma donde lo dejaste en tu curso más reciente." : "¡Felicidades! Has completado este curso. Puedes revisarlo o explorar otros.")
-              : (enrolledCourses.length > 0 ? "¡Felicidades! Has completado todos tus cursos inscritos." : "Empieza tu viaje de aprendizaje.")
+              : (numEnrolledCourses > 0 ? "¡Excelente trabajo! Has completado todos tus cursos inscritos." : "Empieza tu viaje de aprendizaje.")
             }
           </CardDescription>
         </CardHeader>
@@ -379,8 +402,8 @@ const StudentDashboardContent = () => {
             </>
           ) : (
             <div className="text-center w-full py-4">
-              {enrolledCourses.length > 0 ? (
-                <p className="text-lg">¡Excelente trabajo! Considera explorar nuevos cursos.</p>
+              {numEnrolledCourses > 0 ? (
+                <p className="text-lg">¡Felicidades por tu progreso! Considera explorar nuevos cursos.</p>
               ) : (
                 <p className="text-lg">Aún no estás inscrito en ningún curso.</p>
               )}
@@ -442,8 +465,8 @@ const StudentDashboardContent = () => {
             <CardDescription>Tus estadísticas de aprendizaje.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{enrolledCourses.filter(c => c.progress === 100).length}</span></div>
-            <div className="flex justify-between items-center"><span>Certificados Obtenidos:</span> <span className="font-semibold">{enrolledCourses.filter(c => c.progress === 100).length}</span></div>
+            <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{numCompletedCourses}</span></div>
+            <div className="flex justify-between items-center"><span>Total Inscritos:</span> <span className="font-semibold">{numEnrolledCourses}</span></div>
             <div className="flex justify-between items-center"><span>Puntuación Promedio:</span> <span className="font-semibold">88% (Simulado)</span></div>
             <Button variant="secondary" className="w-full mt-2" disabled>Ver Estadísticas Detalladas (Próximamente)</Button>
           </CardContent>
@@ -454,12 +477,13 @@ const StudentDashboardContent = () => {
             <CardDescription>Hitos que has desbloqueado.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4 items-center justify-center">
-            {['Maestro del Curso', 'Aprendiz Rápido', 'Mejor Rendimiento', 'Estudiante Dedicado'].map(achievement => (
-              <div key={achievement} className="flex flex-col items-center p-3 bg-muted rounded-lg w-28 text-center">
-                <CheckCircle className="h-8 w-8 text-accent mb-1" />
+            {['Pionero AlpriNexus', 'Aprendiz Rápido', 'Mejor Rendimiento', 'Estudiante Dedicado'].map((achievement, index) => (
+              <div key={achievement} className={`flex flex-col items-center p-3 bg-muted rounded-lg w-28 text-center ${index < numCompletedCourses ? '' : 'opacity-50'}`}>
+                <CheckCircle className={`h-8 w-8  mb-1 ${index < numCompletedCourses ? 'text-accent' : 'text-muted-foreground' }`} />
                 <span className="text-xs font-medium">{achievement}</span>
               </div>
             ))}
+             {numCompletedCourses === 0 && <p className="text-sm text-muted-foreground w-full text-center">Completa cursos para desbloquear logros.</p>}
           </CardContent>
         </Card>
       </div>
@@ -472,7 +496,7 @@ function AdminDashboardWrapper() {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
-  const [announcementAudience, setAnnouncementAudience] = React.useState('all'); // Default to 'all'
+  const [announcementAudience, setAnnouncementAudience] = React.useState('all'); 
   const { toast } = useToast();
 
   const handleSendAnnouncement = () => {
@@ -492,7 +516,7 @@ function AdminDashboardWrapper() {
     setIsAnnouncementDialogOpen(false);
     setAnnouncementTitle('');
     setAnnouncementMessage('');
-    setAnnouncementAudience('all'); // Reset audience to default
+    setAnnouncementAudience('all'); 
   };
 
   return (
@@ -586,16 +610,18 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent />;
     default:
+      // Default to student dashboard or a generic error/welcome if role is somehow unexpected
       return <StudentDashboardContent />; 
   }
 }
 
-function StarIcon(props: React.SVGProps<SVGSVGElement>) { 
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
-      <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-    </svg>
-  )
-}
+// Helper StarIcon if needed, or use lucide-react directly
+// function StarIcon(props: React.SVGProps<SVGSVGElement>) { 
+//   return (
+//     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
+//       <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+//     </svg>
+//   )
+// }
     
 
