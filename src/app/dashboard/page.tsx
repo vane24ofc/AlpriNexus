@@ -20,7 +20,8 @@ import {
   Star,
   Loader2,
   Library,
-  Edit3
+  Edit3,
+  Trash2, // Added for Reset button
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -34,6 +35,17 @@ import {
   DialogDescription,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger as ResetAlertDialogTrigger, // Renamed to avoid conflict
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +59,13 @@ const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
+const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
+const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
+const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
+const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
+const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
+
 
 interface User {
   id: string;
@@ -65,6 +84,7 @@ interface AdminDashboardContentProps {
   allCourses: Course[];
 }
 const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses }) => {
+  const { toast } = useToast();
   const userCount = allUsers.length;
   const activeCourseCount = allCourses.filter(c => c.status === 'approved').length;
 
@@ -75,13 +95,49 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
     { title: "Tasa de Participación", value: "78%", icon: BarChart3, trend: "Aumento del 3%" },
   ];
 
-  // Example recent activity - in a real app, this would come from a backend
   const recentActivities = [
     { user: "Alice", action: "registró una nueva cuenta.", time: "hace 5m" },
     { user: "Bob (Instructor)", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
     { user: "Charlie", action: "completó 'Introducción a Python'.", time: "hace 2h" },
     { user: "System", action: "mantenimiento programado para mañana.", time: "hace 4h" },
   ];
+
+  const handleResetPlatformData = () => {
+    try {
+      localStorage.removeItem(USERS_STORAGE_KEY);
+      localStorage.removeItem(COURSES_STORAGE_KEY);
+      localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY);
+      localStorage.removeItem(COMPLETED_COURSES_KEY);
+      localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
+      localStorage.removeItem(VIRTUAL_SESSIONS_STORAGE_KEY);
+      localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
+      localStorage.removeItem(LEARNING_RESOURCES_STORAGE_KEY);
+
+      // Remove all keys related to lesson completion and quiz states
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(COMPLETED_LESSONS_PREFIX) || key.startsWith(QUIZ_STATE_STORAGE_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      toast({
+        title: "Datos Restablecidos",
+        description: "Todos los datos simulados de la plataforma han sido eliminados. La página se recargará.",
+      });
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+    } catch (error) {
+      console.error("Error al restablecer datos:", error);
+      toast({
+        variant: "destructive",
+        title: "Error al Restablecer",
+        description: "No se pudieron eliminar todos los datos simulados.",
+      });
+    }
+  };
 
 
   return (
@@ -151,12 +207,34 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
                 <Link href="/dashboard/settings">
                     <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
-                    <span className="font-medium">Configuración del Sistema</span>
+                    <span className="font-medium">Configuración</span> {/* Changed to Configuración */}
                 </Link>
             </Button>
+             <ResetAlertDialogTrigger asChild>
+                <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
+                    <Trash2 className="h-8 w-8 mb-2"/>
+                    <span className="font-medium">Restablecer Datos de Plataforma</span>
+                </Button>
+            </ResetAlertDialogTrigger>
           </CardContent>
         </Card>
       </div>
+      <AlertDialog>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResetPlatformData} className="bg-destructive hover:bg-destructive/90">
+                Sí, Restablecer Datos
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -168,7 +246,6 @@ interface InstructorDashboardContentProps {
 }
 
 const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ allCourses }) => {
-  // Simulate current instructor - in a real app, this would come from session
   const currentInstructorName = "Usuario Actual (Instructor)"; 
 
   const instructorCourses = useMemo(() => 
@@ -185,7 +262,6 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
     { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
   ];
   
-  // Example recent comments - in a real app, this would come from a backend
   const recentFeedbacks = [
     { student: "Emily R.", course: instructorCourses[0]?.title || "Curso Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
     { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
@@ -311,36 +387,18 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
 };
 
 // Student Dashboard Content
-interface EnrolledCourseData {
-  id: string;
-  title: string;
-  instructorName: string;
+interface EnrolledCourseData extends Course {
   progress: number;
-  thumbnailUrl: string;
-  dataAiHint?: string; 
-  lessons?: Array<{id: string}>; 
-  status: 'pending' | 'approved' | 'rejected'; // Added status for filtering
+  isCompleted: boolean;
 }
 
 interface StudentDashboardContentProps {
   allCourses: Course[];
+  enrolledCourseIds: Set<string>;
+  completedCourseIds: Set<string>;
 }
 
-const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCourses }) => {
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
-  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
-  const [isLoadingStudentData, setIsLoadingStudentData] = useState(true);
-
-  useEffect(() => {
-    setIsLoadingStudentData(true);
-    const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-    if (storedEnrolled) setEnrolledCourseIds(new Set(JSON.parse(storedEnrolled)));
-
-    const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
-    if (storedCompleted) setCompletedCourseIds(new Set(JSON.parse(storedCompleted)));
-    setIsLoadingStudentData(false);
-  }, []);
-
+const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCourses, enrolledCourseIds, completedCourseIds }) => {
   const studentCourses = useMemo(() => {
     return allCourses
       .filter(course => enrolledCourseIds.has(course.id) && course.status === 'approved')
@@ -372,20 +430,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
       incompleteCourses.sort((a, b) => b.progress - a.progress);
       return incompleteCourses[0];
     }
-    return studentCourses.sort((a,b) => b.progress - a.progress)[0]; // Show most recently progressed if all complete
+    return studentCourses.sort((a,b) => b.progress - a.progress)[0]; 
   }, [studentCourses]);
 
-  const numCompletedCourses = completedCourseIds.size;
-  const numEnrolledCourses = enrolledCourseIds.size;
-
-  if (isLoadingStudentData) {
-    return (
-      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4 bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando tu panel de estudiante...</p>
-      </div>
-    );
-  }
+  const numCompletedCourses = studentCourses.filter(c => c.isCompleted).length;
+  const numEnrolledCourses = studentCourses.length;
 
   return (
     <div className="space-y-6">
@@ -517,168 +566,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
 };
 
 
-function AdminDashboardWrapper() {
-  const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
-  const [announcementTitle, setAnnouncementTitle] = React.useState('');
-  const [announcementMessage, setAnnouncementMessage] = React.useState('');
-  const [announcementAudience, setAnnouncementAudience] = React.useState('all'); 
-  const { toast } = useToast();
-
-  const handleSendAnnouncement = () => {
-    if (!announcementTitle.trim() || !announcementMessage.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Campos Vacíos",
-        description: "Por favor, ingresa un título y un mensaje para el anuncio.",
-      });
-      return;
-    }
-    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
-    toast({
-      title: "Anuncio Enviado (Simulado)",
-      description: `El anuncio "${announcementTitle}" ha sido enviado a "${announcementAudience}".`,
-    });
-    setIsAnnouncementDialogOpen(false);
-    setAnnouncementTitle('');
-    setAnnouncementMessage('');
-    setAnnouncementAudience('all'); 
-  };
-  
-  // Placeholder for allUsers and allCourses, to be fetched in DashboardHomePage
-  return (
-    <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
-      <AdminDashboardContent allUsers={[]} allCourses={[]} /> 
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
-            <DialogDescription>
-            Redacta y envía un anuncio a los usuarios de la plataforma.
-            </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="announcement-title" className="text-right">
-                    Título
-                </Label>
-                <Input
-                    id="announcement-title"
-                    placeholder="Ej: Mantenimiento Programado"
-                    className="col-span-3"
-                    value={announcementTitle}
-                    onChange={(e) => setAnnouncementTitle(e.target.value)}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="announcement-message" className="text-right pt-2">
-                    Mensaje
-                </Label>
-                <Textarea
-                    id="announcement-message"
-                    placeholder="Escribe aquí el contenido del anuncio..."
-                    className="col-span-3"
-                    rows={5}
-                    value={announcementMessage}
-                    onChange={(e) => setAnnouncementMessage(e.target.value)}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="announcement-audience" className="text-right">
-                    Audiencia
-                </Label>
-                <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Seleccionar audiencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todos los Usuarios</SelectItem>
-                        <SelectItem value="students">Solo Estudiantes</SelectItem>
-                        <SelectItem value="instructors">Solo Instructores</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-        <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
-export default function DashboardHomePage() {
-  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
-
-  useEffect(() => {
-    const loadData = () => {
-      setIsLoadingDashboardData(true);
-      try {
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        setAllCourses(storedCourses ? JSON.parse(storedCourses) : []);
-
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        setAllUsers(storedUsers ? JSON.parse(storedUsers) : []);
-      } catch (error) {
-        console.error("Error loading data from localStorage for dashboard:", error);
-        setAllCourses([]);
-        setAllUsers([]);
-      }
-      setIsLoadingDashboardData(false);
-    };
-
-    if (!isLoadingRole && currentSessionRole) { // Load data only when role is determined
-      loadData();
-    }
-  }, [isLoadingRole, currentSessionRole]);
-
-
-  if (isLoadingRole || isLoadingDashboardData) { 
-    return (
-      <div className="flex h-[calc(100vh-80px)] flex-col items-center justify-center space-y-4 bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando panel...</p>
-      </div>
-    );
-  }
-  
-  if (!currentSessionRole) {
-     return (
-        <div className="flex h-screen flex-col items-center justify-center space-y-4">
-            <p className="text-lg text-destructive">Error al determinar el rol.</p>
-        </div>
-     );
-  }
-
-  // Wrap AdminDashboardContent in AdminDashboardWrapper to keep its dialog logic
-  const AdminView = () => (
-     <Dialog open={false} onOpenChange={() => {}}> {/* Dummy Dialog for AdminDashboardWrapper */}
-      <AdminDashboardContent allUsers={allUsers} allCourses={allCourses} />
-       {/* The actual dialog for announcements is managed inside AdminDashboardWrapper */}
-    </Dialog>
-  )
-
-
-  switch (currentSessionRole) {
-    case 'administrador':
-      // AdminDashboardWrapper handles its own dialog for announcements.
-      // We need to pass the fetched allUsers and allCourses to AdminDashboardContent *inside* AdminDashboardWrapper.
-      // This is tricky if AdminDashboardWrapper doesn't accept these as props directly.
-      // For now, I'll modify AdminDashboardWrapper to accept and pass these props.
-      return <AdminDashboardWrapperWithData allUsers={allUsers} allCourses={allCourses} />;
-    case 'instructor':
-      return <InstructorDashboardContent allCourses={allCourses} />;
-    case 'estudiante':
-      return <StudentDashboardContent allCourses={allCourses} />;
-    default: // Should ideally not happen if role is always set
-      return <StudentDashboardContent allCourses={allCourses} />; 
-  }
-}
-
-// New wrapper component to pass data to AdminDashboardWrapper's child
 interface AdminDashboardWrapperWithDataProps {
   allUsers: User[];
   allCourses: Course[];
@@ -770,6 +657,76 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
       </DialogContent>
     </Dialog>
   );
+}
+
+
+export default function DashboardHomePage() {
+  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
+  const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
+
+  useEffect(() => {
+    const loadData = () => {
+      setIsLoadingDashboardData(true);
+      try {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        setAllCourses(storedCourses ? JSON.parse(storedCourses) : []);
+
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        setAllUsers(storedUsers ? JSON.parse(storedUsers) : []);
+
+        const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+        setEnrolledCourseIds(storedEnrolled ? new Set(JSON.parse(storedEnrolled)) : new Set());
+        
+        const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
+        setCompletedCourseIds(storedCompleted ? new Set(JSON.parse(storedCompleted)) : new Set());
+
+      } catch (error) {
+        console.error("Error loading data from localStorage for dashboard:", error);
+        setAllCourses([]);
+        setAllUsers([]);
+        setEnrolledCourseIds(new Set());
+        setCompletedCourseIds(new Set());
+      }
+      setIsLoadingDashboardData(false);
+    };
+
+    if (!isLoadingRole && currentSessionRole) { 
+      loadData();
+    }
+  }, [isLoadingRole, currentSessionRole]);
+
+
+  if (isLoadingRole || isLoadingDashboardData) { 
+    return (
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4 bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando panel...</p>
+      </div>
+    );
+  }
+  
+  if (!currentSessionRole) {
+     return (
+        <div className="flex h-screen flex-col items-center justify-center space-y-4">
+            <p className="text-lg text-destructive">Error al determinar el rol.</p>
+        </div>
+     );
+  }
+
+  switch (currentSessionRole) {
+    case 'administrador':
+      return <AdminDashboardWrapperWithData allUsers={allUsers} allCourses={allCourses} />;
+    case 'instructor':
+      return <InstructorDashboardContent allCourses={allCourses} />;
+    case 'estudiante':
+      return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />;
+    default: 
+      return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
+  }
 }
 
     
