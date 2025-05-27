@@ -21,7 +21,7 @@ import {
   Loader2,
   Library,
   Edit3,
-  Trash2, // Added for Reset button
+  Trash2, 
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -44,7 +44,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger as ResetAlertDialogTrigger, // Renamed to avoid conflict
+  AlertDialogTrigger as ActualAlertDialogTrigger, // Changed alias to avoid confusion
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -198,7 +198,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
                     <span className="font-medium">Gestionar Cursos</span>
                 </Link>
             </Button>
-            <DialogTrigger asChild>
+            <DialogTrigger asChild> {/* This trigger is for the ANNOUNCEMENT Dialog, managed by AdminDashboardWrapperWithData */}
                  <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center">
                     <Bell className="h-8 w-8 mb-2 text-accent"/>
                     <span className="font-medium">Enviar Anuncio</span>
@@ -207,34 +207,35 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
                 <Link href="/dashboard/settings">
                     <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
-                    <span className="font-medium">Configuración</span> {/* Changed to Configuración */}
+                    <span className="font-medium">Configuración</span>
                 </Link>
             </Button>
-             <ResetAlertDialogTrigger asChild>
-                <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
-                    <Trash2 className="h-8 w-8 mb-2"/>
-                    <span className="font-medium">Restablecer Datos de Plataforma</span>
-                </Button>
-            </ResetAlertDialogTrigger>
+            {/* AlertDialog for Resetting Platform Data - Correctly Nested */}
+            <AlertDialog>
+              <ActualAlertDialogTrigger asChild>
+                  <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
+                      <Trash2 className="h-8 w-8 mb-2"/>
+                      <span className="font-medium">Restablecer Datos de Plataforma</span>
+                  </Button>
+              </ActualAlertDialogTrigger>
+              <AlertDialogContent>
+                  <AlertDialogHeader>
+                  <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
+                  </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleResetPlatformData} className="bg-destructive hover:bg-destructive/90">
+                      Sí, Restablecer Datos
+                  </AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </div>
-      <AlertDialog>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetPlatformData} className="bg-destructive hover:bg-destructive/90">
-                Sí, Restablecer Datos
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
@@ -257,7 +258,7 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
 
   const stats = [
     { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder - would need more complex data
+    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder
     { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
     { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
   ];
@@ -408,8 +409,8 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
         if (isCompleted) {
           progress = 100;
         } else {
-          const lessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
-          const storedLessonProgress = localStorage.getItem(lessonProgressKey);
+          const lessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
+          const storedLessonProgress = typeof window !== 'undefined' ? localStorage.getItem(lessonProgressKey) : null;
           if (storedLessonProgress && course.lessons && course.lessons.length > 0) {
             try {
               const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgress);
@@ -427,9 +428,11 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
     if (studentCourses.length === 0) return null;
     const incompleteCourses = studentCourses.filter(course => !course.isCompleted);
     if (incompleteCourses.length > 0) {
-      incompleteCourses.sort((a, b) => b.progress - a.progress);
+      incompleteCourses.sort((a, b) => b.progress - a.progress); // Highest progress first among incomplete
       return incompleteCourses[0];
     }
+    // If all are completed, pick the most recently "completed" or just the first one.
+    // For now, just pick the one with highest progress (which will be 100).
     return studentCourses.sort((a,b) => b.progress - a.progress)[0]; 
   }, [studentCourses]);
 
@@ -670,6 +673,10 @@ export default function DashboardHomePage() {
 
   useEffect(() => {
     const loadData = () => {
+      if (typeof window === 'undefined') {
+        setIsLoadingDashboardData(false);
+        return;
+      }
       setIsLoadingDashboardData(true);
       try {
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
@@ -696,6 +703,9 @@ export default function DashboardHomePage() {
 
     if (!isLoadingRole && currentSessionRole) { 
       loadData();
+    } else if (!isLoadingRole && !currentSessionRole) {
+      // If role is not determined yet but role loading is finished, still need to finish data loading state
+      setIsLoadingDashboardData(false);
     }
   }, [isLoadingRole, currentSessionRole]);
 
@@ -712,7 +722,11 @@ export default function DashboardHomePage() {
   if (!currentSessionRole) {
      return (
         <div className="flex h-screen flex-col items-center justify-center space-y-4">
-            <p className="text-lg text-destructive">Error al determinar el rol.</p>
+            <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
+            <Button onClick={() => {
+                if (typeof window !== 'undefined') localStorage.removeItem('sessionRole');
+                window.location.href = '/login';
+            }}>Ir a Inicio de Sesión</Button>
         </div>
      );
   }
@@ -725,6 +739,7 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />;
     default: 
+      // Fallback to student if role is somehow invalid, though logic in layout should prevent this
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
   }
 }
