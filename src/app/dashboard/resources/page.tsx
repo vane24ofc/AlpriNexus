@@ -1,14 +1,26 @@
 
 "use client";
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2 } from 'lucide-react';
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useSessionRole } from '@/app/dashboard/layout';
+import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
+import { Input } from '@/components/ui/input';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -52,28 +64,30 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole();
+  const { toast } = useToast();
   const [companyResources, setCompanyResources] = useState<ResourceFile[]>([]);
   const [learningResources, setLearningResources] = useState<ResourceFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
+  const [resourceToDelete, setResourceToDelete] = useState<ResourceFile | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const canUploadAndManage = useMemo(() => currentSessionRole === 'administrador' || currentSessionRole === 'instructor', [currentSessionRole]);
 
   useEffect(() => {
     setIsLoading(true);
     const loadResources = () => {
       try {
         const storedCompany = localStorage.getItem(COMPANY_RESOURCES_STORAGE_KEY);
-        if (storedCompany) {
-          setCompanyResources(JSON.parse(storedCompany));
-        } else {
-          setCompanyResources(initialSampleCompanyResources);
+        setCompanyResources(storedCompany ? JSON.parse(storedCompany) : initialSampleCompanyResources);
+        if (!storedCompany) {
           localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
         }
+
         const storedLearning = localStorage.getItem(LEARNING_RESOURCES_STORAGE_KEY);
-        if (storedLearning) {
-          setLearningResources(JSON.parse(storedLearning));
-        } else {
-          setLearningResources(initialSampleLearningResources);
+        setLearningResources(storedLearning ? JSON.parse(storedLearning) : initialSampleLearningResources);
+        if (!storedLearning) {
           localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
         }
       } catch (error) {
@@ -87,22 +101,73 @@ export default function ResourcesPage() {
     loadResources();
   }, []);
 
-  const filterFilesByVisibility = (files: ResourceFile[], role: typeof currentSessionRole) => {
+  const filterFilesByVisibility = (files: ResourceFile[], role: Role | null) => {
     if (!role) return [];
+    const lowerSearchTerm = searchTerm.toLowerCase();
     return files.filter(file => {
+      const matchesSearch = file.name.toLowerCase().includes(lowerSearchTerm) || file.type.toLowerCase().includes(lowerSearchTerm);
+      if (!matchesSearch) return false;
+
       if (role === 'administrador') return true;
-      if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Instructors see private learning files
+      if (role === 'instructor') {
+        if (file.category === 'company') return file.visibility === 'public' || file.visibility === 'instructors';
+        return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private'; // Instructors see their own private learning files
+      }
       return file.visibility === 'public';
     });
   };
 
   const companyResourcesForRole = useMemo(() => {
     return filterFilesByVisibility(companyResources, currentSessionRole);
-  }, [companyResources, currentSessionRole]);
+  }, [companyResources, currentSessionRole, searchTerm]);
 
   const learningResourcesForRole = useMemo(() => {
     return filterFilesByVisibility(learningResources, currentSessionRole);
-  }, [learningResources, currentSessionRole]);
+  }, [learningResources, currentSessionRole, searchTerm]);
+
+  const openDeleteDialog = (resource: ResourceFile) => {
+    setResourceToDelete(resource);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteResource = () => {
+    if (!resourceToDelete) return;
+
+    let updatedResources: ResourceFile[];
+    let storageKey: string;
+
+    if (resourceToDelete.category === 'company') {
+      updatedResources = companyResources.filter(r => r.id !== resourceToDelete.id);
+      setCompanyResources(updatedResources);
+      storageKey = COMPANY_RESOURCES_STORAGE_KEY;
+    } else {
+      updatedResources = learningResources.filter(r => r.id !== resourceToDelete.id);
+      setLearningResources(updatedResources);
+      storageKey = LEARNING_RESOURCES_STORAGE_KEY;
+    }
+
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updatedResources));
+      toast({
+        title: "Recurso Eliminado",
+        description: `El archivo "${resourceToDelete.name}" ha sido eliminado.`,
+        variant: "destructive",
+      });
+    } catch (error) {
+      console.error("Error al eliminar recurso de localStorage:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de Eliminación",
+        description: "No se pudo eliminar el recurso del almacenamiento local.",
+      });
+      // Revert state if localStorage fails (optional, for robustness)
+      if (resourceToDelete.category === 'company') setCompanyResources(companyResources);
+      else setLearningResources(learningResources);
+    }
+
+    setResourceToDelete(null);
+    setIsDeleteDialogOpen(false);
+  };
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
@@ -152,14 +217,25 @@ export default function ResourcesPage() {
                         <div className="flex justify-end space-x-2">
                           <Button variant="outline" size="sm" asChild>
                             <a href={file.url || '#'} target="_blank" rel="noopener noreferrer">
-                              <Eye className="mr-2 h-4 w-4" /> Visualizar
+                              <Eye className="mr-1 h-4 w-4" /> Visualizar
                             </a>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
                             <a href={file.url || '#'} download={file.name}>
-                              <Download className="mr-2 h-4 w-4" /> Descargar
+                              <Download className="mr-1 h-4 w-4" /> Descargar
                             </a>
                           </Button>
+                          {canUploadAndManage && (
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              onClick={() => openDeleteDialog(file)}
+                              title="Eliminar Recurso"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -170,7 +246,7 @@ export default function ResourcesPage() {
           </div>
         ) : (
           <p className="text-muted-foreground text-center py-8">
-             No hay archivos disponibles en esta sección para tu rol actual.
+             {searchTerm ? `No se encontraron archivos para "${searchTerm}" en esta sección.` : "No hay archivos disponibles en esta sección para tu rol actual."}
           </p>
         )}
       </CardContent>
@@ -192,14 +268,25 @@ export default function ResourcesPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-bold tracking-tight">Gestión de Recursos</CardTitle>
           <CardDescription>
-            {canUpload
+            {canUploadAndManage
               ? "Sube y gestiona los materiales de tu curso, documentos y otros recursos. Controla la visibilidad para cada categoría."
               : "Visualiza y descarga los archivos y recursos disponibles."}
           </CardDescription>
         </CardHeader>
+        <CardContent>
+            <div className="mb-6">
+                <Input
+                    type="search"
+                    placeholder="Buscar archivos por nombre o tipo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
+                />
+            </div>
+        </CardContent>
       </Card>
 
-      {canUpload && (
+      {canUploadAndManage && (
         <FileUploader />
       )}
 
@@ -216,6 +303,27 @@ export default function ResourcesPage() {
         "Materiales de estudio, videos, y documentos para los cursos, filtrados según tu rol y permisos.",
         BookOpen
       )}
+
+      {resourceToDelete && (
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setResourceToDelete(null); setIsDeleteDialogOpen(false); }}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90">
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
+
+    
