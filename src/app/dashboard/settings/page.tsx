@@ -23,12 +23,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
-const VALID_THEME_CLASSES = ['theme-light', 'dark', 'theme-oceanic', 'theme-sunset']; // Add 'theme-forest' if defined
+const VALID_THEME_CLASSES = ['theme-light', 'dark', 'theme-oceanic', 'theme-sunset', 'theme-forest', 'theme-monochrome-midnight'];
 
 interface ThemeOption {
-  id: string; // Corresponds to CSS class and localStorage value
+  id: string;
   name: string;
-  previewColors: { bg: string; primary: string; accent: string; text: string }; // Example structure
+  previewColors: { bg: string; primary: string; accent: string; text: string };
 }
 
 const themeOptions: ThemeOption[] = [
@@ -52,7 +52,16 @@ const themeOptions: ThemeOption[] = [
     name: 'Atardecer Cálido', 
     previewColors: { bg: 'hsl(25 30% 10%)', primary: 'hsl(30 90% 55%)', accent: 'hsl(0 80% 60%)', text: 'hsl(35 80% 90%)' }
   },
-  // Add more themes here if defined in globals.css
+  {
+    id: 'theme-forest',
+    name: 'Bosque Profundo',
+    previewColors: { bg: 'hsl(120 20% 10%)', primary: 'hsl(100 50% 40%)', accent: 'hsl(40 60% 55%)', text: 'hsl(90 30% 90%)' }
+  },
+  {
+    id: 'theme-monochrome-midnight',
+    name: 'Medianoche Monocromático',
+    previewColors: { bg: 'hsl(240 5% 5%)', primary: 'hsl(0 0% 80%)', accent: 'hsl(0 0% 50%)', text: 'hsl(0 0% 95%)' }
+  }
 ];
 
 
@@ -71,7 +80,7 @@ export default function SettingsPage() {
     appUpdates: false,
   });
   
-  const [currentTheme, setCurrentTheme] = useState('dark'); // Default to dark for initial state
+  const [currentTheme, setCurrentTheme] = useState('dark');
   const [isSaving, setIsSaving] = useState(false);
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -101,7 +110,7 @@ export default function SettingsPage() {
     if (VALID_THEME_CLASSES.includes(storedTheme)) {
       setCurrentTheme(storedTheme);
     } else {
-        setCurrentTheme('dark'); // Fallback to dark
+        setCurrentTheme('dark'); 
     }
   }, [currentSessionRole]);
 
@@ -111,17 +120,17 @@ export default function SettingsPage() {
   };
 
   const handleThemeChange = (newThemeId: string) => {
-    setCurrentTheme(newThemeId);
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       
-      if (newThemeId !== 'theme-light') { // Assuming 'theme-light' is base :root style
+      if (newThemeId !== 'theme-light') { 
         root.classList.add(newThemeId);
       } else {
-         root.classList.add('theme-light'); // Or just rely on :root if no 'theme-light' class
+         root.classList.add('theme-light'); 
       }
       localStorage.setItem('nexusAlpriTheme', newThemeId);
+      setCurrentTheme(newThemeId); // Update state
       toast({
         title: "Tema Aplicado",
         description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
@@ -354,32 +363,36 @@ export default function SettingsPage() {
               <CardTitle className="flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Apariencia</CardTitle>
               <CardDescription>Personaliza la apariencia visual de la plataforma.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
                 <Label>Seleccionar Tema</Label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div className="flex flex-col space-y-2">
                     {themeOptions.map((theme) => (
-                        <Card 
-                            key={theme.id} 
+                        <Button
+                            key={theme.id}
+                            variant="outline"
                             className={cn(
-                                "cursor-pointer hover:shadow-lg transition-shadow overflow-hidden",
-                                currentTheme === theme.id ? "ring-2 ring-primary shadow-primary/50" : "ring-1 ring-border"
+                                "w-full justify-start py-6 transition-all",
+                                currentTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                             )}
                             onClick={() => handleThemeChange(theme.id)}
                         >
-                            <CardContent className="p-0">
-                                <div className="h-20 w-full flex items-stretch">
-                                    <div style={{ backgroundColor: theme.previewColors.bg }} className="w-1/3"></div>
-                                    <div style={{ backgroundColor: theme.previewColors.primary }} className="w-1/3"></div>
-                                    <div style={{ backgroundColor: theme.previewColors.accent }} className="w-1/3"></div>
+                            <div className="flex items-center justify-between w-full">
+                                <span className="text-base">{theme.name}</span>
+                                <div className="flex space-x-1.5">
+                                    {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
+                                        <div
+                                            key={key}
+                                            className="h-6 w-6 rounded-full border border-border"
+                                            style={{ backgroundColor: color }}
+                                            title={`${key}: ${color}`}
+                                        />
+                                    ))}
                                 </div>
-                                <div className="p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm font-medium truncate" style={{color: theme.previewColors.text, backgroundColor: theme.previewColors.bg }}>{theme.name}</p>
-                                        {currentTheme === theme.id && <Check className="h-5 w-5 text-primary" />}
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
+                            </div>
+                            {currentTheme === theme.id && (
+                                <Check className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+                            )}
+                        </Button>
                     ))}
                 </div>
             </CardContent>
@@ -396,5 +409,4 @@ export default function SettingsPage() {
     </div>
   );
 }
-
     

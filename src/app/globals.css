@@ -48,7 +48,7 @@ body {
     --sidebar-ring: hsl(var(--ring));
   }
 
-  .dark { /* Original Dark Theme - Ahora también será una clase aplicable */
+  .dark {
     --background: 0 0% 4%;
     --foreground: 0 0% 95%;
     --card: 0 0% 12%;
@@ -160,6 +160,82 @@ body {
     --sidebar-border: 25 30% 12%;
     --sidebar-ring: hsl(var(--ring));
   }
+  
+  .theme-forest {
+    --background: 120 20% 10%; /* Very dark green */
+    --foreground: 90 30% 90%; /* Light greenish-gray */
+    --card: 120 18% 15%;
+    --card-foreground: 90 30% 90%;
+    --popover: 120 15% 12%;
+    --popover-foreground: 90 30% 90%;
+    --primary: 100 50% 40%; /* Medium green */
+    --primary-foreground: 100 100% 5%;
+    --secondary: 110 25% 20%;
+    --secondary-foreground: 90 30% 90%;
+    --muted: 110 20% 25%;
+    --muted-foreground: 90 25% 70%;
+    --accent: 40 60% 55%; /* Earthy brown/tan */
+    --accent-foreground: 40 100% 10%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 120 15% 28%;
+    --input: 120 15% 20%;
+    --ring: 100 50% 45%;
+    --radius: 0.5rem;
+
+    --chart-1: 100 50% 40%;
+    --chart-2: 80 60% 35%;
+    --chart-3: 40 60% 55%;
+    --chart-4: 130 40% 50%;
+    --chart-5: 110 35% 60%;
+
+    --sidebar-background: 120 20% 8%;
+    --sidebar-foreground: 90 30% 90%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 100 50% 25%;
+    --sidebar-accent-foreground: 90 30% 90%;
+    --sidebar-border: 120 20% 12%;
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .theme-monochrome-midnight {
+    --background: 240 5% 5%; /* Almost black */
+    --foreground: 0 0% 95%; /* Off-white */
+    --card: 240 4% 10%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 3% 8%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 0 0% 80%;  /* Light gray */
+    --primary-foreground: 240 5% 5%;
+    --secondary: 240 3% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 240 2% 20%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 0 0% 50%; /* Medium gray */
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 2% 25%;
+    --input: 240 2% 18%;
+    --ring: 0 0% 85%;
+    --radius: 0.5rem;
+
+    --chart-1: 0 0% 70%;
+    --chart-2: 0 0% 60%;
+    --chart-3: 0 0% 50%;
+    --chart-4: 0 0% 40%;
+    --chart-5: 0 0% 30%;
+
+    --sidebar-background: 240 5% 3%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 0 0% 25%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 240 5% 7%;
+    --sidebar-ring: hsl(var(--ring));
+  }
 }
 
 @layer base {
@@ -204,5 +280,4 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
   position: relative;
   z-index: 2;
 }
-
     
