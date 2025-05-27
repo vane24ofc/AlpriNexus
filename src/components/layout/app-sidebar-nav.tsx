@@ -33,7 +33,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarGroup,
-  // SidebarGroupLabel, // Not used in the simplified skeleton
 } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/common/logo';
@@ -122,11 +121,10 @@ export function AppSidebarNav() {
   }, [currentSessionRole, isLoadingRole]);
 
   useEffect(() => {
-    if (!hasMounted || isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
-      setOpenSubmenus(currentOpen => {
-        if (Object.keys(currentOpen).length > 0) return {};
-        return currentOpen;
-      });
+    if (!hasMounted || isLoadingRole || !currentSessionRole) {
+      if (Object.keys(openSubmenus).length > 0) { // Only update if not already empty
+        setOpenSubmenus({});
+      }
       return;
     }
 
@@ -149,24 +147,25 @@ export function AppSidebarNav() {
 
     const newCalculatedOpenState = calculateNewOpenState();
 
-    setOpenSubmenus(currentOpenSubmenus => {
-      const currentKeys = Object.keys(currentOpenSubmenus);
-      const newKeys = Object.keys(newCalculatedOpenState);
-      let needsUpdate = currentKeys.length !== newKeys.length;
-      if (!needsUpdate) {
-        for (const key of newKeys) {
-          if (currentOpenSubmenus[key] !== newCalculatedOpenState[key]) {
-            needsUpdate = true;
-            break;
-          }
+    // Perform a robust check to see if the state actually needs to change
+    const currentKeys = Object.keys(openSubmenus);
+    const newKeys = Object.keys(newCalculatedOpenState);
+    let needsUpdate = currentKeys.length !== newKeys.length;
+
+    if (!needsUpdate) {
+      for (const key of newKeys) {
+        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
+          needsUpdate = true;
+          break;
         }
       }
-      if (needsUpdate) {
-        return newCalculatedOpenState;
-      }
-      return currentOpenSubmenus;
-    });
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole, hasMounted]);
+    }
+
+    if (needsUpdate) {
+      setOpenSubmenus(newCalculatedOpenState);
+    }
+  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole, hasMounted, openSubmenus]);
+
 
   const toggleSubmenu = (itemId: string) => {
     setOpenSubmenus(prev => ({ ...prev, [itemId]: !(prev[itemId] || false) }));
@@ -175,12 +174,14 @@ export function AppSidebarNav() {
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
       if (item.children && item.children.length === 0 && !item.href) return null;
-      const effectiveHref = item.href;
+      const effectiveHref = item.href || (item.children && item.children.length > 0 ? `#${item.id}` : undefined);
+
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.id] || false;
         const isGroupActive = item.children.some(child => child.href && (pathname === child.href || pathname.startsWith(child.href + '/')));
-        const isActiveForButton = (effectiveHref && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
+        const isActiveForButton = (effectiveHref && effectiveHref !== `#${item.id}` && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
+        
         return (
           <SidebarMenuItem key={item.id}>
             <Comp onClick={() => toggleSubmenu(item.id)} className="justify-between" isActive={isActiveForButton} aria-expanded={isOpen}>
@@ -198,7 +199,7 @@ export function AppSidebarNav() {
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
       if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-        isActive = pathname === dashboardPath;
+        isActive = pathname === dashboardPath; 
       }
       return (
         <SidebarMenuItem key={item.id}>
@@ -257,7 +258,6 @@ export function AppSidebarNav() {
           {renderNavItems(filteredNavItems)}
         </SidebarMenu>
         <SidebarGroup className="mt-auto group-data-[collapsible=icon]:px-0">
-          {/* <SidebarGroupLabel className="group-data-[collapsible=icon]:hidden">Soporte</SidebarGroupLabel> */}
           <SidebarMenu>
             <SidebarMenuItem key="nav-help-link">
               <SidebarMenuButton asChild tooltip="Ayuda y Soporte" isActive={pathname === '/dashboard/help'}>
