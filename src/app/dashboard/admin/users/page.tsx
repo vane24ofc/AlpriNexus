@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation'; // Added useRouter
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -37,14 +37,13 @@ interface User {
 
 const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 
+// Simulación de datos iniciales si localStorage está vacío o la API falla
 const initialSampleUsers: User[] = [
   { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
   { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
   { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
   { id: 'user4', name: 'Ana Otro-Estudiante', email: 'student2@example.com', role: 'estudiante', joinDate: '2023-05-01', avatarUrl: 'https://placehold.co/40x40.png?text=AE', status: 'inactive' },
   { id: 'user5', name: 'Roberto Instructor-Jefe', email: 'head.instructor@example.com', role: 'instructor', joinDate: '2023-01-25', status: 'active' },
-  { id: 'user6', name: 'Laura López', email: 'laura.lopez@example.com', role: 'estudiante', joinDate: '2023-06-10', avatarUrl: 'https://placehold.co/40x40.png?text=LL', status: 'active' },
-  { id: 'user7', name: 'Pedro Martinez', email: 'pedro.m@example.com', role: 'instructor', joinDate: '2023-07-01', status: 'inactive' },
 ];
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -66,7 +65,7 @@ const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: User
         <TableRow>
             <TableCell className="hidden md:table-cell">
             <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
+                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar"/>
                 <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('').toUpperCase()}</AvatarFallback>
             </Avatar>
             </TableCell>
@@ -129,60 +128,50 @@ const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: User
         </TableRow>
     );
 });
+MemoizedUserRow.displayName = 'MemoizedUserRow';
 
 
 export default function AdminUsersPage() {
   const searchParams = useSearchParams();
-  const initialSearchTerm = searchParams.get('search') || '';
+  const router = useRouter();
+  const { toast } = useToast();
   
   const [users, setUsers] = useState<User[]>([]);
-  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  
   const [userToModify, setUserToModify] = useState<User | null>(null);
   const [actionType, setActionType] = useState<'delete' | 'changeRole' | null>(null);
   const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    try {
-      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers));
-      } else {
-        setUsers(initialSampleUsers);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
-      }
-    } catch (error) {
-      console.error("Error loading users from localStorage:", error);
-      setUsers(initialSampleUsers); 
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
-    }
-    setIsLoading(false);
-  }, []);
+    const initialSearch = searchParams.get('search') || '';
+    setSearchTerm(initialSearch);
 
-  useEffect(() => {
-    if (!isLoading && users.length > 0) {
-        try {
-            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-        } catch (error) {
-            console.error("Error saving users to localStorage:", error);
-            toast({
-                variant: "destructive",
-                title: "Error de Guardado Local",
-                description: "No se pudieron guardar los cambios de los usuarios localmente."
-            });
+    const fetchUsers = async () => {
+      setIsLoading(true);
+      try {
+        // TODO: Reemplazar con llamada a API: const fetchedUsers = await api.getUsers();
+        // setUsers(fetchedUsers);
+        
+        // Fallback a localStorage mientras la API no está lista
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        if (storedUsers) {
+          setUsers(JSON.parse(storedUsers));
+        } else {
+          setUsers(initialSampleUsers);
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
         }
-    }
-  }, [users, isLoading, toast]);
-
-  useEffect(() => {
-    const urlSearchTerm = searchParams.get('search') || '';
-    if (urlSearchTerm !== searchTerm) {
-      setSearchTerm(urlSearchTerm);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+      } catch (error) {
+        console.error("Error cargando usuarios:", error);
+        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudieron cargar los usuarios." });
+        setUsers(initialSampleUsers); // Fallback a datos de ejemplo en caso de error
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUsers();
+  }, [searchParams, toast]);
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -209,10 +198,15 @@ export default function AdminUsersPage() {
     setNewRoleForChange(null);
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!userToModify) return;
     const userName = userToModify.name;
-    setUsers(prev => prev.filter(user => user.id !== userToModify.id));
+
+    // TODO: Reemplazar con llamada a API: await api.deleteUser(userToModify.id);
+    const updatedUsers = users.filter(user => user.id !== userToModify.id);
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Actualiza localStorage
+
     toast({
       title: "Usuario Eliminado",
       description: `El usuario "${userName}" ha sido eliminado.`,
@@ -221,17 +215,39 @@ export default function AdminUsersPage() {
     closeDialog();
   };
   
-  const handleChangeRole = () => {
+  const handleChangeRole = async () => {
     if (!userToModify || !newRoleForChange) return;
     const userName = userToModify.name;
     const newRoleLabel = roleDisplayInfo[newRoleForChange].label;
-    setUsers(prev => prev.map(user => user.id === userToModify.id ? { ...user, role: newRoleForChange! } : user));
+
+    // TODO: Reemplazar con llamada a API: await api.updateUserRole(userToModify.id, newRoleForChange);
+    const updatedUsers = users.map(user => 
+        user.id === userToModify.id ? { ...user, role: newRoleForChange! } : user
+    );
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Actualiza localStorage
+
     toast({
       title: "Rol de Usuario Actualizado",
       description: `El rol de "${userName}" ha sido cambiado a ${newRoleLabel}.`,
     });
     closeDialog();
   };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+    // Actualizar URL sin recargar para que el término de búsqueda sea "bookmarkable"
+    const params = new URLSearchParams(searchParams.toString());
+    if (event.target.value) {
+      params.set('search', event.target.value);
+    } else {
+      params.delete('search');
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+  //pathname no esta definido, lo defino asi:
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+
 
   if (isLoading) {
     return (
@@ -272,7 +288,7 @@ export default function AdminUsersPage() {
                 placeholder="Buscar por nombre o correo electrónico..."
                 className="pl-10 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
               />
             </div>
           </div>
@@ -335,6 +351,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-    
-
     
