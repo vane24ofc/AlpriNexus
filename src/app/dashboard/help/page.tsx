@@ -4,9 +4,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Button } from '@/components/ui/button';
-import { LifeBuoy, HelpCircle, BookOpen, Mail } from 'lucide-react';
-import Link from 'next/link';
+import { LifeBuoy, HelpCircle, Mail } from 'lucide-react';
 
 const faqs = [
   {
@@ -56,8 +54,7 @@ export default function HelpPage() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-1 gap-6"> 
-        {/* The grid now only has one column if only one card is left */}
+      <div className="grid md:grid-cols-1 gap-6">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Mail className="mr-2 h-6 w-6 text-primary"/>Contactar con Soporte</CardTitle>
@@ -65,7 +62,10 @@ export default function HelpPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm">Si necesitas asistencia personalizada, puedes enviarnos un correo a:</p>
-            <a href="mailto:desarrolloalprigrama@gmail.com" className="font-semibold text-primary hover:underline">
+            <a 
+              href="mailto:desarrolloalprigrama@gmail.com" 
+              className="font-semibold text-primary hover:underline break-all"
+            >
               desarrolloalprigrama@gmail.com
             </a>
             <p className="text-xs text-muted-foreground">Nuestro equipo de soporte te responderá lo antes posible (Horario de atención: Lunes a Viernes, 9 AM - 5 PM GMT-5).</p>
@@ -75,3 +75,5 @@ export default function HelpPage() {
     </div>
   );
 }
+
+    
