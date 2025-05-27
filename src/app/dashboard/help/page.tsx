@@ -56,26 +56,8 @@ export default function HelpPage() {
         </CardContent>
       </Card>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center"><BookOpen className="mr-2 h-6 w-6 text-primary"/>Guías y Tutoriales</CardTitle>
-            <CardDescription>Aprende a sacar el máximo provecho de AlpriNexus.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button variant="link" className="p-0 h-auto text-base" asChild>
-                <Link href="#">Guía de Inicio Rápido para Estudiantes</Link>
-            </Button>
-            <Button variant="link" className="p-0 h-auto text-base" asChild>
-                <Link href="#">Cómo Crear un Curso Atractivo (Instructores)</Link>
-            </Button>
-            <Button variant="link" className="p-0 h-auto text-base" asChild>
-                <Link href="#">Administrando Usuarios y Contenido (Admins)</Link>
-            </Button>
-            <p className="text-sm text-muted-foreground pt-2">Más guías próximamente...</p>
-          </CardContent>
-        </Card>
-
+      <div className="grid md:grid-cols-1 gap-6"> 
+        {/* The grid now only has one column if only one card is left */}
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Mail className="mr-2 h-6 w-6 text-primary"/>Contactar con Soporte</CardTitle>
