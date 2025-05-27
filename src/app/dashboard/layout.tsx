@@ -48,38 +48,32 @@ export default function DashboardLayout({
       finalDeterminedRole = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
       finalDeterminedRole = 'instructor';
-    } else if (pathname.startsWith('/dashboard/student')) { 
-      // This path is for specific student sections like /dashboard/student/profile
-      // If current path IS /dashboard/student/*, role is 'estudiante'.
+    } else if (pathname.startsWith('/dashboard/student')) {
       finalDeterminedRole = 'estudiante';
-    } else { 
-      // For generic paths like /dashboard, /dashboard/resources, /dashboard/calendar
-      // Rely on localStorage. If localStorage is empty or invalid, default to 'estudiante'.
+    } else {
       if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
         finalDeterminedRole = roleFromStorage;
       } else {
-        finalDeterminedRole = 'estudiante'; // Default for generic paths if storage is invalid/empty
+        finalDeterminedRole = 'estudiante'; 
       }
     }
     
-    // Ensure localStorage reflects the determined role, especially if a path dictated it.
     if (typeof window !== 'undefined' && localStorage.getItem('sessionRole') !== finalDeterminedRole) {
         localStorage.setItem('sessionRole', finalDeterminedRole);
     }
 
-    // Only update if the role has actually changed from its previous state or if it's the initial load (currentSessionRole is null)
     if (currentSessionRole !== finalDeterminedRole) {
       setCurrentSessionRole(finalDeterminedRole);
     }
     setIsLoadingRole(false);
-  }, [pathname]); // Only re-run if pathname changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]); // Removed currentSessionRole to prevent potential loops, pathname is the primary driver
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  // Show loader until role is determined and valid
   if (isLoadingRole || !currentSessionRole) { 
     return <FullPageLoader message="Determinando rol y cargando panel..." />;
   }
@@ -87,7 +81,7 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        <AppSidebarNav /> 
+        <AppSidebarNav key={currentSessionRole || 'loading'} /> {/* Added key here */}
         <SidebarInset>
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
