@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -107,7 +106,7 @@ export function AppSidebarNav() {
         let newItem = { ...item };
         if (item.children) {
           newItem.children = item.children.filter(child => !child.roles || child.roles.includes(currentSessionRole!));
-          if (newItem.children.length > 0 || newItem.href) { // Keep group if it has children or is a link itself
+          if (newItem.children.length > 0 || newItem.href) { 
             acc.push(newItem);
           }
         } else {
@@ -120,14 +119,8 @@ export function AppSidebarNav() {
 
   // useEffect para gestionar la apertura/cierre de submenús basados en la ruta activa
   useEffect(() => {
-    // Si no está montado en el cliente, o el rol está cargando, o no hay rol,
-    // o no hay elementos filtrados, reseteamos los submenús abiertos.
     if (!hasMounted || isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
-      setOpenSubmenus(currentOpen => {
-        // Solo actualiza si no está ya vacío para evitar un bucle si este efecto se dispara innecesariamente
-        if (Object.keys(currentOpen).length > 0) return {};
-        return currentOpen;
-      });
+      setOpenSubmenus({}); // Reset if not ready or no items
       return;
     }
 
@@ -138,7 +131,7 @@ export function AppSidebarNav() {
           if (item.children && item.children.length > 0) {
             const isActiveGroup = item.children.some(child => child.href && currentPath.startsWith(child.href as string));
             state[item.id] = isActiveGroup;
-            if (isActiveGroup) {
+            if (isActiveGroup) { // Only recurse if the parent group itself is active
               checkItems(item.children, currentPath);
             }
           }
@@ -148,31 +141,9 @@ export function AppSidebarNav() {
       return state;
     };
 
-    const newCalculatedOpenState = calculateNewOpenState();
+    setOpenSubmenus(calculateNewOpenState()); // Direct set, React will diff
 
-    // Usamos la forma funcional de setOpenSubmenus para comparar con el estado previo
-    // y evitar añadir openSubmenus al array de dependencias directamente.
-    setOpenSubmenus(prevOpenSubmenus => {
-      const currentKeys = Object.keys(prevOpenSubmenus);
-      const newKeys = Object.keys(newCalculatedOpenState);
-      let needsUpdate = currentKeys.length !== newKeys.length;
-
-      if (!needsUpdate) {
-        for (const key of newKeys) {
-          if (prevOpenSubmenus[key] !== newCalculatedOpenState[key]) {
-            needsUpdate = true;
-            break;
-          }
-        }
-      }
-
-      if (needsUpdate) {
-        return newCalculatedOpenState;
-      }
-      return prevOpenSubmenus; // No actual change needed, return the previous state
-    });
-
-  }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]); // 'openSubmenus' NO está en este array de dependencias.
+  }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]);
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -181,7 +152,6 @@ export function AppSidebarNav() {
 
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
-      // No renderizar un grupo si no tiene hijos visibles Y no es un enlace en sí mismo
       if (item.children && item.children.length === 0 && !item.href) return null;
       
       const effectiveHref = item.href || (item.children && item.children.length > 0 ? `#${item.id}` : undefined);
@@ -189,9 +159,7 @@ export function AppSidebarNav() {
       if (item.children && item.children.length > 0) {
         const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
         const isOpen = openSubmenus[item.id] || false;
-        // Un grupo está activo si la ruta actual es uno de sus hijos
         const isGroupActive = item.children.some(child => child.href && (pathname === child.href || pathname.startsWith(child.href + '/')));
-        // Para el botón, consideramos activo si el href del grupo coincide O si el grupo está activo
         const isActiveForButton = (effectiveHref && effectiveHref !== `#${item.id}` && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
         
         return (
@@ -207,12 +175,10 @@ export function AppSidebarNav() {
           </SidebarMenuItem>
         );
       }
-      // Si no tiene hijos o si tiene hijos pero también es un enlace directo
-      if (!effectiveHref) return null; // No renderizar si no hay a dónde ir
+      if (!effectiveHref) return null; 
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       
       let isActive = false;
-      // Regla especial para el "Panel Principal" para que solo esté activo en /dashboard exacto
       if (effectiveHref === "/dashboard" && item.id === 'nav-panel-principal') {
         isActive = pathname === "/dashboard";
       } else if (effectiveHref) {
@@ -233,7 +199,6 @@ export function AppSidebarNav() {
     });
   };
 
-  // Skeleton rendering logic:
   if (!hasMounted || isLoadingRole || !currentSessionRole) {
     return (
       <Sidebar collapsible="icon">
@@ -245,7 +210,6 @@ export function AppSidebarNav() {
         </SidebarHeader>
         <SidebarContent className="p-2">
           <SidebarMenu>
-            {/* Render Skeletons directly for a simpler structure during loading */}
             {Array.from({ length: 8 }).map((_, index) => (
               <SidebarMenuSkeleton key={`skeleton-direct-${index}`} showIcon className="my-1 h-8" />
             ))}
