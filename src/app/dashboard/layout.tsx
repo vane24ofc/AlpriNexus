@@ -36,11 +36,9 @@ export default function DashboardLayout({
   const [isLoadingRole, setIsLoadingRole] = useState(true);
 
   useEffect(() => {
-    // This effect runs only on the client
     setIsLoadingRole(true);
-    
+    let determinedRole: Role = 'estudiante'; // Default fallback
     const storedRole = typeof window !== 'undefined' ? localStorage.getItem('sessionRole') as Role | null : null;
-    let activeRoleDetermination: Role = 'estudiante'; // Fallback default
 
     let roleFromPath: Role | null = null;
     if (pathname.startsWith('/dashboard/admin')) {
@@ -52,26 +50,24 @@ export default function DashboardLayout({
     }
 
     if (roleFromPath) {
-      activeRoleDetermination = roleFromPath;
-      if (typeof window !== 'undefined' && storedRole !== activeRoleDetermination) {
-        localStorage.setItem('sessionRole', activeRoleDetermination);
+      determinedRole = roleFromPath;
+      if (typeof window !== 'undefined' && storedRole !== determinedRole) {
+        localStorage.setItem('sessionRole', determinedRole);
       }
     } else if (storedRole && ['administrador', 'instructor', 'estudiante'].includes(storedRole)) {
-      activeRoleDetermination = storedRole;
+      determinedRole = storedRole;
     } else {
-      // If no role from path and no valid stored role, default to 'estudiante' and store it.
       if (typeof window !== 'undefined') {
-          localStorage.setItem('sessionRole', 'estudiante');
+        localStorage.setItem('sessionRole', 'estudiante');
       }
-      activeRoleDetermination = 'estudiante';
+      determinedRole = 'estudiante';
     }
     
-    // Only update state if it's different, to avoid unnecessary re-renders.
-    if (currentSessionRole !== activeRoleDetermination) {
-      setCurrentSessionRole(activeRoleDetermination);
+    if (currentSessionRole !== determinedRole) {
+      setCurrentSessionRole(determinedRole);
     }
     setIsLoadingRole(false); 
-  }, [pathname]); // Depend only on pathname. currentSessionRole removed to prevent potential loops.
+  }, [pathname]); // Removed currentSessionRole from deps to avoid potential loops
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
@@ -85,7 +81,7 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        <AppSidebarNav />
+        <AppSidebarNav key={currentSessionRole} /> {/* Added key here */}
         <SidebarInset>
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
