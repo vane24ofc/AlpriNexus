@@ -11,7 +11,17 @@ const inter = Inter({
   variable: '--font-sans',
 });
 
-const VALID_THEME_CLASSES = ['theme-light', 'dark', 'theme-oceanic', 'theme-sunset', 'theme-forest', 'theme-monochrome-midnight'];
+const VALID_THEME_CLASSES = [
+  'theme-light', 
+  'dark', 
+  'theme-oceanic', 
+  'theme-sunset', 
+  'theme-forest', 
+  'theme-monochrome-midnight',
+  'theme-crimson-night',
+  'theme-lavender-haze',
+  'theme-spring-meadow'
+];
 
 export default function RootLayout({
   children,
@@ -27,9 +37,13 @@ export default function RootLayout({
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
+      // Check system preference if no theme is stored or stored theme is invalid
       if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+         // If system prefers light and no valid theme is stored, set to 'theme-light'
+         // This ensures 'light' is explicitly 'theme-light' for CSS class logic
          initialTheme = 'theme-light'; 
       }
+      // If system prefers dark or no preference, it defaults to 'dark' (our initial state)
     }
     setTheme(initialTheme);
   }, []);
@@ -38,15 +52,15 @@ export default function RootLayout({
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
+        // Remove all known theme classes first
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
         
-        if (theme !== 'theme-light') { 
+        // Add the selected theme class
+        // The default light theme is applied by :root, so 'theme-light' class explicitly adds it.
+        // Other themes (dark, oceanic, etc.) will have their specific classes.
+        if (theme) { // Ensure theme is not empty or null
             root.classList.add(theme);
-        } else {
-            root.classList.add('theme-light'); 
         }
-        // No need to save to localStorage here, as handleThemeChange in settings page does that.
-        // This effect is just for applying the theme based on the 'theme' state.
     }
   }, [theme]);
 
@@ -59,4 +73,5 @@ export default function RootLayout({
     </html>
   );
 }
+    
     

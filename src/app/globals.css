@@ -236,6 +236,120 @@ body {
     --sidebar-border: 240 5% 7%;
     --sidebar-ring: hsl(var(--ring));
   }
+
+  .theme-crimson-night {
+    --background: 240 3% 8%;
+    --foreground: 0 0% 90%;
+    --card: 240 3% 12%;
+    --card-foreground: 0 0% 90%;
+    --popover: 240 2% 10%;
+    --popover-foreground: 0 0% 90%;
+    --primary: 0 70% 45%; /* Crimson Red */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 2% 18%;
+    --secondary-foreground: 0 0% 90%;
+    --muted: 240 2% 22%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 15 80% 55%; /* Brighter, orangey-red */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 2% 28%;
+    --input: 240 2% 15%;
+    --ring: 0 70% 50%;
+    --radius: 0.5rem;
+
+    --chart-1: 0 70% 45%;
+    --chart-2: 15 80% 55%;
+    --chart-3: 30 70% 50%;
+    --chart-4: 0 50% 35%;
+    --chart-5: 345 70% 50%;
+
+    --sidebar-background: 240 3% 6%;
+    --sidebar-foreground: 0 0% 90%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 0 70% 30%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border: 240 3% 10%;
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .theme-lavender-haze {
+    --background: 250 30% 96%;
+    --foreground: 250 20% 25%;
+    --card: 250 40% 99%;
+    --card-foreground: 250 20% 25%;
+    --popover: 250 40% 99%;
+    --popover-foreground: 250 20% 25%;
+    --primary: 260 60% 65%; /* Medium Lavender */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 250 35% 92%;
+    --secondary-foreground: 250 20% 30%;
+    --muted: 250 30% 90%;
+    --muted-foreground: 250 15% 45%;
+    --accent: 300 70% 80%; /* Soft Pink */
+    --accent-foreground: 260 50% 30%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 250 20% 88%;
+    --input: 250 20% 90%;
+    --ring: 260 60% 70%;
+    --radius: 0.5rem;
+
+    --chart-1: 260 60% 65%;
+    --chart-2: 300 70% 80%;
+    --chart-3: 240 60% 70%;
+    --chart-4: 270 50% 60%;
+    --chart-5: 320 65% 75%;
+
+    --sidebar-background: 250 30% 94%;
+    --sidebar-foreground: 250 20% 25%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 260 60% 88%;
+    --sidebar-accent-foreground: 250 20% 25%;
+    --sidebar-border: 250 30% 90%;
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .theme-spring-meadow {
+    --background: 50 40% 97%;
+    --foreground: 80 25% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 80 25% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 80 25% 20%;
+    --primary: 100 50% 50%; /* Spring Green */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 90 40% 94%;
+    --secondary-foreground: 80 25% 25%;
+    --muted: 90 40% 92%;
+    --muted-foreground: 80 20% 40%;
+    --accent: 50 90% 60%; /* Sunny Yellow */
+    --accent-foreground: 70 40% 25%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 80 20% 88%;
+    --input: 80 20% 92%;
+    --ring: 100 50% 55%;
+    --radius: 0.5rem;
+
+    --chart-1: 100 50% 50%;
+    --chart-2: 50 90% 60%;
+    --chart-3: 70 45% 55%;
+    --chart-4: 120 40% 60%;
+    --chart-5: 40 80% 65%;
+
+    --sidebar-background: 60 35% 95%;
+    --sidebar-foreground: 80 25% 20%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 100 50% 85%;
+    --sidebar-accent-foreground: 80 25% 20%;
+    --sidebar-border: 60 35% 90%;
+    --sidebar-ring: hsl(var(--ring));
+  }
 }
 
 @layer base {
@@ -280,4 +394,5 @@ button.rdp-day_selected.day-with-event-dot:focus::after {
   position: relative;
   z-index: 2;
 }
+    
     

@@ -23,10 +23,20 @@ import {
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
 
-const VALID_THEME_CLASSES = ['theme-light', 'dark', 'theme-oceanic', 'theme-sunset', 'theme-forest', 'theme-monochrome-midnight'];
+const VALID_THEME_CLASSES = [
+  'theme-light', 
+  'dark', 
+  'theme-oceanic', 
+  'theme-sunset', 
+  'theme-forest', 
+  'theme-monochrome-midnight',
+  'theme-crimson-night',
+  'theme-lavender-haze',
+  'theme-spring-meadow'
+];
 
 interface ThemeOption {
-  id: string;
+  id: string; // This will be the CSS class name
   name: string;
   previewColors: { bg: string; primary: string; accent: string; text: string };
 }
@@ -61,6 +71,21 @@ const themeOptions: ThemeOption[] = [
     id: 'theme-monochrome-midnight',
     name: 'Medianoche Monocromático',
     previewColors: { bg: 'hsl(240 5% 5%)', primary: 'hsl(0 0% 80%)', accent: 'hsl(0 0% 50%)', text: 'hsl(0 0% 95%)' }
+  },
+  {
+    id: 'theme-crimson-night',
+    name: 'Noche Carmesí',
+    previewColors: { bg: 'hsl(240 3% 8%)', primary: 'hsl(0 70% 45%)', accent: 'hsl(15 80% 55%)', text: 'hsl(0 0% 90%)' }
+  },
+  {
+    id: 'theme-lavender-haze',
+    name: 'Neblina Lavanda',
+    previewColors: { bg: 'hsl(250 30% 96%)', primary: 'hsl(260 60% 65%)', accent: 'hsl(300 70% 80%)', text: 'hsl(250 20% 25%)' }
+  },
+  {
+    id: 'theme-spring-meadow',
+    name: 'Pradera Primaveral',
+    previewColors: { bg: 'hsl(50 40% 97%)', primary: 'hsl(100 50% 50%)', accent: 'hsl(50 90% 60%)', text: 'hsl(80 25% 20%)' }
   }
 ];
 
@@ -80,7 +105,7 @@ export default function SettingsPage() {
     appUpdates: false,
   });
   
-  const [currentTheme, setCurrentTheme] = useState('dark');
+  const [activeTheme, setActiveTheme] = useState('dark');
   const [isSaving, setIsSaving] = useState(false);
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -106,12 +131,29 @@ export default function SettingsPage() {
       });
     }
 
-    const storedTheme = localStorage.getItem('nexusAlpriTheme') || 'dark';
-    if (VALID_THEME_CLASSES.includes(storedTheme)) {
-      setCurrentTheme(storedTheme);
+    let initialTheme = 'dark'; // Default if nothing is stored or system has no preference for light
+    const storedTheme = localStorage.getItem('nexusAlpriTheme');
+    
+    if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
+      initialTheme = storedTheme;
     } else {
-        setCurrentTheme('dark'); 
+      // Check system preference only if no valid theme is stored
+      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+         initialTheme = 'theme-light';
+      }
     }
+    setActiveTheme(initialTheme);
+    // Ensure RootLayout also gets this initial theme on first load if localStorage was empty
+    if (!storedTheme && typeof window !== 'undefined') {
+      localStorage.setItem('nexusAlpriTheme', initialTheme);
+      // This relies on RootLayout also applying this theme on its initial load.
+      // A more robust solution might involve a shared context for theme if immediate sync across components is vital
+      // before RootLayout's own useEffect runs. For now, this setup should work for user interaction.
+      const root = window.document.documentElement;
+      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
+      root.classList.add(initialTheme);
+    }
+
   }, [currentSessionRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -124,13 +166,10 @@ export default function SettingsPage() {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       
-      if (newThemeId !== 'theme-light') { 
-        root.classList.add(newThemeId);
-      } else {
-         root.classList.add('theme-light'); 
-      }
+      root.classList.add(newThemeId); // theme-light has its own class for consistency now
+      
       localStorage.setItem('nexusAlpriTheme', newThemeId);
-      setCurrentTheme(newThemeId); // Update state
+      setActiveTheme(newThemeId); 
       toast({
         title: "Tema Aplicado",
         description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
@@ -142,7 +181,7 @@ export default function SettingsPage() {
     setIsSaving(true);
     console.log("Datos de usuario actualizados:", userData);
     console.log("Preferencias de notificación:", notificationPrefs);
-    console.log("Tema de apariencia:", currentTheme);
+    console.log("Tema de apariencia:", activeTheme);
 
     setTimeout(() => {
       toast({
@@ -190,7 +229,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-3 space-y-6">
+        <div className="lg:col-span-3 space-y-6"> {/* Changed to lg:col-span-3 to allow full width */}
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Información de la Cuenta</CardTitle>
@@ -371,26 +410,26 @@ export default function SettingsPage() {
                             key={theme.id}
                             variant="outline"
                             className={cn(
-                                "w-full justify-start py-6 transition-all",
-                                currentTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
+                                "w-full justify-start py-4 transition-all text-left h-auto", // Added text-left and h-auto
+                                activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                             )}
                             onClick={() => handleThemeChange(theme.id)}
                         >
                             <div className="flex items-center justify-between w-full">
-                                <span className="text-base">{theme.name}</span>
+                                <span className="text-sm font-medium">{theme.name}</span> {/* Adjusted font size and weight */}
                                 <div className="flex space-x-1.5">
                                     {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
                                         <div
                                             key={key}
-                                            className="h-6 w-6 rounded-full border border-border"
+                                            className="h-5 w-5 rounded-full border border-border/50" // Adjusted size and border
                                             style={{ backgroundColor: color }}
                                             title={`${key}: ${color}`}
                                         />
                                     ))}
                                 </div>
                             </div>
-                            {currentTheme === theme.id && (
-                                <Check className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+                            {activeTheme === theme.id && (
+                                <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
                             )}
                         </Button>
                     ))}
@@ -409,4 +448,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+    
     
