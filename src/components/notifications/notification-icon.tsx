@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, CheckCircle, AlertTriangle, MessageCircle, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,30 +24,38 @@ interface Notification {
   link?: string;
 }
 
-const initialNotifications: Notification[] = [
-  { id: '1', type: 'course', title: '¡Nuevo Curso Disponible!', description: 'Se ha añadido el curso de JavaScript Avanzado.', timestamp: 'hace 2m', read: false, link: '#' },
-  { id: '2', type: 'message', title: 'Mensaje del Instructor', description: 'Tu tarea ha sido calificada.', timestamp: 'hace 1h', read: false, link: '#' },
-  { id: '3', type: 'alert', title: 'Mantenimiento Programado', description: 'Mantenimiento del sistema el domingo a las 2 AM.', timestamp: 'hace 3h', read: true, link: '#' },
-  { id: '4', type: 'update', title: 'Perfil Actualizado', description: 'La información de tu perfil se actualizó correctamente.', timestamp: 'hace 1d', read: true, link: '/dashboard/student/profile' },
-  { id: '5', type: 'course', title: 'Confirmación de Inscripción', description: 'Ahora estás inscrito en "Introducción a Python".', timestamp: 'hace 2d', read: true, link: '#' },
-  { id: '6', type: 'message', title: 'Nuevo Anuncio General', description: 'Consulta los últimos anuncios de la plataforma.', timestamp: 'hace 5m', read: false, link: '#' },
+const NOTIFICATIONS_STORAGE_KEY = 'nexusAlpriNotifications';
+
+const initialSeedNotifications: Notification[] = [
+  { id: 'seed1', type: 'course', title: '¡Nuevo Curso Disponible!', description: 'Se ha añadido el curso de JavaScript Avanzado.', timestamp: 'hace 2m', read: false, link: '#' },
+  { id: 'seed2', type: 'message', title: 'Mensaje del Instructor', description: 'Tu tarea ha sido calificada.', timestamp: 'hace 1h', read: false, link: '#' },
+  { id: 'seed3', type: 'alert', title: 'Mantenimiento Programado', description: 'Mantenimiento del sistema el domingo a las 2 AM.', timestamp: 'hace 3h', read: true, link: '#' },
+  { id: 'seed4', type: 'update', title: 'Perfil Actualizado', description: 'La información de tu perfil se actualizó correctamente.', timestamp: 'hace 1d', read: true, link: '/dashboard/student/profile' },
+  { id: 'seed5', type: 'course', title: 'Confirmación de Inscripción', description: 'Ahora estás inscrito en "Introducción a Python".', timestamp: 'hace 2d', read: true, link: '#' },
+  { id: 'seed6', type: 'message', title: 'Nuevo Anuncio General', description: 'Consulta los últimos anuncios de la plataforma.', timestamp: 'hace 5m', read: false, link: '#' },
 ];
 
-function NotificationItem({ notification }: { notification: Notification }) {
+function NotificationItem({ notification, onToggleRead }: { notification: Notification, onToggleRead: (id: string) => void }) {
   const Icon = {
     message: MessageCircle,
     alert: AlertTriangle,
     update: CheckCircle,
-    course: BookOpen, // Changed for course-specific icon
+    course: BookOpen,
   }[notification.type];
 
   return (
-    <div className="flex items-start space-x-3 p-3 hover:bg-muted/50 rounded-md">
+    <div 
+      className="flex items-start space-x-3 p-3 hover:bg-muted/50 rounded-md cursor-pointer"
+      onClick={() => onToggleRead(notification.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onToggleRead(notification.id)}
+    >
       {!notification.read && (
         <Badge variant="default" className="h-2 w-2 p-0 shrink-0 mt-1.5 bg-primary" />
       )}
       {notification.read && (
-         <div className="h-2 w-2 shrink-0 mt-1.5" /> // Placeholder for alignment
+         <div className="h-2 w-2 shrink-0 mt-1.5" /> 
       )}
       <Icon className={`h-5 w-5 shrink-0 mt-1 ${notification.read ? 'text-muted-foreground' : 'text-primary'}`} />
       <div className="flex-1 space-y-1">
@@ -56,25 +64,60 @@ function NotificationItem({ notification }: { notification: Notification }) {
           <p className="text-xs text-muted-foreground">{notification.timestamp}</p>
         </div>
         <p className={`text-sm ${notification.read ? 'text-muted-foreground/80' : 'text-foreground/90'}`}>{notification.description}</p>
-        {notification.link && <a href={notification.link} className="text-xs text-primary hover:underline">Ver detalles</a>}
+        {notification.link && <a href={notification.link} className="text-xs text-primary hover:underline" onClick={(e) => e.stopPropagation()}>Ver detalles</a>}
       </div>
     </div>
   );
 }
 
 export function NotificationIcon() {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setUnreadCount(notifications.filter(n => !n.read).length);
-  }, [notifications]);
+    setIsLoading(true);
+    try {
+      const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+      if (storedNotifications) {
+        setNotifications(JSON.parse(storedNotifications));
+      } else {
+        setNotifications(initialSeedNotifications);
+        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(initialSeedNotifications));
+      }
+    } catch (error) {
+      console.error("Error loading notifications from localStorage:", error);
+      setNotifications(initialSeedNotifications);
+    }
+    setIsLoading(false);
+  }, []);
 
-  const handleMarkAllAsRead = () => {
+  useEffect(() => {
+    if (!isLoading) { // Only save to localStorage if not in initial loading phase
+      try {
+        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+        setUnreadCount(notifications.filter(n => !n.read).length);
+      } catch (error) {
+        console.error("Error saving notifications to localStorage:", error);
+      }
+    }
+  }, [notifications, isLoading]);
+
+  const handleMarkAllAsRead = useCallback(() => {
     setNotifications(prevNotifications =>
       prevNotifications.map(n => ({ ...n, read: true }))
     );
-  };
+  }, []);
+
+  const handleToggleRead = useCallback((id: string) => {
+    setNotifications(prevNotifications =>
+      prevNotifications.map(n =>
+        n.id === id ? { ...n, read: !n.read } : n
+      )
+    );
+  }, []);
+
+  const unreadNotifications = notifications.filter(n => !n.read);
 
   return (
     <Popover>
@@ -96,25 +139,29 @@ export function NotificationIcon() {
         <Separator />
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-2 m-2">
-            <TabsTrigger value="all">Todas ({notifications.length})</TabsTrigger>
-            <TabsTrigger value="unread">No Leídas ({unreadCount})</TabsTrigger>
+            <TabsTrigger value="all">Todas ({isLoading ? '...' : notifications.length})</TabsTrigger>
+            <TabsTrigger value="unread">No Leídas ({isLoading ? '...' : unreadCount})</TabsTrigger>
           </TabsList>
           <ScrollArea className="h-[300px] md:h-[400px]">
             <TabsContent value="all" className="mt-0">
-              {notifications.length === 0 ? (
+              {isLoading ? (
+                <p className="p-4 text-center text-sm text-muted-foreground">Cargando notificaciones...</p>
+              ) : notifications.length === 0 ? (
                 <p className="p-4 text-center text-sm text-muted-foreground">Aún no hay notificaciones.</p>
               ) : (
                 notifications.map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} />
+                  <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
                 ))
               )}
             </TabsContent>
             <TabsContent value="unread" className="mt-0">
-              {notifications.filter(n => !n.read).length === 0 ? (
+              {isLoading ? (
+                <p className="p-4 text-center text-sm text-muted-foreground">Cargando notificaciones...</p>
+              ) : unreadNotifications.length === 0 ? (
                 <p className="p-4 text-center text-sm text-muted-foreground">No hay notificaciones no leídas.</p>
               ) : (
-                notifications.filter(n => !n.read).map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} />
+                unreadNotifications.map((notification) => (
+                  <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
                 ))
               )}
             </TabsContent>
@@ -122,7 +169,7 @@ export function NotificationIcon() {
         </Tabs>
         <Separator />
         <div className="p-2 text-center">
-          <Button variant="link" size="sm" className="text-primary" onClick={handleMarkAllAsRead} disabled={unreadCount === 0}>
+          <Button variant="link" size="sm" className="text-primary" onClick={handleMarkAllAsRead} disabled={isLoading || unreadCount === 0}>
             Marcar todas como leídas
           </Button>
         </div>
