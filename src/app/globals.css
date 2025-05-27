@@ -160,7 +160,7 @@ body {
     --sidebar-border: 25 30% 12%;
     --sidebar-ring: hsl(var(--ring));
   }
-  
+
   .theme-forest {
     --background: 120 20% 10%; /* Very dark green */
     --foreground: 90 30% 90%; /* Light greenish-gray */
@@ -424,6 +424,82 @@ body {
     --sidebar-accent: 45 50% 85%;
     --sidebar-accent-foreground: 30 20% 25%;
     --sidebar-border: 40 30% 88%;
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .theme-royal-gold { /* Dark Theme */
+    --background: 270 15% 10%; /* Deep Purple-Black */
+    --foreground: 45 50% 85%; /* Pale Gold */
+    --card: 270 12% 15%;
+    --card-foreground: 45 50% 85%;
+    --popover: 270 10% 12%;
+    --popover-foreground: 45 50% 85%;
+    --primary: 275 50% 55%; /* Royal Purple */
+    --primary-foreground: 45 100% 95%;
+    --secondary: 270 10% 20%;
+    --secondary-foreground: 45 50% 85%;
+    --muted: 270 8% 25%;
+    --muted-foreground: 45 40% 70%;
+    --accent: 45 70% 60%; /* Rich Gold */
+    --accent-foreground: 270 60% 15%;
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 270 8% 30%;
+    --input: 270 8% 22%;
+    --ring: 45 70% 65%;
+    --radius: 0.5rem;
+
+    --chart-1: 275 50% 55%;
+    --chart-2: 45 70% 60%;
+    --chart-3: 290 40% 50%;
+    --chart-4: 30 50% 65%;
+    --chart-5: 260 60% 70%;
+
+    --sidebar-background: 270 15% 8%;
+    --sidebar-foreground: 45 50% 85%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 275 50% 35%;
+    --sidebar-accent-foreground: 45 50% 85%;
+    --sidebar-border: 270 15% 12%;
+    --sidebar-ring: hsl(var(--ring));
+  }
+
+  .theme-sakura-blossom { /* Light Theme */
+    --background: 340 60% 98%; /* Very Pale Pink/Off-white */
+    --foreground: 340 30% 30%; /* Dark Muted Red/Brown */
+    --card: 0 0% 100%;
+    --card-foreground: 340 30% 30%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 340 30% 30%;
+    --primary: 345 80% 75%; /* Soft Cherry Blossom Pink */
+    --primary-foreground: 340 50% 20%;
+    --secondary: 340 50% 95%;
+    --secondary-foreground: 340 30% 35%;
+    --muted: 340 40% 92%;
+    --muted-foreground: 340 25% 50%;
+    --accent: 0 70% 60%; /* Cherry Red */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 340 30% 88%;
+    --input: 340 30% 93%;
+    --ring: 345 80% 80%;
+    --radius: 0.5rem;
+
+    --chart-1: 345 80% 75%;
+    --chart-2: 0 70% 60%;
+    --chart-3: 330 75% 70%;
+    --chart-4: 10 60% 65%;
+    --chart-5: 350 90% 80%;
+
+    --sidebar-background: 340 60% 96%;
+    --sidebar-foreground: 340 30% 30%;
+    --sidebar-primary: hsl(var(--primary));
+    --sidebar-primary-foreground: hsl(var(--primary-foreground));
+    --sidebar-accent: 345 80% 90%;
+    --sidebar-accent-foreground: 340 30% 30%;
+    --sidebar-border: 340 60% 92%;
     --sidebar-ring: hsl(var(--ring));
   }
 }

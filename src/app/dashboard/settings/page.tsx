@@ -24,44 +24,46 @@ import {
 import { cn } from '@/lib/utils';
 
 const VALID_THEME_CLASSES = [
-  'theme-light', 
-  'dark', 
-  'theme-oceanic', 
-  'theme-sunset', 
-  'theme-forest', 
+  'theme-light',
+  'dark',
+  'theme-oceanic',
+  'theme-sunset',
+  'theme-forest',
   'theme-monochrome-midnight',
   'theme-crimson-night',
   'theme-lavender-haze',
   'theme-spring-meadow',
   'theme-steel-blue',
-  'theme-vintage-paper'
+  'theme-vintage-paper',
+  'theme-royal-gold',
+  'theme-sakura-blossom',
 ];
 
 interface ThemeOption {
-  id: string; 
+  id: string;
   name: string;
   previewColors: { bg: string; primary: string; accent: string; text: string };
 }
 
 const themeOptions: ThemeOption[] = [
-  { 
-    id: 'theme-light', 
-    name: 'Claro Predeterminado', 
+  {
+    id: 'theme-light',
+    name: 'Claro Predeterminado',
     previewColors: { bg: 'hsl(0 0% 100%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 3.9%)' }
   },
-  { 
-    id: 'dark', 
-    name: 'Oscuro Predeterminado', 
-    previewColors: { bg: 'hsl(0 0% 4%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 95%)' } 
+  {
+    id: 'dark',
+    name: 'Oscuro Predeterminado',
+    previewColors: { bg: 'hsl(0 0% 4%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 95%)' }
   },
-  { 
-    id: 'theme-oceanic', 
-    name: 'Oceánico Profundo', 
+  {
+    id: 'theme-oceanic',
+    name: 'Oceánico Profundo',
     previewColors: { bg: 'hsl(200 50% 10%)', primary: 'hsl(180 70% 50%)', accent: 'hsl(170 80% 40%)', text: 'hsl(180 30% 90%)' }
   },
-  { 
-    id: 'theme-sunset', 
-    name: 'Atardecer Cálido', 
+  {
+    id: 'theme-sunset',
+    name: 'Atardecer Cálido',
     previewColors: { bg: 'hsl(25 30% 10%)', primary: 'hsl(30 90% 55%)', accent: 'hsl(0 80% 60%)', text: 'hsl(35 80% 90%)' }
   },
   {
@@ -98,6 +100,16 @@ const themeOptions: ThemeOption[] = [
     id: 'theme-vintage-paper',
     name: 'Pergamino Clásico (Claro)',
     previewColors: { bg: 'hsl(40 30% 95%)', primary: 'hsl(30 30% 40%)', accent: 'hsl(45 50% 60%)', text: 'hsl(30 20% 25%)' }
+  },
+  {
+    id: 'theme-royal-gold',
+    name: 'Oro Real (Oscuro)',
+    previewColors: { bg: 'hsl(270 15% 10%)', primary: 'hsl(275 50% 55%)', accent: 'hsl(45 70% 60%)', text: 'hsl(45 50% 85%)' }
+  },
+  {
+    id: 'theme-sakura-blossom',
+    name: 'Flor de Cerezo (Claro)',
+    previewColors: { bg: 'hsl(340 60% 98%)', primary: 'hsl(345 80% 75%)', accent: 'hsl(0 70% 60%)', text: 'hsl(340 30% 30%)' }
   }
 ];
 
@@ -116,7 +128,7 @@ export default function SettingsPage() {
     emailAnnouncements: true,
     appUpdates: false,
   });
-  
+
   const [activeTheme, setActiveTheme] = useState('dark');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -143,9 +155,9 @@ export default function SettingsPage() {
       });
     }
 
-    let initialTheme = 'dark'; 
+    let initialTheme = 'dark';
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
-    
+
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
@@ -172,11 +184,11 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-      
-      root.classList.add(newThemeId); 
-      
+
+      root.classList.add(newThemeId);
+
       localStorage.setItem('nexusAlpriTheme', newThemeId);
-      setActiveTheme(newThemeId); 
+      setActiveTheme(newThemeId);
       toast({
         title: "Tema Aplicado",
         description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
@@ -304,7 +316,7 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><Lock className="mr-2 h-5 w-5 text-primary"/>Seguridad</CardTitle>
@@ -326,18 +338,18 @@ export default function SettingsPage() {
                     <div className="space-y-1">
                       <Label htmlFor="currentPassword">Contraseña Actual</Label>
                       <div className="relative">
-                        <Input 
-                          id="currentPassword" 
-                          type={showCurrentPassword ? "text" : "password"} 
-                          value={currentPassword} 
+                        <Input
+                          id="currentPassword"
+                          type={showCurrentPassword ? "text" : "password"}
+                          value={currentPassword}
                           onChange={(e) => setCurrentPassword(e.target.value)}
                           placeholder="Introduce tu contraseña actual"
                           className="pr-10"
                         />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                           tabIndex={-1}
@@ -349,18 +361,18 @@ export default function SettingsPage() {
                     <div className="space-y-1">
                       <Label htmlFor="newPassword">Nueva Contraseña</Label>
                        <div className="relative">
-                        <Input 
-                          id="newPassword" 
-                          type={showNewPassword ? "text" : "password"} 
-                          value={newPassword} 
+                        <Input
+                          id="newPassword"
+                          type={showNewPassword ? "text" : "password"}
+                          value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           placeholder="Mínimo 6 caracteres"
                           className="pr-10"
                         />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowNewPassword(!showNewPassword)}
                           tabIndex={-1}
@@ -372,18 +384,18 @@ export default function SettingsPage() {
                     <div className="space-y-1">
                       <Label htmlFor="confirmNewPassword">Confirmar Nueva Contraseña</Label>
                       <div className="relative">
-                        <Input 
-                          id="confirmNewPassword" 
-                          type={showConfirmPassword ? "text" : "password"} 
-                          value={confirmNewPassword} 
+                        <Input
+                          id="confirmNewPassword"
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={confirmNewPassword}
                           onChange={(e) => setConfirmNewPassword(e.target.value)}
                           placeholder="Repite la nueva contraseña"
                           className="pr-10"
                         />
-                        <Button 
-                          type="button" 
-                          variant="ghost" 
-                          size="icon" 
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           tabIndex={-1}
@@ -417,7 +429,7 @@ export default function SettingsPage() {
                             key={theme.id}
                             variant="outline"
                             className={cn(
-                                "w-full justify-start py-4 transition-all text-left h-auto", 
+                                "w-full justify-start py-4 transition-all text-left h-auto",
                                 activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                             )}
                             onClick={() => handleThemeChange(theme.id)}
@@ -455,5 +467,6 @@ export default function SettingsPage() {
     </div>
   );
 }
-    
+
+
     

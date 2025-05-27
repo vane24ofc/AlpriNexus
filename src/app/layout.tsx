@@ -12,17 +12,19 @@ const inter = Inter({
 });
 
 const VALID_THEME_CLASSES = [
-  'theme-light', 
-  'dark', 
-  'theme-oceanic', 
-  'theme-sunset', 
-  'theme-forest', 
+  'theme-light',
+  'dark',
+  'theme-oceanic',
+  'theme-sunset',
+  'theme-forest',
   'theme-monochrome-midnight',
   'theme-crimson-night',
   'theme-lavender-haze',
   'theme-spring-meadow',
   'theme-steel-blue',
-  'theme-vintage-paper'
+  'theme-vintage-paper',
+  'theme-royal-gold',
+  'theme-sakura-blossom',
 ];
 
 export default function RootLayout({
@@ -33,14 +35,14 @@ export default function RootLayout({
   const [theme, setTheme] = useState('dark'); // Default theme
 
   useEffect(() => {
-    let initialTheme = 'dark'; 
+    let initialTheme = 'dark';
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
-    
+
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
       if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-         initialTheme = 'theme-light'; 
+         initialTheme = 'theme-light';
       }
     }
     setTheme(initialTheme);
@@ -51,8 +53,8 @@ export default function RootLayout({
     if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-        
-        if (theme) { 
+
+        if (theme) {
             root.classList.add(theme);
         }
     }
