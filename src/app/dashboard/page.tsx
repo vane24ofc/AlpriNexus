@@ -33,7 +33,7 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
+  // DialogTrigger, // No longer needed for announcement in AdminDashboardWrapper
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -44,7 +44,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger as ActualAlertDialogTrigger, // Changed alias to avoid confusion
+  AlertDialogTrigger as ActualAlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -77,13 +77,27 @@ interface User {
   status: 'active' | 'inactive';
 }
 
+const initialSampleUsers: User[] = [
+  { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
+  { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
+  { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
+];
+
+const initialSampleCourses: Course[] = [
+  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
+  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
+  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
+];
+
 
 // Admin Dashboard Content
 interface AdminDashboardContentProps {
   allUsers: User[];
   allCourses: Course[];
+  onOpenAnnouncementDialog: () => void; // Callback to open the announcement dialog
 }
-const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses }) => {
+
+const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses, onOpenAnnouncementDialog }) => {
   const { toast } = useToast();
   const userCount = allUsers.length;
   const activeCourseCount = allCourses.filter(c => c.status === 'approved').length;
@@ -113,7 +127,6 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
       localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
       localStorage.removeItem(LEARNING_RESOURCES_STORAGE_KEY);
 
-      // Remove all keys related to lesson completion and quiz states
       Object.keys(localStorage).forEach(key => {
         if (key.startsWith(COMPLETED_LESSONS_PREFIX) || key.startsWith(QUIZ_STATE_STORAGE_PREFIX)) {
           localStorage.removeItem(key);
@@ -198,19 +211,21 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
                     <span className="font-medium">Gestionar Cursos</span>
                 </Link>
             </Button>
-            <DialogTrigger asChild> {/* This trigger is for the ANNOUNCEMENT Dialog, managed by AdminDashboardWrapperWithData */}
-                 <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center">
-                    <Bell className="h-8 w-8 mb-2 text-accent"/>
-                    <span className="font-medium">Enviar Anuncio</span>
-                </Button>
-            </DialogTrigger>
+            {/* Button now calls the passed prop to open the dialog */}
+            <Button 
+              variant="outline" 
+              className="p-4 h-auto flex flex-col items-center text-center"
+              onClick={onOpenAnnouncementDialog}
+            >
+                <Bell className="h-8 w-8 mb-2 text-accent"/>
+                <span className="font-medium">Enviar Anuncio</span>
+            </Button>
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
                 <Link href="/dashboard/settings">
                     <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
                     <span className="font-medium">Configuración</span>
                 </Link>
             </Button>
-            {/* AlertDialog for Resetting Platform Data - Correctly Nested */}
             <AlertDialog>
               <ActualAlertDialogTrigger asChild>
                   <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
@@ -428,11 +443,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
     if (studentCourses.length === 0) return null;
     const incompleteCourses = studentCourses.filter(course => !course.isCompleted);
     if (incompleteCourses.length > 0) {
-      incompleteCourses.sort((a, b) => b.progress - a.progress); // Highest progress first among incomplete
+      incompleteCourses.sort((a, b) => b.progress - a.progress); 
       return incompleteCourses[0];
     }
-    // If all are completed, pick the most recently "completed" or just the first one.
-    // For now, just pick the one with highest progress (which will be 100).
     return studentCourses.sort((a,b) => b.progress - a.progress)[0]; 
   }, [studentCourses]);
 
@@ -601,9 +614,16 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
     setAnnouncementAudience('all'); 
   };
   
+  // This function is passed to AdminDashboardContent to open the dialog
+  const openAnnouncementDialog = () => setIsAnnouncementDialogOpen(true);
+
   return (
     <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
-      <AdminDashboardContent allUsers={allUsers} allCourses={allCourses} /> 
+      <AdminDashboardContent 
+        allUsers={allUsers} 
+        allCourses={allCourses}
+        onOpenAnnouncementDialog={openAnnouncementDialog} 
+      /> 
       <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
             <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
@@ -680,10 +700,14 @@ export default function DashboardHomePage() {
       setIsLoadingDashboardData(true);
       try {
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        setAllCourses(storedCourses ? JSON.parse(storedCourses) : []);
+        setAllCourses(storedCourses ? JSON.parse(storedCourses) : initialSampleCourses);
+        if (!storedCourses) localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
+
 
         const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        setAllUsers(storedUsers ? JSON.parse(storedUsers) : []);
+        setAllUsers(storedUsers ? JSON.parse(storedUsers) : initialSampleUsers);
+        if (!storedUsers) localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+
 
         const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
         setEnrolledCourseIds(storedEnrolled ? new Set(JSON.parse(storedEnrolled)) : new Set());
@@ -693,10 +717,12 @@ export default function DashboardHomePage() {
 
       } catch (error) {
         console.error("Error loading data from localStorage for dashboard:", error);
-        setAllCourses([]);
-        setAllUsers([]);
+        setAllCourses(initialSampleCourses);
+        setAllUsers(initialSampleUsers);
         setEnrolledCourseIds(new Set());
         setCompletedCourseIds(new Set());
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
       }
       setIsLoadingDashboardData(false);
     };
@@ -704,7 +730,6 @@ export default function DashboardHomePage() {
     if (!isLoadingRole && currentSessionRole) { 
       loadData();
     } else if (!isLoadingRole && !currentSessionRole) {
-      // If role is not determined yet but role loading is finished, still need to finish data loading state
       setIsLoadingDashboardData(false);
     }
   }, [isLoadingRole, currentSessionRole]);
@@ -739,7 +764,6 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />;
     default: 
-      // Fallback to student if role is somehow invalid, though logic in layout should prevent this
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
   }
 }
