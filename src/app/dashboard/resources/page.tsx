@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe } from 'lucide-react'; 
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
@@ -16,10 +16,10 @@ type FileCategory = 'company' | 'learning';
 interface ResourceFile {
   id: string;
   name: string;
-  type: string; 
+  type: string;
   size: string;
   uploadDate: string;
-  url?: string; 
+  url?: string;
   visibility: FileVisibility;
   category: FileCategory;
 }
@@ -27,10 +27,9 @@ interface ResourceFile {
 const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
 const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
 
-// Sample data will now serve as a fallback if localStorage is empty or for initial setup
 const initialSampleCompanyResources: ResourceFile[] = [
   { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors', category: 'company' },
-  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private', category: 'company' }, 
+  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private', category: 'company' },
   { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public', category: 'company' },
   { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public', category: 'company'},
   { id: 'cr5', name: 'Manual de Procedimientos de Seguridad.docx', type: 'Documento', size: '750 KB', uploadDate: '2024-02-01', url: '#', visibility: 'instructors', category: 'company' },
@@ -45,51 +44,54 @@ const initialSampleLearningResources: ResourceFile[] = [
   { id: 'lr5', name: 'Notas Privadas del Instructor sobre Web Avanzado.docx', type: 'Documento', size: '50 KB', uploadDate: '2023-11-12', url: '#', visibility: 'private', category: 'learning' },
 ];
 
-
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
   public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
   instructors: { label: 'Instructores', icon: Users, badgeClass: 'bg-blue-500 hover:bg-blue-600 text-white' },
   private: { label: 'Privado', icon: Eye, badgeClass: 'bg-gray-500 hover:bg-gray-600 text-white' },
 };
 
-
 export default function ResourcesPage() {
-  const { currentSessionRole } = useSessionRole(); 
-  const [companyResources, setCompanyResources] = useState<ResourceFile[]>(initialSampleCompanyResources);
-  const [learningResources, setLearningResources] = useState<ResourceFile[]>(initialSampleLearningResources);
+  const { currentSessionRole } = useSessionRole();
+  const [companyResources, setCompanyResources] = useState<ResourceFile[]>([]);
+  const [learningResources, setLearningResources] = useState<ResourceFile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const canUpload = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
   useEffect(() => {
-    // Load from localStorage on mount
+    setIsLoading(true);
     const loadResources = () => {
       try {
         const storedCompany = localStorage.getItem(COMPANY_RESOURCES_STORAGE_KEY);
         if (storedCompany) {
           setCompanyResources(JSON.parse(storedCompany));
         } else {
-          setCompanyResources(initialSampleCompanyResources); // Fallback to initial samples
+          setCompanyResources(initialSampleCompanyResources);
+          localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
         }
         const storedLearning = localStorage.getItem(LEARNING_RESOURCES_STORAGE_KEY);
         if (storedLearning) {
           setLearningResources(JSON.parse(storedLearning));
         } else {
-          setLearningResources(initialSampleLearningResources); // Fallback
+          setLearningResources(initialSampleLearningResources);
+          localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
         }
       } catch (error) {
         console.error("Error cargando recursos desde localStorage:", error);
         setCompanyResources(initialSampleCompanyResources);
         setLearningResources(initialSampleLearningResources);
+      } finally {
+        setIsLoading(false);
       }
     };
     loadResources();
   }, []);
 
   const filterFilesByVisibility = (files: ResourceFile[], role: typeof currentSessionRole) => {
-    if (!role) return []; 
+    if (!role) return [];
     return files.filter(file => {
       if (role === 'administrador') return true;
-      if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private';
+      if (role === 'instructor') return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Instructors see private learning files
       return file.visibility === 'public';
     });
   };
@@ -97,11 +99,10 @@ export default function ResourcesPage() {
   const companyResourcesForRole = useMemo(() => {
     return filterFilesByVisibility(companyResources, currentSessionRole);
   }, [companyResources, currentSessionRole]);
-  
+
   const learningResourcesForRole = useMemo(() => {
     return filterFilesByVisibility(learningResources, currentSessionRole);
   }, [learningResources, currentSessionRole]);
-
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
@@ -130,7 +131,7 @@ export default function ResourcesPage() {
                 {files.map((file) => {
                   const displayInfo = visibilityDisplay[file.visibility];
                   const VisibilityIcon = displayInfo?.icon;
-                  
+
                   return (
                     <TableRow key={file.id}>
                       <TableCell className="hidden md:table-cell">
@@ -176,6 +177,15 @@ export default function ResourcesPage() {
     </Card>
   );
 
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando recursos...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <Card className="shadow-lg">
@@ -192,14 +202,14 @@ export default function ResourcesPage() {
       {canUpload && (
         <FileUploader />
       )}
-      
+
       {renderResourceTable(
-        companyResourcesForRole, 
-        "Recursos de la Empresa", 
+        companyResourcesForRole,
+        "Recursos de la Empresa",
         "Documentos y archivos importantes de la organización, filtrados según tu rol y permisos.",
         Shield
       )}
-      
+
       {renderResourceTable(
         learningResourcesForRole,
         "Archivos de Aprendizaje",
@@ -209,4 +219,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-
