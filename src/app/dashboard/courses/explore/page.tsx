@@ -65,6 +65,7 @@ const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, 
     </Card>
   );
 });
+MemoizedCourseCard.displayName = 'MemoizedCourseCard';
 
 interface CourseListItemProps {
   course: Course;
@@ -111,57 +112,59 @@ const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEn
     </Card>
   );
 });
+MemoizedCourseListItem.displayName = 'MemoizedCourseListItem';
 
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const initialSearchTerm = searchParams.get('search') || '';
   
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setIsLoading(true);
-    try {
-      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-      if (storedCourses) {
-        setAllCourses(JSON.parse(storedCourses));
-      } else {
-        setAllCourses(initialSeedCoursesForExplore);
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
-      }
-    } catch (error) {
-      console.error("Error loading courses from localStorage:", error);
-      setAllCourses(initialSeedCoursesForExplore);
-      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
-    }
+    const loadInitialData = async () => {
+      setIsLoading(true);
+      const initialUrlSearchTerm = searchParams.get('search') || '';
+      setSearchTerm(initialUrlSearchTerm);
 
-    const storedEnrolledIds = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-    if (storedEnrolledIds) {
+      // TODO: Reemplazar con llamada a API GET /api/courses?status=approved
       try {
-        const parsedIds = JSON.parse(storedEnrolledIds);
-        if (Array.isArray(parsedIds)) {
-          setEnrolledCourseIds(new Set(parsedIds));
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        if (storedCourses) {
+          setAllCourses(JSON.parse(storedCourses));
+        } else {
+          setAllCourses(initialSeedCoursesForExplore);
+          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
+        }
+      } catch (error) {
+        console.error("Error loading courses from localStorage:", error);
+        setAllCourses(initialSeedCoursesForExplore);
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
+      }
+
+      try {
+        const storedEnrolledIds = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+        if (storedEnrolledIds) {
+          const parsedIds = JSON.parse(storedEnrolledIds);
+          if (Array.isArray(parsedIds)) {
+            setEnrolledCourseIds(new Set(parsedIds));
+          }
         }
       } catch (error) {
         console.error("Error al parsear IDs de cursos inscritos desde localStorage:", error);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    setIsLoading(false);
-  }, []);
+    };
+    loadInitialData();
+  }, [searchParams, toast]);
 
-  useEffect(() => {
-    const urlSearchTerm = searchParams.get('search') || '';
-    if (urlSearchTerm !== searchTerm) {
-        setSearchTerm(urlSearchTerm);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  const approvedCourses = useMemo(() => allCourses.filter(course => course.status === 'approved'), [allCourses]);
+  const approvedCourses = useMemo(() => {
+    return allCourses.filter(course => course.status === 'approved');
+  }, [allCourses]);
 
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -175,7 +178,24 @@ export default function ExploreCoursesPage() {
     );
   }, [approvedCourses, searchTerm]);
 
-  const handleEnroll = useCallback((courseId: string, courseTitle: string) => {
+  const handleEnroll = useCallback(async (courseId: string, courseTitle: string) => {
+    // TODO: Reemplazar con llamada a API POST /api/enrollments { courseId, userId }
+    // Ejemplo:
+    // try {
+    //   const response = await fetch('/api/enrollments', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ courseId /*, userId: currentUser.id */ }),
+    //   });
+    //   if (!response.ok) throw new Error('Error al inscribirse');
+    //   // const enrollmentData = await response.json();
+    // } catch (error) {
+    //   console.error("Error en la inscripción (API):", error);
+    //   toast({ variant: "destructive", title: "Error de Inscripción", description: "No se pudo completar la inscripción." });
+    //   return;
+    // }
+
+    // Simulación con localStorage
     setEnrolledCourseIds(prevIds => {
       const newIds = new Set(prevIds);
       newIds.add(courseId);
@@ -269,5 +289,3 @@ export default function ExploreCoursesPage() {
   );
 }
 
-
-    

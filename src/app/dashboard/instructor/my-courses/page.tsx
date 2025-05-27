@@ -20,7 +20,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  // Removed AlertDialogTrigger as it's now part of DropdownMenu
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import {
@@ -40,7 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)";
+const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; // Assuming this is how instructor's courses are identified
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -90,7 +89,7 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
         />
       </TableCell>
       <TableCell className="font-medium max-w-xs truncate">
-         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
+         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary" title={course.title}>{course.title}</Link>
         <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
       </TableCell>
       <TableCell className="hidden sm:table-cell">
@@ -105,9 +104,9 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
       <TableCell className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" title="Más acciones">
               <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Más acciones</span>
+               <span className="sr-only">Más acciones</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -138,8 +137,7 @@ export default function MyCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [allLocalCourses, setAllLocalCourses] = useState<Course[]>([]);
   const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
@@ -147,34 +145,43 @@ export default function MyCoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    setIsLoading(true);
-    const initialSearch = searchParams.get('search') || '';
-    setSearchTerm(initialSearch);
+    const fetchCourses = async () => {
+      setIsLoading(true);
+      const initialSearch = searchParams.get('search') || '';
+      setSearchTerm(initialSearch);
 
-    try {
-      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-      if (storedCourses) {
-        setAllCourses(JSON.parse(storedCourses));
-      } else {
-        // If no courses in localStorage, use initial seed and save them
+      // TODO: Reemplazar con llamada a API GET /api/courses (o /api/courses?instructorId=currentUser)
+      // Por ahora, se simula leyendo todos los cursos de localStorage y luego filtrando
+      try {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        let coursesFromStorage: Course[] = [];
+        if (storedCourses) {
+          coursesFromStorage = JSON.parse(storedCourses);
+        } else {
+          // Fallback to initial seed if nothing in localStorage for the entire platform
+          coursesFromStorage = initialSeedCoursesForInstructor; 
+          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+        }
+        setAllLocalCourses(coursesFromStorage);
+        
+        const filteredForInstructor = coursesFromStorage.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
+        setInstructorCourses(filteredForInstructor);
+
+      } catch (error) {
+        console.error("Error cargando cursos:", error);
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
+        // Fallback a datos de ejemplo específicos del instructor si todo falla
         const coursesToSeed = initialSeedCoursesForInstructor.filter(c => c.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
-        setAllCourses(coursesToSeed); // Assuming initialSeedCoursesForInstructor is the global seed
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(coursesToSeed));
+        setInstructorCourses(coursesToSeed);
+        if (!localStorage.getItem(COURSES_STORAGE_KEY)) {
+            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+        }
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error loading courses from localStorage:", error);
-      const coursesToSeed = initialSeedCoursesForInstructor.filter(c => c.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
-      setAllCourses(coursesToSeed);
-      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(coursesToSeed));
-      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
-    }
-    setIsLoading(false);
+    };
+    fetchCourses();
   }, [searchParams, toast]);
-
-  useEffect(() => {
-    const filtered = allCourses.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
-    setInstructorCourses(filtered);
-  }, [allCourses]);
 
 
   const filteredDisplayCourses = useMemo(() => {
@@ -193,7 +200,7 @@ export default function MyCoursesPage() {
       case 'approved':
         return { text: 'Aprobado', icon: CheckCircle, variant: 'default', className: 'bg-accent text-accent-foreground hover:bg-accent/90' };
       case 'pending':
-        return { text: 'Pendiente de Revisión', icon: AlertTriangle, variant: 'default', className: 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' };
+        return { text: 'Pendiente', icon: AlertTriangle, variant: 'default', className: 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' };
       case 'rejected':
         return { text: 'Rechazado', icon: XCircle, variant: 'destructive', className: '' };
       default:
