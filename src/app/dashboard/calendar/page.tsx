@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,7 +41,7 @@ interface StoredCalendarEvent {
 
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 
-const initialSampleEvents: StoredCalendarEvent[] = [ // Sample data if localStorage is empty
+const initialSampleEvents: StoredCalendarEvent[] = [ 
   { id: 'sample1', date: startOfDay(new Date()).toISOString(), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' },
   { id: 'sample2', date: startOfDay(new Date(new Date().setDate(new Date().getDate() + 1))).toISOString(), title: 'Entrega Proyecto Alfa', description: 'Fecha límite para el proyecto Alfa.', time: '17:00' },
 ];
@@ -183,7 +183,12 @@ export default function CalendarPage() {
     selectedDate && isSameDay(event.date, selectedDate)
   );
 
-  const eventDayModifier = events.map(event => event.date);
+  const eventDayModifier = useMemo(() => {
+    // Get all unique dates that have events
+    const datesWithEvents = new Set(events.map(event => event.date.getTime()));
+    return Array.from(datesWithEvents).map(time => new Date(time));
+  }, [events]);
+
   const canManageEvents = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
   const formatTimeDisplay = (timeString?: string) => {
@@ -213,82 +218,86 @@ export default function CalendarPage() {
           Calendario de Eventos
         </h1>
         {canManageEvents && (
-          <Button onClick={handleOpenDialogForAdd}>
-            <PlusCircle className="mr-2 h-5 w-5" /> Añadir Evento
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+              setIsDialogOpen(isOpen);
+              if (!isOpen) {
+                setEditingEvent(null); 
+                resetFormFields();
+              }
+          }}>
+            <DialogTrigger asChild>
+              <Button onClick={handleOpenDialogForAdd}>
+                <PlusCircle className="mr-2 h-5 w-5" /> Añadir Evento
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle>{editingEvent ? 'Editar Evento' : 'Añadir Nuevo Evento'}</DialogTitle>
+                <DialogDescription>
+                  {editingEvent ? 'Modifica los detalles del evento.' : 'Completa los detalles para el nuevo evento.'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="event-title" className="text-right">
+                    Título
+                  </Label>
+                  <Input
+                    id="event-title"
+                    value={eventTitle}
+                    onChange={(e) => setEventTitle(e.target.value)}
+                    className="col-span-3"
+                    placeholder="Ej: Reunión de equipo"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-start gap-4">
+                  <Label htmlFor="event-description" className="text-right pt-2">
+                    Descripción
+                  </Label>
+                  <Textarea
+                    id="event-description"
+                    value={eventDescription}
+                    onChange={(e) => setEventDescription(e.target.value)}
+                    className="col-span-3"
+                    placeholder="Detalles adicionales (opcional)"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="event-date" className="text-right">
+                    Fecha
+                  </Label>
+                  <Input
+                    id="event-date"
+                    type="date"
+                    value={format(eventDateForDialog, 'yyyy-MM-dd')}
+                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))}
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="event-time" className="text-right">
+                    Hora (Opc.)
+                  </Label>
+                  <Input
+                    id="event-time"
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline" onClick={() => setEditingEvent(null)}>Cancelar</Button>
+                </DialogClose>
+                <Button type="submit" onClick={handleSaveEvent}>{editingEvent ? 'Guardar Cambios' : 'Guardar Evento'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
-
-      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-          setIsDialogOpen(isOpen);
-          if (!isOpen) setEditingEvent(null); 
-      }}>
-        <DialogContent className="sm:max-w-[480px]">
-          <DialogHeader>
-            <DialogTitle>{editingEvent ? 'Editar Evento' : 'Añadir Nuevo Evento'}</DialogTitle>
-            <DialogDescription>
-              {editingEvent ? 'Modifica los detalles del evento.' : 'Completa los detalles para el nuevo evento.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-title" className="text-right">
-                Título
-              </Label>
-              <Input
-                id="event-title"
-                value={eventTitle}
-                onChange={(e) => setEventTitle(e.target.value)}
-                className="col-span-3"
-                placeholder="Ej: Reunión de equipo"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-              <Label htmlFor="event-description" className="text-right pt-2">
-                Descripción
-              </Label>
-              <Textarea
-                id="event-description"
-                value={eventDescription}
-                onChange={(e) => setEventDescription(e.target.value)}
-                className="col-span-3"
-                placeholder="Detalles adicionales (opcional)"
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-date" className="text-right">
-                Fecha
-              </Label>
-              <Input
-                id="event-date"
-                type="date"
-                value={format(eventDateForDialog, 'yyyy-MM-dd')}
-                onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-time" className="text-right">
-                Hora (Opc.)
-              </Label>
-              <Input
-                id="event-time"
-                type="time"
-                value={eventTime}
-                onChange={(e) => setEventTime(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button variant="outline" onClick={() => setEditingEvent(null)}>Cancelar</Button>
-            </DialogClose>
-            <Button type="submit" onClick={handleSaveEvent}>{editingEvent ? 'Guardar Cambios' : 'Guardar Evento'}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         <Card className="lg:col-span-4 xl:col-span-5 shadow-lg">
@@ -300,7 +309,7 @@ export default function CalendarPage() {
               className="rounded-md"
               locale={es}
               ISOWeek
-              weekStartsOn={1}
+              weekStartsOn={1} /* Lunes como inicio de semana */
               modifiers={{ eventDay: eventDayModifier }}
               modifiersClassNames={{
                 eventDay: 'day-with-event-dot',
