@@ -130,6 +130,7 @@ export default function SettingsPage() {
   });
 
   const [activeTheme, setActiveTheme] = useState('dark');
+  const [showThemeSelection, setShowThemeSelection] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -166,8 +167,8 @@ export default function SettingsPage() {
       }
     }
     setActiveTheme(initialTheme);
-    if (!storedTheme && typeof window !== 'undefined') {
-      localStorage.setItem('nexusAlpriTheme', initialTheme);
+    // Apply theme on initial load if not already handled by RootLayout
+    if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       root.classList.add(initialTheme);
@@ -189,6 +190,7 @@ export default function SettingsPage() {
 
       localStorage.setItem('nexusAlpriTheme', newThemeId);
       setActiveTheme(newThemeId);
+      setShowThemeSelection(false); // Hide list after selection
       toast({
         title: "Tema Aplicado",
         description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
@@ -237,6 +239,8 @@ export default function SettingsPage() {
       setConfirmNewPassword('');
     }, 1000);
   };
+
+  const currentThemeDetails = themeOptions.find(t => t.id === activeTheme) || themeOptions[0];
 
   return (
     <div className="space-y-8">
@@ -422,37 +426,61 @@ export default function SettingsPage() {
               <CardDescription>Personaliza la apariencia visual de la plataforma.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-                <Label>Seleccionar Tema</Label>
-                <div className="flex flex-col space-y-2">
-                    {themeOptions.map((theme) => (
-                        <Button
-                            key={theme.id}
-                            variant="outline"
-                            className={cn(
-                                "w-full justify-start py-4 transition-all text-left h-auto",
-                                activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
-                            )}
-                            onClick={() => handleThemeChange(theme.id)}
-                        >
-                            <div className="flex items-center justify-between w-full">
-                                <span className="text-sm font-medium">{theme.name}</span>
-                                <div className="flex space-x-1.5">
-                                    {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
-                                        <div
-                                            key={key}
-                                            className="h-5 w-5 rounded-full border border-border/50"
-                                            style={{ backgroundColor: color }}
-                                            title={`${key}: ${color}`}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                            {activeTheme === theme.id && (
-                                <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
-                            )}
-                        </Button>
-                    ))}
+              <Label>Tema Actual:</Label>
+              <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
+                <span className="text-sm font-medium">{currentThemeDetails.name}</span>
+                <div className="flex space-x-1.5">
+                  {Object.entries(currentThemeDetails.previewColors).slice(0, 4).map(([key, color]) => (
+                      <div
+                          key={key}
+                          className="h-5 w-5 rounded-full border border-border/50"
+                          style={{ backgroundColor: color }}
+                          title={`${key}: ${color}`}
+                      />
+                  ))}
                 </div>
+              </div>
+
+              {!showThemeSelection ? (
+                <Button variant="outline" className="w-full" onClick={() => setShowThemeSelection(true)}>
+                  Cambiar Tema
+                </Button>
+              ) : (
+                <div className="flex flex-col space-y-2 pt-2">
+                  <Label>Seleccionar Nuevo Tema:</Label>
+                  {themeOptions.map((theme) => (
+                    <Button
+                        key={theme.id}
+                        variant="outline"
+                        className={cn(
+                            "w-full justify-start py-4 transition-all text-left h-auto",
+                            activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
+                        )}
+                        onClick={() => handleThemeChange(theme.id)}
+                    >
+                        <div className="flex items-center justify-between w-full">
+                            <span className="text-sm font-medium">{theme.name}</span>
+                            <div className="flex space-x-1.5">
+                                {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
+                                    <div
+                                        key={key}
+                                        className="h-5 w-5 rounded-full border border-border/50"
+                                        style={{ backgroundColor: color }}
+                                        title={`${key}: ${color}`}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                        {activeTheme === theme.id && (
+                            <Check className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-primary" />
+                        )}
+                    </Button>
+                  ))}
+                  <Button variant="ghost" className="w-full mt-2" onClick={() => setShowThemeSelection(false)}>
+                    Cancelar Cambio de Tema
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -467,6 +495,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-
-    
