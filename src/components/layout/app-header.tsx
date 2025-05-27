@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon } from 'lucide-react'; // Renamed Bell to BellIcon to avoid conflict
+import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon } from 'lucide-react';
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
@@ -53,7 +53,7 @@ export function AppHeader() {
       switch (currentSessionRole) {
         case 'administrador':
           determinedRoleDisplay = 'Administrador';
-          determinedProfileLink = '/dashboard';
+          determinedProfileLink = '/dashboard'; // Admin main page is /dashboard
           determinedDashboardPath = '/dashboard';
           determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
           avatarInitial = "A";
@@ -61,7 +61,7 @@ export function AppHeader() {
           break;
         case 'instructor':
           determinedRoleDisplay = 'Instructor';
-          determinedProfileLink = '/dashboard';
+          determinedProfileLink = '/dashboard'; // Instructor main page is /dashboard
           determinedDashboardPath = '/dashboard';
           determinedSearchPlaceholder = 'Buscar en mis cursos...';
           avatarInitial = "I";
@@ -70,6 +70,7 @@ export function AppHeader() {
         case 'estudiante':
         default:
           // Defaults are already set
+          determinedProfileLink = "/dashboard/student/profile"; // Students have a dedicated profile page
           break;
       }
       setRoleDisplay(determinedRoleDisplay);
@@ -117,14 +118,14 @@ export function AppHeader() {
     }
   };
 
-  if (!hasMounted || isLoadingRole) {
+  if (!hasMounted || isLoadingRole || !currentSessionRole) {
     return (
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
         {isMobile && <SidebarTrigger />}
         {!isMobile && (
-          <Link href={dashboardPath} className="hidden items-center gap-2 md:flex" passHref>
+          <div className="hidden items-center gap-2 md:flex">
              <Logo className="h-8 w-auto" href={null} key="header-logo-skeleton"/>
-          </Link>
+          </div>
         )}
         <div className="ml-auto flex items-center gap-2">
           <Skeleton className="h-8 w-[200px] lg:w-[300px]" />
@@ -140,7 +141,6 @@ export function AppHeader() {
       {isMobile && <SidebarTrigger />}
       {!isMobile && (
          <Link href={dashboardPath} className="hidden items-center gap-2 md:flex" passHref>
-            {/* Ensure the key is stable here if Logo itself doesn't have a key or is part of a map */}
             <Logo className="h-8 w-auto" href={null} key="header-logo-loaded" />
          </Link>
       )}
