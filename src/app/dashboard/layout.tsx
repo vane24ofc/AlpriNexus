@@ -50,8 +50,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  // Default to 'theme-light' for dashboard initial state
-  const [activeTheme, setActiveTheme] = useState('theme-light');
+  const [activeTheme, setActiveTheme] = useState('theme-light'); // Default dashboard theme
 
   useEffect(() => {
     // Theme application logic for dashboard
@@ -61,35 +60,27 @@ export default function DashboardLayout({
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialDashboardTheme = storedTheme;
     } else {
-      // Default to 'theme-light' if no valid theme is stored for the dashboard
-      initialDashboardTheme = 'theme-light';
-      // Save this default to localStorage so it persists for the dashboard
-      // until the user changes it in settings.
+      initialDashboardTheme = 'theme-light'; // Default for dashboard
       localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
     }
     
-    // Update the state if it's different from the current one
     if (activeTheme !== initialDashboardTheme) {
       setActiveTheme(initialDashboardTheme);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Runs once on mount to load initial dashboard theme
+  }, []); 
 
   useEffect(() => {
-    // Apply the active theme to the <html> tag
     if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
-        // Remove all known theme classes first
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-        // Add the current active theme class
         if (activeTheme && VALID_THEME_CLASSES.includes(activeTheme)) { 
             root.classList.add(activeTheme);
         } else {
-             // Fallback to light theme if activeTheme is somehow invalid
-            root.classList.add('theme-light');
+            root.classList.add('theme-light'); // Fallback
         }
     }
-  }, [activeTheme]); // Re-apply when activeTheme changes (e.g., from settings or initial load)
+  }, [activeTheme]); 
 
 
   useEffect(() => {
@@ -108,7 +99,6 @@ export default function DashboardLayout({
     } else if (pathname.startsWith('/dashboard/student')) {
       finalDeterminedRole = 'estudiante';
     } else {
-      // For generic dashboard paths, rely on localStorage or default to student
       if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
         finalDeterminedRole = roleFromStorage;
       } else {
@@ -117,12 +107,11 @@ export default function DashboardLayout({
     }
     
     if (typeof window !== 'undefined') {
-        // If the path implies a specific role, ensure localStorage matches
-        if ((pathname.startsWith('/dashboard/admin') || pathname.startsWith('/dashboard/instructor') || pathname.startsWith('/dashboard/student')) &&
-            localStorage.getItem('sessionRole') !== finalDeterminedRole) {
-            localStorage.setItem('sessionRole', finalDeterminedRole);
-        } else if (!roleFromStorage && !pathname.startsWith('/dashboard/admin') && !pathname.startsWith('/dashboard/instructor') && !pathname.startsWith('/dashboard/student')) {
-            // If on a generic dashboard path and no role was in storage, set the determined (likely default) role.
+        if (['/dashboard/admin', '/dashboard/instructor', '/dashboard/student'].some(p => pathname.startsWith(p))) {
+             if (localStorage.getItem('sessionRole') !== finalDeterminedRole) {
+                localStorage.setItem('sessionRole', finalDeterminedRole);
+             }
+        } else if (!roleFromStorage) { // If on a generic dashboard path and no role was in storage, set the determined role.
             localStorage.setItem('sessionRole', finalDeterminedRole);
         }
     }
@@ -131,7 +120,7 @@ export default function DashboardLayout({
       setCurrentSessionRole(finalDeterminedRole);
     }
     setIsLoadingRole(false);
-  }, [pathname]); // Removed currentSessionRole from dependencies to avoid potential loops
+  }, [pathname]); // Only depends on pathname to re-evaluate role determination strategy
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
@@ -145,7 +134,8 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        <AppSidebarNav />
+        {/* Re-added key to AppSidebarNav to force re-mount on role change */}
+        <AppSidebarNav key={String(currentSessionRole) || 'loading-sidebar'} />
         <SidebarInset>
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
