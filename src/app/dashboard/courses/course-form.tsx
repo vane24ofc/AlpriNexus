@@ -41,25 +41,31 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(), // Main question for the quiz
-  quizOptions: z.array(z.string().optional()).optional().default(['', '', '']), // Options for the quiz
-  correctQuizOptionIndex: z.number().optional(), // Index of the correct option
+  quizPlaceholder: z.string().optional(),
+  quizOptions: z.array(z.string().optional()).optional().default(['', '', '']),
+  correctQuizOptionIndex: z.number().optional(),
 }).refine(data => {
   if (data.contentType === 'quiz') {
     const providedOptions = data.quizOptions?.filter(opt => opt && opt.trim() !== '').length || 0;
     if (providedOptions < 2) {
-      return false; // Quiz must have at least 2 options
+      // This error will be associated with correctQuizOptionIndex as it's a cross-field validation
+      return false; 
     }
-    if (data.correctQuizOptionIndex !== undefined && (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= providedOptions)) {
-      return false; // Correct option index must be valid
+    // If options are provided, a correct one must be selected (unless all options are somehow empty again, which shouldn't happen if refine is done last)
+    if (providedOptions > 0 && data.correctQuizOptionIndex === undefined) {
+        return false;
     }
-    if (providedOptions > 0 && data.correctQuizOptionIndex === undefined){
-        return false; // If options are provided, a correct one must be selected
+    // If an index is selected, it must be valid for the *provided* options
+    if (data.correctQuizOptionIndex !== undefined && (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= (data.quizOptions || []).length || !(data.quizOptions?.[data.correctQuizOptionIndex]?.trim())  )) {
+       // Check if the selected correct option actually has text
+        if (data.quizOptions?.[data.correctQuizOptionIndex]?.trim() === '') {
+            return false; // Cannot select an empty option as correct
+        }
     }
   }
   return true;
 }, {
-  message: "Para quizzes, debe proporcionar al menos 2 opciones y seleccionar una respuesta correcta. El índice de la opción correcta debe ser válido.",
+  message: "Para quizzes, debe proporcionar al menos 2 opciones con texto, y seleccionar una respuesta correcta que no esté vacía.",
   path: ['correctQuizOptionIndex'], 
 });
 
@@ -112,7 +118,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         contentType: l.contentType || 'text',
         content: l.content || '',
         videoUrl: l.videoUrl || '',
-        quizPlaceholder: l.quizPlaceholder || '',
+        quizPlaceholder: l.quizPlaceholder || 'Pregunta de ejemplo para el quiz',
         quizOptions: l.quizOptions && l.quizOptions.length >= 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
         correctQuizOptionIndex: l.correctQuizOptionIndex
       })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined }],
@@ -120,7 +126,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     },
   });
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "lessons",
   });
@@ -184,20 +190,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     const title = form.getValues("title");
     const description = form.getValues("description");
 
-    if (!title.trim() || !description.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Faltan Datos",
-        description: "Por favor, introduce un título y una descripción para el curso antes de generar la miniatura.",
-      });
-      return;
-    }
     if (!title.trim()) {
        form.setError("title", { type: "manual", message: "El título es requerido para generar la miniatura."});
        return;
     }
-    if (!description.trim()) {
-        form.setError("description", { type: "manual", message: "La descripción es requerida para generar la miniatura."});
+     if (!description.trim() || description.length < 10) {
+        form.setError("description", { type: "manual", message: "Se requiere una descripción de al menos 10 caracteres para generar la miniatura."});
         return;
     }
 
@@ -390,7 +388,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                               <FormLabel>Tipo de Contenido</FormLabel>
                               <Select onValueChange={(value) => {
                                   field.onChange(value);
-                                  // Reset related fields when type changes
                                   const currentLessonValues = form.getValues(`lessons.${index}`);
                                   form.setValue(`lessons.${index}`, {
                                     ...currentLessonValues,
@@ -477,54 +474,77 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                 </FormItem>
                               )}
                             />
-                            <FormLabel>Opciones de Respuesta (mínimo 2 requeridas):</FormLabel>
-                            {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).slice(0,3).map((_, optionIndex) => (
-                              <FormField
-                                key={`${fieldItem.id}-quizOption-${optionIndex}`}
-                                control={form.control}
-                                name={`lessons.${index}.quizOptions.${optionIndex}`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <div className="flex items-center gap-2">
-                                       <FormLabel className="w-20 text-sm">Opción {optionIndex + 1}:</FormLabel>
-                                       <FormControl><Input placeholder={`Respuesta opción ${optionIndex + 1}`} {...field} value={field.value ?? ''} disabled={formDisabled} /></FormControl>
-                                    </div>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            ))}
-                             <FormField
-                                control={form.control}
-                                name={`lessons.${index}.correctQuizOptionIndex`}
-                                render={({ field }) => (
-                                <FormItem className="space-y-2">
-                                    <FormLabel>Seleccionar Respuesta Correcta:</FormLabel>
-                                    <FormControl>
+                            
+                            <FormField
+                              control={form.control}
+                              name={`lessons.${index}.correctQuizOptionIndex`}
+                              render={({ field: correctIndexField }) => (
+                                <FormItem className="mt-3">
+                                  <FormLabel className="text-sm font-medium">Opciones de Respuesta (Marque la correcta):</FormLabel>
+                                  <FormControl>
                                     <RadioGroup
-                                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                                        value={field.value !== undefined ? field.value.toString() : ""}
-                                        className="flex flex-col space-y-1"
-                                        disabled={formDisabled}
+                                      onValueChange={(value) => {
+                                        const numValue = parseInt(value, 10);
+                                        correctIndexField.onChange(isNaN(numValue) ? undefined : numValue);
+                                      }}
+                                      value={correctIndexField.value !== undefined ? correctIndexField.value.toString() : ""}
+                                      className="space-y-1.5 mt-1"
+                                      disabled={formDisabled}
                                     >
-                                        {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).slice(0,3).map((optionText, optIdx) => {
-                                            const hasText = optionText && optionText.trim() !== '';
-                                            return (
-                                            <FormItem key={`${fieldItem.id}-correctOpt-${optIdx}`} className="flex items-center space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <RadioGroupItem value={optIdx.toString()} disabled={formDisabled || !hasText} />
+                                      {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).slice(0, 3).map((_, optionIndex) => {
+                                        const optionInputName = `lessons.${index}.quizOptions.${optionIndex}` as const;
+                                        const currentOptionText = form.watch(optionInputName);
+                                        const canSelectRadio = !!(currentOptionText && currentOptionText.trim() !== '');
+
+                                        return (
+                                          <FormField
+                                            key={`${fieldItem.id}-option-${optionIndex}`}
+                                            control={form.control}
+                                            name={optionInputName}
+                                            render={({ field: optionInputField }) => (
+                                              <FormItem className="flex items-center space-x-2 space-y-0 py-1">
+                                                 <FormControl>
+                                                  <RadioGroupItem
+                                                    value={optionIndex.toString()}
+                                                    id={`${optionInputName}-radio`}
+                                                    disabled={formDisabled || !canSelectRadio}
+                                                    className="peer"
+                                                  />
                                                 </FormControl>
-                                                <FormLabel className={`font-normal ${!hasText ? 'text-muted-foreground italic' : ''}`}>
-                                                    Opción {optIdx + 1} {!hasText && "(Definir texto primero)"}
-                                                </FormLabel>
-                                            </FormItem>
-                                            )
-                                        })}
+                                                <Label 
+                                                  htmlFor={optionInputField.name}
+                                                  className={`w-16 text-sm shrink-0 font-normal ${(!canSelectRadio && correctIndexField.value === optionIndex) ? 'text-muted-foreground opacity-70' : ''}`}
+                                                >
+                                                  Opción {String.fromCharCode(65 + optionIndex)}:
+                                                </Label>
+                                                <FormControl>
+                                                  <Input
+                                                    id={optionInputField.name}
+                                                    placeholder="Texto de la opción..."
+                                                    className="flex-grow h-9"
+                                                    {...optionInputField}
+                                                    value={optionInputField.value ?? ''}
+                                                    onChange={(e) => {
+                                                       optionInputField.onChange(e);
+                                                       if (e.target.value.trim() === '' && correctIndexField.value === optionIndex) {
+                                                         correctIndexField.onChange(undefined);
+                                                       }
+                                                       form.trigger(`lessons.${index}.correctQuizOptionIndex`);
+                                                    }}
+                                                    disabled={formDisabled}
+                                                  />
+                                                </FormControl>
+                                                {/* FormMessage for option text can be added here if specific validation is on the option text itself */}
+                                              </FormItem>
+                                            )}
+                                          />
+                                        );
+                                      })}
                                     </RadioGroup>
-                                    </FormControl>
-                                    <FormMessage /> {/* For correctQuizOptionIndex errors from refine */}
+                                  </FormControl>
+                                  <FormMessage /> {/* For correctQuizOptionIndex (RadioGroup itself for Zod refine errors) */}
                                 </FormItem>
-                                )}
+                              )}
                             />
                           </div>
                         )}
@@ -588,8 +608,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     variant="outline" 
                     onClick={handleGenerateThumbnail} 
                     className="w-full" 
-                    disabled={formDisabled || !form.watch("title") || !form.watch("description")}
-                    title={(!form.watch("title") || !form.watch("description")) ? "Introduce título y descripción del curso para activar IA" : "Generar miniatura con IA"}
+                    disabled={formDisabled || !form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10 }
+                    title={(!form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10) ? "Introduce título y descripción (mín. 10 caract.) del curso para activar IA" : "Generar miniatura con IA"}
                 >
                   {isAiGeneratingThumbnail ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Sparkles className="mr-2 h-5 w-5" />}
                   {isAiGeneratingThumbnail ? 'Generando...' : 'Generar Miniatura con IA'}
