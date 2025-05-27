@@ -60,7 +60,7 @@ body {
     --secondary: 215 28% 17%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 70%; /* Ajustado de 65% a 70% para mejor contraste */
+    --muted-foreground: 0 0% 70%;
     --accent: 160 70% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 75% 55%;
@@ -69,20 +69,41 @@ body {
     --input: 0 0% 18%;
     --ring: 217 91% 65%;
 
-    --chart-1: 200 80% 55%;
-    --chart-2: 340 85% 60%;
-    --chart-3: 45 100% 50%;
-    --chart-4: 150 70% 45%;
-    --chart-5: 280 75% 65%;
+    /* Chart colors - Dark theme */
+    --chart-1: 200 80% 55%; /* Azul cielo */
+    --chart-2: 340 85% 60%; /* Rosa Magenta */
+    --chart-3: 45 100% 50%; /* Naranja Amarillo brillante */
+    --chart-4: 150 70% 45%; /* Verde Esmeralda */
+    --chart-5: 280 75% 65%; /* Púrpura amatista */
 
-    --sidebar-background: 220 15% 10%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: hsl(var(--primary));
-    --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: 220 40% 28%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 15%;
-    --sidebar-ring: hsl(var(--ring));
+    /* Sidebar specific colors - Dark theme */
+    --sidebar-background: 220 15% 10%; /* Azul muy oscuro */
+    --sidebar-foreground: 0 0% 95%; /* Texto casi blanco */
+    --sidebar-primary: hsl(var(--primary)); /* Hereda el azul brillante */
+    --sidebar-primary-foreground: hsl(var(--primary-foreground)); /* Hereda el blanco */
+    --sidebar-accent: 220 40% 28%; /* Azul zafiro oscuro para hover/active */
+    --sidebar-accent-foreground: 0 0% 95%; /* Texto casi blanco para acento */
+    --sidebar-border: 220 15% 15%; /* Borde sutil */
+    --sidebar-ring: hsl(var(--ring)); /* Hereda el anillo primario */
+
+    /* Ensure input text is light in dark mode */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="search"],
+    textarea {
+      color: hsl(var(--foreground)) !important;
+      -webkit-text-fill-color: hsl(var(--foreground)) !important; /* For WebKit browser autofill text */
+      caret-color: hsl(var(--foreground)); /* Ensure cursor is also visible */
+    }
+
+    /* Style for WebKit browser autofill background - to match input field */
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus,
+    input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 30px hsl(var(--input)) inset !important;
+    }
   }
 
   .theme-oceanic {
@@ -97,7 +118,7 @@ body {
     --secondary: 200 40% 20%;
     --secondary-foreground: 180 30% 90%;
     --muted: 200 35% 25%;
-    --muted-foreground: 180 25% 75%; /* Ajustado para tema específico */
+    --muted-foreground: 180 25% 80%;
     --accent: 170 80% 40%; /* Bright cyan */
     --accent-foreground: 200 100% 5%;
     --destructive: 0 75% 55%;
@@ -135,7 +156,7 @@ body {
     --secondary: 25 20% 20%;
     --secondary-foreground: 35 80% 90%;
     --muted: 25 15% 25%;
-    --muted-foreground: 35 70% 75%; /* Ajustado para tema específico */
+    --muted-foreground: 35 70% 80%;
     --accent: 0 80% 60%; /* Vibrant Red */
     --accent-foreground: 35 100% 95%;
     --destructive: 0 75% 55%;
@@ -173,7 +194,7 @@ body {
     --secondary: 110 25% 20%;
     --secondary-foreground: 90 30% 90%;
     --muted: 110 20% 25%;
-    --muted-foreground: 90 25% 75%; /* Ajustado para tema específico */
+    --muted-foreground: 90 25% 80%;
     --accent: 40 60% 55%; /* Earthy brown/tan */
     --accent-foreground: 40 100% 10%;
     --destructive: 0 75% 55%;
@@ -211,7 +232,7 @@ body {
     --secondary: 240 3% 15%;
     --secondary-foreground: 0 0% 95%;
     --muted: 240 2% 20%;
-    --muted-foreground: 0 0% 70%; /* Ajustado para tema específico */
+    --muted-foreground: 0 0% 75%;
     --accent: 0 0% 50%; /* Medium gray */
     --accent-foreground: 0 0% 95%;
     --destructive: 0 75% 55%;
@@ -249,7 +270,7 @@ body {
     --secondary: 240 2% 18%;
     --secondary-foreground: 0 0% 90%;
     --muted: 240 2% 22%;
-    --muted-foreground: 0 0% 70%; /* Ajustado para tema específico */
+    --muted-foreground: 0 0% 75%;
     --accent: 15 80% 55%; /* Brighter, orangey-red */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
@@ -287,7 +308,7 @@ body {
     --secondary: 250 35% 92%;
     --secondary-foreground: 250 20% 30%;
     --muted: 250 30% 90%;
-    --muted-foreground: 250 15% 50%; /* Ajustado para tema específico */
+    --muted-foreground: 250 15% 55%;
     --accent: 300 70% 80%; /* Soft Pink */
     --accent-foreground: 260 50% 30%;
     --destructive: 0 84.2% 60.2%;
@@ -325,7 +346,7 @@ body {
     --secondary: 90 40% 94%;
     --secondary-foreground: 80 25% 25%;
     --muted: 90 40% 92%;
-    --muted-foreground: 80 20% 45%; /* Ajustado para tema específico */
+    --muted-foreground: 80 20% 50%;
     --accent: 50 90% 60%; /* Sunny Yellow */
     --accent-foreground: 70 40% 25%;
     --destructive: 0 84.2% 60.2%;
@@ -363,7 +384,7 @@ body {
     --secondary: 210 18% 25%;
     --secondary-foreground: 210 15% 85%;
     --muted: 210 15% 30%;
-    --muted-foreground: 210 15% 70%; /* Ajustado para tema específico */
+    --muted-foreground: 210 15% 75%;
     --accent: 190 60% 70%; /* Muted Cyan/Silver */
     --accent-foreground: 210 100% 5%;
     --destructive: 0 65% 55%;
@@ -401,7 +422,7 @@ body {
     --secondary: 40 25% 92%;
     --secondary-foreground: 30 20% 30%;
     --muted: 40 20% 90%;
-    --muted-foreground: 30 15% 50%; /* Ajustado para tema específico */
+    --muted-foreground: 30 15% 55%;
     --accent: 45 50% 60%; /* Warm Gold or Desaturated Green */
     --accent-foreground: 30 40% 15%;
     --destructive: 0 70% 50%;
@@ -439,7 +460,7 @@ body {
     --secondary: 270 10% 20%;
     --secondary-foreground: 45 50% 85%;
     --muted: 270 8% 25%;
-    --muted-foreground: 45 40% 75%; /* Ajustado para tema específico */
+    --muted-foreground: 45 40% 80%;
     --accent: 45 70% 60%; /* Rich Gold */
     --accent-foreground: 270 60% 15%;
     --destructive: 0 70% 50%;
@@ -477,7 +498,7 @@ body {
     --secondary: 340 50% 95%;
     --secondary-foreground: 340 30% 35%;
     --muted: 340 40% 92%;
-    --muted-foreground: 340 25% 55%; /* Ajustado para tema específico */
+    --muted-foreground: 340 25% 55%;
     --accent: 0 70% 60%; /* Cherry Red */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
