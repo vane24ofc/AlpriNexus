@@ -1,0 +1,73 @@
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+.pnp.loader.mjs
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local environment files
+.env
+.env*.local
+.env*.production
+.env*.development
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Firebase
+firebase-debug.log
+*.firebase*.*
+!firebase.json # Queremos incluir firebase.json si se usa para configuración de hosting/funciones
+database-debug.log
+firestore-debug.log
+storage-debug.log
+hosting-debug.log
+ui-debug.log
+
+# Editor directories and files
+.idea
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Genkit (si se generan localmente y no se deben subir)
+# .genkit/
+# .genkit-cache.json
+# .genkit-devtools.json
+# genkit.log
+
+# Firebase Studio specific (if any, usually covered by .vscode)
+# .idx/
+# .firebase/emu/
