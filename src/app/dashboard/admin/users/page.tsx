@@ -195,7 +195,6 @@ export default function AdminUsersPage() {
                 className="pl-10 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                disabled={isLoading}
               />
             </div>
           </div>
@@ -325,8 +324,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-    
-
-    
-
     
