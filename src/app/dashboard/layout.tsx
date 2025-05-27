@@ -50,16 +50,23 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  const [activeTheme, setActiveTheme] = useState('theme-light');
+  const [activeTheme, setActiveTheme] = useState('theme-light'); // Default for dashboard
+  const [hasMountedLayout, setHasMountedLayout] = useState(false);
 
   useEffect(() => {
+    setHasMountedLayout(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMountedLayout || typeof window === 'undefined') return; // Only run on client after layout mount
+
     let initialDashboardTheme: string;
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
 
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialDashboardTheme = storedTheme;
     } else {
-      initialDashboardTheme = 'theme-light'; 
+      initialDashboardTheme = 'theme-light'; // Dashboard defaults to light theme
       localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
     }
     
@@ -70,25 +77,26 @@ export default function DashboardLayout({
     if (VALID_THEME_CLASSES.includes(initialDashboardTheme)) {
       root.classList.add(initialDashboardTheme);
     } else {
-      root.classList.add('theme-light');
+      root.classList.add('theme-light'); // Fallback to light
     }
-  }, []); 
+  }, [hasMountedLayout]); 
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (!hasMountedLayout || typeof window === 'undefined') return; // Only run on client after layout mount
+
+    if (activeTheme && VALID_THEME_CLASSES.includes(activeTheme)) { 
         const root = window.document.documentElement;
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-        if (activeTheme && VALID_THEME_CLASSES.includes(activeTheme)) { 
-            root.classList.add(activeTheme);
-            localStorage.setItem('nexusAlpriTheme', activeTheme); 
-        } else {
-            root.classList.add('theme-light'); 
-            localStorage.setItem('nexusAlpriTheme', 'theme-light');
-        }
+        root.classList.add(activeTheme);
+        localStorage.setItem('nexusAlpriTheme', activeTheme); 
     }
-  }, [activeTheme]); 
+  }, [activeTheme, hasMountedLayout]); 
 
   useEffect(() => {
+    if (!hasMountedLayout) { // Don't determine role until layout has mounted client-side
+      return;
+    }
+
     setIsLoadingRole(true);
     let roleFromStorage: Role | null = null;
     if (typeof window !== 'undefined') {
@@ -104,25 +112,24 @@ export default function DashboardLayout({
     } else if (pathname.startsWith('/dashboard/student')) {
       finalDeterminedRole = 'estudiante';
     } else {
+      // For generic dashboard paths, rely on localStorage or default to student
       if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
         finalDeterminedRole = roleFromStorage;
       } else {
-        finalDeterminedRole = 'estudiante'; 
+        finalDeterminedRole = 'estudiante'; // Default if no specific path and no valid role in storage
       }
     }
     
-    if (typeof window !== 'undefined') {
-        if (['/dashboard/admin', '/dashboard/instructor', '/dashboard/student'].some(p => pathname.startsWith(p))) {
-             if (localStorage.getItem('sessionRole') !== finalDeterminedRole) {
-                localStorage.setItem('sessionRole', finalDeterminedRole);
-             }
-        } else if (!roleFromStorage && finalDeterminedRole) { 
+    // If the path dictated a specific role, ensure localStorage is updated.
+    if (['/dashboard/admin', '/dashboard/instructor', '/dashboard/student'].some(p => pathname.startsWith(p))) {
+         if (typeof window !== 'undefined' && localStorage.getItem('sessionRole') !== finalDeterminedRole) {
             localStorage.setItem('sessionRole', finalDeterminedRole);
-        }
+         }
+    } else if (typeof window !== 'undefined' && !roleFromStorage) { 
+        // If it was a generic path and no role in storage, save the determined (default) role
+        localStorage.setItem('sessionRole', finalDeterminedRole);
     }
     
-    // Solo actualiza el estado si el rol determinado es diferente del actual
-    // para evitar bucles de renderizado innecesarios.
     setCurrentSessionRole(prevRole => {
       if (prevRole !== finalDeterminedRole) {
         return finalDeterminedRole;
@@ -130,23 +137,23 @@ export default function DashboardLayout({
       return prevRole;
     });
     setIsLoadingRole(false);
-  }, [pathname]); 
+  }, [pathname, hasMountedLayout]); // Only re-run if pathname or hasMountedLayout changes
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  // Muestra el cargador hasta que el rol esté determinado Y no sea null
-  if (isLoadingRole || !currentSessionRole) { 
-    return <FullPageLoader message="Determinando rol y cargando panel..." />;
+  // Show loader until layout has mounted AND role is determined AND role is not null
+  if (!hasMountedLayout || isLoadingRole || !currentSessionRole) { 
+    return <FullPageLoader message="Cargando panel y determinando rol..." />;
   }
   
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
         <AppSidebarNav key={String(currentSessionRole) || 'loading-sidebar'} /> 
-        <SidebarInset>
+        <SidebarInset key="sidebar-inset">
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             {children}
@@ -164,3 +171,4 @@ export default function DashboardLayout({
     </SessionRoleContext.Provider>
   );
 }
+
