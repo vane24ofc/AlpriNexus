@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -33,7 +32,6 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-  // DialogTrigger, // No longer needed for announcement in AdminDashboardWrapper
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -84,9 +82,9 @@ const initialSampleUsers: User[] = [
 ];
 
 const initialSampleCourses: Course[] = [
-  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
-  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
-  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
+  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
+  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
+  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
 ];
 
 
@@ -94,7 +92,7 @@ const initialSampleCourses: Course[] = [
 interface AdminDashboardContentProps {
   allUsers: User[];
   allCourses: Course[];
-  onOpenAnnouncementDialog: () => void; // Callback to open the announcement dialog
+  onOpenAnnouncementDialog: () => void; 
 }
 
 const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses, onOpenAnnouncementDialog }) => {
@@ -211,11 +209,10 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
                     <span className="font-medium">Gestionar Cursos</span>
                 </Link>
             </Button>
-            {/* Button now calls the passed prop to open the dialog */}
             <Button 
               variant="outline" 
               className="p-4 h-auto flex flex-col items-center text-center"
-              onClick={onOpenAnnouncementDialog}
+              onClick={onOpenAnnouncementDialog} 
             >
                 <Bell className="h-8 w-8 mb-2 text-accent"/>
                 <span className="font-medium">Enviar Anuncio</span>
@@ -475,6 +472,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
                 width={300} height={170} 
                 className="rounded-lg shadow-md object-cover" 
                 data-ai-hint={courseToContinue.dataAiHint || "education learning"}
+                priority
               />
               <div>
                 <h3 className="text-xl font-semibold">{courseToContinue.title}</h3>
@@ -614,71 +612,72 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
     setAnnouncementAudience('all'); 
   };
   
-  // This function is passed to AdminDashboardContent to open the dialog
   const openAnnouncementDialog = () => setIsAnnouncementDialogOpen(true);
 
   return (
-    <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
+    <>
       <AdminDashboardContent 
         allUsers={allUsers} 
         allCourses={allCourses}
         onOpenAnnouncementDialog={openAnnouncementDialog} 
       /> 
-      <DialogContent className="sm:max-w-[520px]">
-        <DialogHeader>
-            <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
-            <DialogDescription>
-            Redacta y envía un anuncio a los usuarios de la plataforma.
-            </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="announcement-title" className="text-right">
-                    Título
-                </Label>
-                <Input
-                    id="announcement-title"
-                    placeholder="Ej: Mantenimiento Programado"
-                    className="col-span-3"
-                    value={announcementTitle}
-                    onChange={(e) => setAnnouncementTitle(e.target.value)}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-start gap-4">
-                <Label htmlFor="announcement-message" className="text-right pt-2">
-                    Mensaje
-                </Label>
-                <Textarea
-                    id="announcement-message"
-                    placeholder="Escribe aquí el contenido del anuncio..."
-                    className="col-span-3"
-                    rows={5}
-                    value={announcementMessage}
-                    onChange={(e) => setAnnouncementMessage(e.target.value)}
-                />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="announcement-audience" className="text-right">
-                    Audiencia
-                </Label>
-                <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
-                    <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Seleccionar audiencia" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Todos los Usuarios</SelectItem>
-                        <SelectItem value="students">Solo Estudiantes</SelectItem>
-                        <SelectItem value="instructors">Solo Instructores</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-        <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
-            <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+              <DialogTitle>Enviar Nuevo Anuncio</DialogTitle>
+              <DialogDescription>
+              Redacta y envía un anuncio a los usuarios de la plataforma.
+              </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="announcement-title" className="text-right">
+                      Título
+                  </Label>
+                  <Input
+                      id="announcement-title"
+                      placeholder="Ej: Mantenimiento Programado"
+                      className="col-span-3"
+                      value={announcementTitle}
+                      onChange={(e) => setAnnouncementTitle(e.target.value)}
+                  />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                  <Label htmlFor="announcement-message" className="text-right pt-2">
+                      Mensaje
+                  </Label>
+                  <Textarea
+                      id="announcement-message"
+                      placeholder="Escribe aquí el contenido del anuncio..."
+                      className="col-span-3"
+                      rows={5}
+                      value={announcementMessage}
+                      onChange={(e) => setAnnouncementMessage(e.target.value)}
+                  />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="announcement-audience" className="text-right">
+                      Audiencia
+                  </Label>
+                  <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
+                      <SelectTrigger className="col-span-3">
+                          <SelectValue placeholder="Seleccionar audiencia" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="all">Todos los Usuarios</SelectItem>
+                          <SelectItem value="students">Solo Estudiantes</SelectItem>
+                          <SelectItem value="instructors">Solo Instructores</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+          </div>
+          <DialogFooter>
+              <Button variant="outline" onClick={() => setIsAnnouncementDialogOpen(false)}>Cancelar</Button>
+              <Button type="submit" onClick={handleSendAnnouncement}>Enviar Anuncio</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -767,5 +766,3 @@ export default function DashboardHomePage() {
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
   }
 }
-
-    

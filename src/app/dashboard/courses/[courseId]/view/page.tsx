@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
@@ -94,7 +93,7 @@ export default function StudentCourseViewPage() {
                  initialQuizStateFromStorage[lesson.id] = {
                     started: isLessonCompleted, 
                     answered: isLessonCompleted,
-                    selectedOptionIndex: null, // No way to know selected option if just marked complete
+                    selectedOptionIndex: null, 
                     isCorrect: null,
                 };
               }
@@ -198,7 +197,7 @@ export default function StudentCourseViewPage() {
 
   const handleStartQuiz = (lessonId: string) => {
     const currentQuiz = quizState[lessonId] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
-    if (currentQuiz.answered) return; // Don't restart if already answered
+    if (currentQuiz.answered) return;
 
     const newState = { ...quizState, [lessonId]: { ...currentQuiz, started: true } };
     setQuizState(newState);
@@ -325,11 +324,11 @@ export default function StudentCourseViewPage() {
                             buttonVariant = currentQuizData.isCorrect ? "default" : "destructive";
                             icon = currentQuizData.isCorrect ? <CheckCircle className="mr-2 h-4 w-4" /> : <X className="mr-2 h-4 w-4" />;
                         } else if (lesson.correctQuizOptionIndex === index) {
-                            buttonVariant = "default"; // Show correct answer if a wrong one was selected
+                            buttonVariant = "default"; 
                             icon = <CheckCircle className="mr-2 h-4 w-4" />;
                         }
                     } else if (currentQuizData.selectedOptionIndex === index) {
-                        buttonVariant = "secondary"; // Temporarily selected, not yet confirmed
+                        buttonVariant = "secondary"; 
                     }
                     return (
                         <Button
@@ -562,4 +561,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-

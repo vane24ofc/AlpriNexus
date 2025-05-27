@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -56,7 +55,7 @@ export default function LoginPage() {
       roleToStore = 'administrador';
     } else if (values.email === 'instructor@example.com') {
       roleToStore = 'instructor';
-    } else if (values.email === 'student@example.com') { 
+    } else if (values.email === 'student@example.com' || values.email === 'estudiante@example.com') { 
       roleToStore = 'estudiante';
     }
 
@@ -177,7 +176,7 @@ export default function LoginPage() {
       </div>
 
       {/* Columna Decorativa */}
-      <div className="hidden bg-gray-100 md:block md:w-1/2 relative">
+      <div className="hidden bg-muted md:block md:w-1/2 relative">
         <Image 
           src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo para inicio de sesión" 

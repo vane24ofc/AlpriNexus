@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -178,7 +177,7 @@ export default function RegisterPage() {
       </div>
 
       {/* Columna Decorativa */}
-      <div className="hidden bg-gray-100 md:block md:w-1/2 relative">
+      <div className="hidden bg-muted md:block md:w-1/2 relative">
         <Image 
           src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo para registro" 
