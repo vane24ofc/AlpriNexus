@@ -15,48 +15,72 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap } from 'lucide-react';
+import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon } from 'lucide-react'; // Renamed Bell to BellIcon to avoid conflict
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useSessionRole } from '@/app/dashboard/layout';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const { currentSessionRole } = useSessionRole();
+  const { currentSessionRole, isLoadingRole } = useSessionRole();
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchPlaceholder, setSearchPlaceholder] = useState('Buscar cursos...');
+  const [searchPlaceholder, setSearchPlaceholder] = useState('Buscar...');
+  const [roleDisplay, setRoleDisplay] = useState("Usuario");
+  const [profileLinkPath, setProfileLinkPath] = useState("/dashboard");
+  const [dashboardPath, setDashboardPath] = useState("/dashboard");
+  const [userAvatar, setUserAvatar] = useState("https://placehold.co/100x100.png");
+  const [userName, setUserName] = useState("Cargando...");
+  const [userEmail, setUserEmail] = useState("...");
 
-  let roleDisplay: string = "Estudiante";
-  let profileLinkPath: string = "/dashboard/student/profile";
-  let dashboardPath: string = "/dashboard";
+  const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
-    switch (currentSessionRole) {
-      case 'administrador':
-        roleDisplay = 'Administrador';
-        profileLinkPath = '/dashboard'; // Admins go to their main dashboard
-        dashboardPath = '/dashboard';
-        setSearchPlaceholder('Buscar usuarios, cursos...');
-        break;
-      case 'instructor':
-        roleDisplay = 'Instructor';
-        profileLinkPath = '/dashboard'; // Instructors go to their main dashboard
-        dashboardPath = '/dashboard';
-        setSearchPlaceholder('Buscar en mis cursos...');
-        break;
-      case 'estudiante':
-      default:
-        roleDisplay = 'Estudiante';
-        profileLinkPath = '/dashboard/student/profile';
-        dashboardPath = '/dashboard';
-        setSearchPlaceholder('Buscar cursos...');
-        break;
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (currentSessionRole) {
+      let determinedRoleDisplay = "Estudiante";
+      let determinedProfileLink = "/dashboard/student/profile";
+      let determinedDashboardPath = "/dashboard";
+      let determinedSearchPlaceholder = "Buscar cursos...";
+      let avatarInitial = "E";
+      let emailDomain = "student@example.com";
+
+      switch (currentSessionRole) {
+        case 'administrador':
+          determinedRoleDisplay = 'Administrador';
+          determinedProfileLink = '/dashboard';
+          determinedDashboardPath = '/dashboard';
+          determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
+          avatarInitial = "A";
+          emailDomain = "admin@example.com";
+          break;
+        case 'instructor':
+          determinedRoleDisplay = 'Instructor';
+          determinedProfileLink = '/dashboard';
+          determinedDashboardPath = '/dashboard';
+          determinedSearchPlaceholder = 'Buscar en mis cursos...';
+          avatarInitial = "I";
+          emailDomain = "instructor@example.com";
+          break;
+        case 'estudiante':
+        default:
+          // Defaults are already set
+          break;
+      }
+      setRoleDisplay(determinedRoleDisplay);
+      setProfileLinkPath(determinedProfileLink);
+      setDashboardPath(determinedDashboardPath);
+      setSearchPlaceholder(determinedSearchPlaceholder);
+      setUserName(`${determinedRoleDisplay} Usuario`);
+      setUserEmail(emailDomain);
+      setUserAvatar(`https://placehold.co/100x100.png?text=${avatarInitial}`);
     }
   }, [currentSessionRole]);
-
-  const user = { name: `${roleDisplay} Usuario`, email: `${currentSessionRole || 'student'}@example.com`, role: roleDisplay, avatar: 'https://placehold.co/100x100.png' };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
@@ -71,21 +95,13 @@ export function AppHeader() {
 
     const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
 
-    switch (currentSessionRole) {
-      case 'administrador':
-        // Podría buscar usuarios, cursos, etc. Por ahora, vamos a simular búsqueda de usuarios.
-        router.push(`/dashboard/admin/users?search=${encodedSearchTerm}`);
-        break;
-      case 'instructor':
-        // Podría buscar en sus propios cursos.
-        router.push(`/dashboard/instructor/my-courses?search=${encodedSearchTerm}`);
-        break;
-      case 'estudiante':
-      default:
-        router.push(`/dashboard/courses/explore?search=${encodedSearchTerm}`);
-        break;
+    if (currentSessionRole === 'administrador') {
+      router.push(`/dashboard/admin/users?search=${encodedSearchTerm}`);
+    } else if (currentSessionRole === 'instructor') {
+      router.push(`/dashboard/instructor/my-courses?search=${encodedSearchTerm}`);
+    } else {
+      router.push(`/dashboard/courses/explore?search=${encodedSearchTerm}`);
     }
-    // setSearchTerm(''); // Opcional: limpiar el término después de la búsqueda
   };
 
   const getRoleIcon = (role: string) => {
@@ -101,12 +117,31 @@ export function AppHeader() {
     }
   };
 
+  if (!hasMounted || isLoadingRole) {
+    return (
+      <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
+        {isMobile && <SidebarTrigger />}
+        {!isMobile && (
+          <Link href={dashboardPath} className="hidden items-center gap-2 md:flex" passHref>
+             <Logo className="h-8 w-auto" href={null} key="header-logo-skeleton"/>
+          </Link>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          <Skeleton className="h-8 w-[200px] lg:w-[300px]" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+          <Skeleton className="h-10 w-10 rounded-full" />
+        </div>
+      </header>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       {isMobile && <SidebarTrigger />}
       {!isMobile && (
-         <Link href={dashboardPath} className="hidden items-center gap-2 md:flex">
-            <Logo className="h-8 w-auto" href={null} />
+         <Link href={dashboardPath} className="hidden items-center gap-2 md:flex" passHref>
+            {/* Ensure the key is stable here if Logo itself doesn't have a key or is part of a map */}
+            <Logo className="h-8 w-auto" href={null} key="header-logo-loaded" />
          </Link>
       )}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
@@ -127,25 +162,25 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="profile avatar"/>
-                <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={userAvatar} alt={userName} data-ai-hint="profile avatar"/>
+                <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
+                <p className="text-sm font-medium leading-none">{userName}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {user.email}
+                  {userEmail}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
              <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push(profileLinkPath)}>
-                {getRoleIcon(user.role)}
+                {getRoleIcon(roleDisplay)}
                 <span>
-                  {currentSessionRole === 'estudiante' ? 'Mi Perfil' : `Panel de ${user.role}`}
+                  {currentSessionRole === 'estudiante' ? 'Mi Perfil' : `Panel de ${roleDisplay}`}
                 </span>
             </DropdownMenuItem>
             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/settings')}>
