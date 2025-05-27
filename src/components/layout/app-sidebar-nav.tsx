@@ -32,8 +32,7 @@ import {
   SidebarMenuButton,
   SidebarMenuSub,
   SidebarMenuSubButton,
-  SidebarGroup,
-  SidebarMenuSkeleton, // Importar SidebarMenuSkeleton
+  SidebarMenuSkeleton,
 } from '@/components/ui/sidebar';
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -41,7 +40,7 @@ import { cn } from '@/lib/utils';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 
 export interface NavItem {
-  id: string; // Asegurar que id sea string para las keys
+  id: string;
   href?: string;
   label: string;
   icon: React.ElementType;
@@ -50,7 +49,6 @@ export interface NavItem {
   badge?: string;
 }
 
-// Definición de los elementos de navegación con IDs únicos
 const navItems: NavItem[] = [
   { id: 'nav-panel-principal', href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
@@ -85,7 +83,6 @@ const navItems: NavItem[] = [
   },
   { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
-  // "Cursos Inscritos" se movió al grupo "Portal del Estudiante"
   { id: 'nav-virtual-sessions', href: '/dashboard/virtual-sessions', label: 'Sesiones Virtuales', icon: VideoIcon, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
@@ -121,13 +118,9 @@ export function AppSidebarNav() {
     }, [] as NavItem[]);
   }, [currentSessionRole, isLoadingRole]);
 
-  // useEffect para gestionar la apertura/cierre de submenús basados en la ruta activa
   useEffect(() => {
-    // Si no está montado en el cliente, o el rol está cargando, o no hay rol,
-    // o no hay elementos filtrados, reseteamos los submenús abiertos.
     if (!hasMounted || isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
       setOpenSubmenus(currentOpen => {
-        // Solo actualiza si no está ya vacío para evitar un bucle si este efecto se dispara innecesariamente
         if (Object.keys(currentOpen).length > 0) return {};
         return currentOpen;
       });
@@ -153,8 +146,6 @@ export function AppSidebarNav() {
 
     const newCalculatedOpenState = calculateNewOpenState();
 
-    // Usamos la forma funcional de setOpenSubmenus para comparar con el estado previo
-    // y evitar añadir openSubmenus al array de dependencias directamente.
     setOpenSubmenus(prevOpenSubmenus => {
       const currentKeys = Object.keys(prevOpenSubmenus);
       const newKeys = Object.keys(newCalculatedOpenState);
@@ -172,10 +163,10 @@ export function AppSidebarNav() {
       if (needsUpdate) {
         return newCalculatedOpenState;
       }
-      return prevOpenSubmenus; // No actual change needed, return the previous state
+      return prevOpenSubmenus;
     });
 
-  }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]); // 'openSubmenus' NO está en este array de dependencias.
+  }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]);
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -185,6 +176,7 @@ export function AppSidebarNav() {
   const renderNavItems = (items: NavItem[], isSubmenu = false): (React.ReactNode | null)[] => {
     return items.map((item) => {
       if (item.children && item.children.length === 0 && !item.href) return null;
+      
       const effectiveHref = item.href || (item.children && item.children.length > 0 ? `#${item.id}` : undefined);
 
       if (item.children && item.children.length > 0) {
@@ -208,10 +200,16 @@ export function AppSidebarNav() {
       }
       if (!effectiveHref) return null;
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
-      let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
+      
+      let isActive = false;
       if (effectiveHref === "/dashboard" && item.id === 'nav-panel-principal') {
-        isActive = pathname === "/dashboard"; 
+        // For the main dashboard link, only active if pathname is exactly /dashboard
+        isActive = pathname === "/dashboard";
+      } else if (effectiveHref) {
+        // For other links, active if pathname starts with or is equal to the href
+        isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
       }
+      
       return (
         <SidebarMenuItem key={item.id}>
           <Comp asChild isActive={isActive} tooltip={item.label}>
@@ -238,9 +236,7 @@ export function AppSidebarNav() {
         <SidebarContent className="p-2">
           <SidebarMenu>
             {Array.from({ length: 8 }).map((_, index) => (
-              <SidebarMenuItem key={`skeleton-nav-${index}`}>
-                <SidebarMenuSkeleton showIcon />
-              </SidebarMenuItem>
+              <SidebarMenuSkeleton key={`skeleton-direct-${index}`} showIcon className="my-1 h-8" />
             ))}
           </SidebarMenu>
         </SidebarContent>
@@ -265,8 +261,7 @@ export function AppSidebarNav() {
         <SidebarMenu>
           {renderNavItems(filteredNavItems)}
         </SidebarMenu>
-        <SidebarGroup className="mt-auto group-data-[collapsible=icon]:px-0">
-          <SidebarMenu>
+        <SidebarMenu className="mt-auto"> {/* Use SidebarMenu for proper styling of bottom items */}
             <SidebarMenuItem key="nav-help-link">
               <SidebarMenuButton asChild tooltip="Ayuda y Soporte" isActive={pathname === '/dashboard/help'}>
                 <Link href="/dashboard/help">
@@ -283,8 +278,7 @@ export function AppSidebarNav() {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarGroup>
+        </SidebarMenu>
       </SidebarContent>
       <SidebarFooter className="group-data-[collapsible=icon]:hidden">
         <div className="text-xs text-muted-foreground p-2 text-center">
@@ -294,3 +288,4 @@ export function AppSidebarNav() {
     </Sidebar>
   );
 }
+
