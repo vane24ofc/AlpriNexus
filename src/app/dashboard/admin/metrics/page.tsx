@@ -110,9 +110,18 @@ export default function AdminMetricsPage() {
     } catch (error) {
       console.error("Error generando texto del informe con IA:", error);
       setReportText({
-        executiveSummary: "Error al generar resumen con IA. Este es un texto de ejemplo.",
-        conclusions: ["Error al generar conclusiones con IA. Por favor, revise las métricas y elabore sus propias conclusiones."],
-        recommendations: ["Error al generar recomendaciones con IA. Por favor, elabore sus propias recomendaciones."],
+        executiveSummary:
+          'A la fecha actual, la plataforma AlpriNexus cuenta con [Número de Usuarios Totales] usuarios registrados, lo que demuestra un interés continuo. Durante el último mes, se ha observado un incremento de [Número de Nuevos Estudiantes] estudiantes, indicando una adopción saludable. La tasa de finalización promedio de los cursos se sitúa en [Tasa de Finalización], un área que presenta oportunidades de mejora continua.',
+        conclusions: [
+          'El crecimiento en el número de nuevos estudiantes sugiere que las estrategias de captación están siendo efectivas.',
+          'La tasa de finalización general, aunque estable, podría beneficiarse de un análisis detallado por curso para identificar aquellos con menor rendimiento.',
+          'La cantidad de cursos activos proporciona una oferta diversa, pero se debe monitorear su relevancia y actualización.'
+        ],
+        recommendations: [
+          'Implementar un sistema de seguimiento para los cursos con tasas de finalización consistentemente bajas e investigar las causas.',
+          'Fomentar la creación de contenido interactivo y engageante para mejorar la retención de los estudiantes.',
+          'Realizar encuestas periódicas a los usuarios para identificar necesidades de nuevos cursos y áreas de mejora en la plataforma.'
+        ]
       });
       toast({
         variant: "destructive",
@@ -134,14 +143,21 @@ export default function AdminMetricsPage() {
   };
 
   const defaultReportText: GenerateReportSectionsOutput = {
-    executiveSummary: "El informe de actividad para AlpriNexus muestra un crecimiento saludable en la base de usuarios y una participación constante en los cursos. Se identifican oportunidades para mejorar la tasa de finalización en ciertos cursos clave.",
+    executiveSummary: 
+        'A la fecha actual, la plataforma AlpriNexus cuenta con ' +
+        `${stats.find(s => s.key === 'totalUsers')?.value || '[Número de Usuarios Totales]'} usuarios registrados, lo que demuestra un interés continuo. ` +
+        `Durante el último mes, se ha observado un incremento de ${stats.find(s => s.key === 'newStudentsMonthly')?.value || '[Número de Nuevos Estudiantes]'} estudiantes, indicando una adopción saludable. ` +
+        `La tasa de finalización promedio de los cursos se sitúa en ${stats.find(s => s.key === 'completionRate')?.value || '[Tasa de Finalización]'}, un área que presenta oportunidades de mejora continua. ` +
+        `Con ${stats.find(s => s.key === 'activeCourses')?.value || '[Número de Cursos Activos]'} cursos activos, la plataforma ofrece una base sólida para el desarrollo profesional.`,
     conclusions: [
-        "Conclusión Principal: La plataforma está experimentando una adopción positiva.",
-        "La tasa de finalización es estable pero con margen de mejora."
+        `El crecimiento constante de ${stats.find(s => s.key === 'newStudentsMonthly')?.value || 'nuevos estudiantes'} al mes sugiere que las iniciativas de promoción y la utilidad percibida de AlpriNexus son efectivas.`,
+        `Una tasa de finalización promedio del ${stats.find(s => s.key === 'completionRate')?.value || 'N/A'} es un indicador aceptable, pero un análisis más profundo por curso podría revelar variaciones significativas y oportunidades de mejora específicas.`,
+        `La existencia de ${stats.find(s => s.key === 'activeCourses')?.value || 'múltiples'} cursos activos es positiva, pero es crucial asegurar su continua relevancia y la satisfacción del estudiante con los mismos.`
     ],
     recommendations: [
-        "Implementar estrategias de gamificación para aumentar la finalización de cursos.",
-        "Fomentar la creación de más contenido interactivo por parte de los instructores."
+        'Identificar y analizar los cursos con tasas de finalización por debajo del promedio para implementar estrategias de mejora, como la actualización de contenido o la adición de elementos interactivos.',
+        'Desarrollar un programa de bienvenida y onboarding más robusto para los nuevos estudiantes, con el fin de maximizar su engagement temprano y familiarizarlos con los recursos disponibles.',
+        'Considerar la implementación de encuestas de satisfacción post-curso para recopilar feedback directo y guiar futuras decisiones de contenido y plataforma.'
     ]
   };
 
