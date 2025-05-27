@@ -94,6 +94,8 @@ export default function ResourcesPage() {
         console.error("Error cargando recursos desde localStorage:", error);
         setCompanyResources(initialSampleCompanyResources);
         setLearningResources(initialSampleLearningResources);
+        localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
+        localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
       } finally {
         setIsLoading(false);
       }
@@ -110,8 +112,7 @@ export default function ResourcesPage() {
 
       if (role === 'administrador') return true;
       if (role === 'instructor') {
-        if (file.category === 'company') return file.visibility === 'public' || file.visibility === 'instructors';
-        return file.visibility === 'public' || file.visibility === 'instructors' || file.visibility === 'private'; // Instructors see their own private learning files
+        return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
       }
       return file.visibility === 'public';
     });

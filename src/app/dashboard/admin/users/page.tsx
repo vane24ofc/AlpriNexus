@@ -235,7 +235,7 @@ export default function AdminUsersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen flex-col items-center justify-center space-y-4">
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando usuarios...</p>
       </div>
