@@ -96,12 +96,11 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }
 export default function AdminCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const initialSearchTerm = searchParams.get('search') || '';
   
   const [courses, setCourses] = useState<Course[]>([]);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -123,6 +122,14 @@ export default function AdminCoursesPage() {
   }, []);
 
   useEffect(() => {
+    const urlSearchTerm = searchParams.get('search') || '';
+    if (urlSearchTerm !== searchTerm) {
+      setSearchTerm(urlSearchTerm);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!isLoading && courses.length > 0) { 
         try {
             localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
@@ -136,15 +143,6 @@ export default function AdminCoursesPage() {
         }
     }
   }, [courses, isLoading, toast]);
-
-
-  useEffect(() => {
-    const urlSearchTerm = searchParams.get('search') || '';
-    if (urlSearchTerm !== searchTerm) {
-      setSearchTerm(urlSearchTerm);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
 
   const handleCourseAction = (courseId: string, newStatus: 'approved' | 'rejected') => {
@@ -230,11 +228,7 @@ export default function AdminCoursesPage() {
           <BookOpen className="mr-3 h-8 w-8 text-primary" />
           Gestión de Cursos
         </h1>
-        <Button asChild className="bg-primary hover:bg-primary/90">
-          <Link href="/dashboard/courses/new">
-            <PlusCircle className="mr-2 h-5 w-5" /> Crear Nuevo Curso
-          </Link>
-        </Button>
+        {/* Botón "Crear Nuevo Curso" eliminado de aquí */}
       </div>
 
        <Card className="shadow-md">
