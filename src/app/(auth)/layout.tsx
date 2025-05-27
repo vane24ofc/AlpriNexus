@@ -6,10 +6,10 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Removed 'dark' class from here to ensure auth pages use base styles
+  // Added 'dark' class here to ensure auth pages always use the dark theme
   // and are not affected by dashboard theme settings.
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 selection:bg-primary/40 selection:text-white">
+    <div className="dark flex min-h-screen flex-col items-center justify-center bg-background p-4 selection:bg-primary/40 selection:text-white">
       {children}
       <Image
         src="/Logo-Manchas-SAS (2).png"

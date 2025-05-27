@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -49,23 +50,28 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  // Theme state and effect moved here from RootLayout
-  const [activeTheme, setActiveTheme] = useState('dark'); // Default theme for dashboard
+  // Default to 'theme-light' for dashboard initial state
+  const [activeTheme, setActiveTheme] = useState('theme-light');
 
   useEffect(() => {
-    // Theme application logic
-    let initialTheme = 'dark'; // Default for dashboard if nothing else is set
+    // Theme application logic for dashboard
+    let initialDashboardTheme: string;
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
 
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
-      initialTheme = storedTheme;
+      initialDashboardTheme = storedTheme;
     } else {
-      // Check system preference ONLY if no theme is stored for the dashboard
-      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-         initialTheme = 'theme-light';
-      }
+      // Default to 'theme-light' if no valid theme is stored for the dashboard
+      initialDashboardTheme = 'theme-light';
+      // Save this default to localStorage so it persists for the dashboard
+      // until the user changes it in settings.
+      localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
     }
-    setActiveTheme(initialTheme);
+    
+    // Update the state if it's different from the current one
+    if (activeTheme !== initialDashboardTheme) {
+      setActiveTheme(initialDashboardTheme);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Runs once on mount to load initial dashboard theme
 
@@ -76,11 +82,14 @@ export default function DashboardLayout({
         // Remove all known theme classes first
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
         // Add the current active theme class
-        if (activeTheme) { // activeTheme should always have a value here
+        if (activeTheme && VALID_THEME_CLASSES.includes(activeTheme)) { 
             root.classList.add(activeTheme);
+        } else {
+             // Fallback to light theme if activeTheme is somehow invalid
+            root.classList.add('theme-light');
         }
     }
-  }, [activeTheme]); // Re-apply when activeTheme changes (e.g., from settings)
+  }, [activeTheme]); // Re-apply when activeTheme changes (e.g., from settings or initial load)
 
 
   useEffect(() => {
@@ -99,30 +108,30 @@ export default function DashboardLayout({
     } else if (pathname.startsWith('/dashboard/student')) {
       finalDeterminedRole = 'estudiante';
     } else {
+      // For generic dashboard paths, rely on localStorage or default to student
       if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
         finalDeterminedRole = roleFromStorage;
       } else {
-        finalDeterminedRole = 'estudiante'; // Default role if no specific path and no valid role in storage
+        finalDeterminedRole = 'estudiante'; 
       }
     }
     
-    // Update localStorage if the path-derived role is different from what's stored
-    // or if nothing was stored initially for a generic path
     if (typeof window !== 'undefined') {
-        if ((pathname.startsWith('/dashboard/admin') || pathname.startsWith('/dashboard/instructor') || pathname.startsWith('/dashboard/student')) && localStorage.getItem('sessionRole') !== finalDeterminedRole) {
+        // If the path implies a specific role, ensure localStorage matches
+        if ((pathname.startsWith('/dashboard/admin') || pathname.startsWith('/dashboard/instructor') || pathname.startsWith('/dashboard/student')) &&
+            localStorage.getItem('sessionRole') !== finalDeterminedRole) {
             localStorage.setItem('sessionRole', finalDeterminedRole);
         } else if (!roleFromStorage && !pathname.startsWith('/dashboard/admin') && !pathname.startsWith('/dashboard/instructor') && !pathname.startsWith('/dashboard/student')) {
-            // If on a generic dashboard path and no role was in storage, set the default.
+            // If on a generic dashboard path and no role was in storage, set the determined (likely default) role.
             localStorage.setItem('sessionRole', finalDeterminedRole);
         }
     }
     
-    // Only update state if the determined role is different from the current state
     if (currentSessionRole !== finalDeterminedRole) {
       setCurrentSessionRole(finalDeterminedRole);
     }
     setIsLoadingRole(false);
-  }, [pathname, currentSessionRole]); // Added currentSessionRole to dependencies to re-evaluate if it changes from other sources, though pathname is primary driver.
+  }, [pathname]); // Removed currentSessionRole from dependencies to avoid potential loops
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
@@ -136,7 +145,7 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        <AppSidebarNav /> {/* Removed key={currentSessionRole || 'loading'} to see if it helps with key prop error */}
+        <AppSidebarNav />
         <SidebarInset>
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
