@@ -60,7 +60,7 @@ body {
     --secondary: 215 28% 17%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 65%;
+    --muted-foreground: 0 0% 70%; /* Ajustado de 65% a 70% para mejor contraste */
     --accent: 160 70% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 75% 55%;
@@ -97,7 +97,7 @@ body {
     --secondary: 200 40% 20%;
     --secondary-foreground: 180 30% 90%;
     --muted: 200 35% 25%;
-    --muted-foreground: 180 25% 70%;
+    --muted-foreground: 180 25% 75%; /* Ajustado para tema específico */
     --accent: 170 80% 40%; /* Bright cyan */
     --accent-foreground: 200 100% 5%;
     --destructive: 0 75% 55%;
@@ -135,7 +135,7 @@ body {
     --secondary: 25 20% 20%;
     --secondary-foreground: 35 80% 90%;
     --muted: 25 15% 25%;
-    --muted-foreground: 35 70% 70%;
+    --muted-foreground: 35 70% 75%; /* Ajustado para tema específico */
     --accent: 0 80% 60%; /* Vibrant Red */
     --accent-foreground: 35 100% 95%;
     --destructive: 0 75% 55%;
@@ -173,7 +173,7 @@ body {
     --secondary: 110 25% 20%;
     --secondary-foreground: 90 30% 90%;
     --muted: 110 20% 25%;
-    --muted-foreground: 90 25% 70%;
+    --muted-foreground: 90 25% 75%; /* Ajustado para tema específico */
     --accent: 40 60% 55%; /* Earthy brown/tan */
     --accent-foreground: 40 100% 10%;
     --destructive: 0 75% 55%;
@@ -211,7 +211,7 @@ body {
     --secondary: 240 3% 15%;
     --secondary-foreground: 0 0% 95%;
     --muted: 240 2% 20%;
-    --muted-foreground: 0 0% 65%;
+    --muted-foreground: 0 0% 70%; /* Ajustado para tema específico */
     --accent: 0 0% 50%; /* Medium gray */
     --accent-foreground: 0 0% 95%;
     --destructive: 0 75% 55%;
@@ -249,7 +249,7 @@ body {
     --secondary: 240 2% 18%;
     --secondary-foreground: 0 0% 90%;
     --muted: 240 2% 22%;
-    --muted-foreground: 0 0% 60%;
+    --muted-foreground: 0 0% 70%; /* Ajustado para tema específico */
     --accent: 15 80% 55%; /* Brighter, orangey-red */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
@@ -287,7 +287,7 @@ body {
     --secondary: 250 35% 92%;
     --secondary-foreground: 250 20% 30%;
     --muted: 250 30% 90%;
-    --muted-foreground: 250 15% 45%;
+    --muted-foreground: 250 15% 50%; /* Ajustado para tema específico */
     --accent: 300 70% 80%; /* Soft Pink */
     --accent-foreground: 260 50% 30%;
     --destructive: 0 84.2% 60.2%;
@@ -325,7 +325,7 @@ body {
     --secondary: 90 40% 94%;
     --secondary-foreground: 80 25% 25%;
     --muted: 90 40% 92%;
-    --muted-foreground: 80 20% 40%;
+    --muted-foreground: 80 20% 45%; /* Ajustado para tema específico */
     --accent: 50 90% 60%; /* Sunny Yellow */
     --accent-foreground: 70 40% 25%;
     --destructive: 0 84.2% 60.2%;
@@ -363,7 +363,7 @@ body {
     --secondary: 210 18% 25%;
     --secondary-foreground: 210 15% 85%;
     --muted: 210 15% 30%;
-    --muted-foreground: 210 15% 65%;
+    --muted-foreground: 210 15% 70%; /* Ajustado para tema específico */
     --accent: 190 60% 70%; /* Muted Cyan/Silver */
     --accent-foreground: 210 100% 5%;
     --destructive: 0 65% 55%;
@@ -401,7 +401,7 @@ body {
     --secondary: 40 25% 92%;
     --secondary-foreground: 30 20% 30%;
     --muted: 40 20% 90%;
-    --muted-foreground: 30 15% 45%;
+    --muted-foreground: 30 15% 50%; /* Ajustado para tema específico */
     --accent: 45 50% 60%; /* Warm Gold or Desaturated Green */
     --accent-foreground: 30 40% 15%;
     --destructive: 0 70% 50%;
@@ -439,7 +439,7 @@ body {
     --secondary: 270 10% 20%;
     --secondary-foreground: 45 50% 85%;
     --muted: 270 8% 25%;
-    --muted-foreground: 45 40% 70%;
+    --muted-foreground: 45 40% 75%; /* Ajustado para tema específico */
     --accent: 45 70% 60%; /* Rich Gold */
     --accent-foreground: 270 60% 15%;
     --destructive: 0 70% 50%;
@@ -477,7 +477,7 @@ body {
     --secondary: 340 50% 95%;
     --secondary-foreground: 340 30% 35%;
     --muted: 340 40% 92%;
-    --muted-foreground: 340 25% 50%;
+    --muted-foreground: 340 25% 55%; /* Ajustado para tema específico */
     --accent: 0 70% 60%; /* Cherry Red */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
