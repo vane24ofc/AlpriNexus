@@ -23,63 +23,67 @@ export default function EditCoursePage() {
   const [initialCourseData, setInitialCourseData] = useState<Course | undefined>(undefined);
 
   useEffect(() => {
-    if (courseId) {
-      setIsLoadingCourse(true);
-      try {
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        if (storedCourses) {
-          const courses: Course[] = JSON.parse(storedCourses);
-          const courseToEdit = courses.find(c => c.id === courseId);
-          if (courseToEdit) {
-            // Ensure lessons are in the correct format for the form
-            const formattedCourse = {
-              ...courseToEdit,
-              lessons: courseToEdit.lessons.map(l => ({
-                id: l.id,
-                title: l.title,
-                contentType: l.contentType || 'text',
-                content: l.content || '',
-                videoUrl: l.videoUrl || '',
-                quizPlaceholder: l.quizPlaceholder || ''
-              }))
-            };
-            setInitialCourseData(formattedCourse);
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Curso no encontrado",
-              description: "No se pudo encontrar el curso para editar en el almacenamiento local.",
-            });
-            // Redirect based on role if course not found
-             if (currentSessionRole === 'administrador') {
-                router.push('/dashboard/admin/courses');
-            } else if (currentSessionRole === 'instructor') {
-                router.push('/dashboard/instructor/my-courses');
+    const fetchCourseData = async () => {
+      if (courseId) {
+        setIsLoadingCourse(true);
+        // TODO: Reemplazar con llamada a API GET /api/courses/:courseId
+        // try {
+        //   const response = await fetch(`/api/courses/${courseId}`);
+        //   if (!response.ok) throw new Error('Curso no encontrado o fallo al obtenerlo');
+        //   const courseToEdit = await response.json();
+        //   setInitialCourseData(courseToEdit);
+        // } catch (error) {
+        //   console.error("Error cargando curso vía API:", error);
+        //   toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el curso." });
+        //   // Redirigir
+        // }
+
+        // Fallback a localStorage mientras la API no está lista
+        try {
+          const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+          if (storedCourses) {
+            const courses: Course[] = JSON.parse(storedCourses);
+            const courseToEdit = courses.find(c => c.id === courseId);
+            if (courseToEdit) {
+              const formattedCourse = {
+                ...courseToEdit,
+                lessons: courseToEdit.lessons.map(l => ({
+                  id: l.id,
+                  title: l.title,
+                  contentType: l.contentType || 'text',
+                  content: l.content || '',
+                  videoUrl: l.videoUrl || '',
+                  quizPlaceholder: l.quizPlaceholder || '',
+                  quizOptions: l.quizOptions || [],
+                  correctQuizOptionIndex: l.correctQuizOptionIndex
+                }))
+              };
+              setInitialCourseData(formattedCourse);
             } else {
-                router.push('/dashboard');
-            }
-          }
-        } else {
-             toast({
+              toast({
                 variant: "destructive",
-                title: "Datos no encontrados",
-                description: "No hay cursos guardados localmente para editar.",
-            });
-             if (currentSessionRole === 'administrador') {
-                router.push('/dashboard/admin/courses');
-            } else if (currentSessionRole === 'instructor') {
-                router.push('/dashboard/instructor/my-courses');
-            } else {
-                router.push('/dashboard');
+                title: "Curso no encontrado",
+                description: "No se pudo encontrar el curso para editar en el almacenamiento local.",
+              });
+              if (currentSessionRole === 'administrador') router.push('/dashboard/admin/courses');
+              else if (currentSessionRole === 'instructor') router.push('/dashboard/instructor/my-courses');
+              else router.push('/dashboard');
             }
+          } else {
+             toast({ variant: "destructive", title: "Datos no encontrados", description: "No hay cursos guardados localmente para editar." });
+             if (currentSessionRole === 'administrador') router.push('/dashboard/admin/courses');
+             else if (currentSessionRole === 'instructor') router.push('/dashboard/instructor/my-courses');
+             else router.push('/dashboard');
+          }
+        } catch (error) {
+          console.error("Error loading course for editing from localStorage:", error);
+          toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el curso para editar." });
+        } finally {
+          setIsLoadingCourse(false);
         }
-      } catch (error) {
-        console.error("Error loading course for editing from localStorage:", error);
-        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el curso para editar." });
-      } finally {
-        setIsLoadingCourse(false);
       }
-    }
+    };
+    fetchCourseData();
   }, [courseId, router, toast, currentSessionRole]);
 
   const handleSubmit = async (data: any, thumbnailUrlFromForm?: string) => {
@@ -91,8 +95,8 @@ export default function EditCoursePage() {
         return;
     }
     
-    const updatedCourse: Course = {
-      ...initialCourseData, // Preserve existing ID, instructorName
+    const updatedCourseData: Course = {
+      ...initialCourseData, 
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrlFromForm || initialCourseData.thumbnailUrl,
@@ -103,35 +107,42 @@ export default function EditCoursePage() {
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
         quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
+        quizOptions: lesson.quizOptions || [],
+        correctQuizOptionIndex: lesson.correctQuizOptionIndex,
       })),
       interactiveContent: data.interactiveContent,
-      dataAiHint: data.title.substring(0,20), // Update dataAiHint
-      // Admin can change status directly, instructor's edits might revert to 'pending'
-      status: currentSessionRole === 'administrador' ? (data.status || initialCourseData.status) : 'pending',
+      dataAiHint: data.title.substring(0,20), 
+      status: currentSessionRole === 'instructor' ? 'pending' : initialCourseData.status,
     };
-     // For instructors, if they edit an approved/rejected course, it should go back to pending.
-     // Admins can change status directly if we add a status field to CourseForm (not done yet).
-     // For now, admin edits retain original status unless explicitly changed.
-    if (currentSessionRole === 'instructor') {
-        updatedCourse.status = 'pending';
-    } else if (currentSessionRole === 'administrador') {
-        // If admin edits, keep existing status unless they specifically change it.
-        // (We haven't added a status field to the form for direct admin change yet)
-        updatedCourse.status = initialCourseData.status; 
-    }
 
+    // TODO: Reemplazar con llamada a API PUT /api/courses/:courseId
+    // try {
+    //   const response = await fetch(`/api/courses/${courseId}`, {
+    //     method: 'PUT',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify(updatedCourseData),
+    //   });
+    //   if (!response.ok) throw new Error('Fallo al actualizar el curso');
+    //   const updatedCourseAPI = await response.json();
+    //   toast({ title: "Curso Actualizado Exitosamente", description: `El curso "${updatedCourseAPI.title}" ha sido actualizado.` });
+    //   // Redirigir
+    // } catch (error) {
+    //   console.error("Error actualizando curso vía API:", error);
+    //   toast({ variant: "destructive", title: "Error de Actualización", description: "No se pudo actualizar el curso." });
+    // }
 
+    // Fallback a localStorage
     try {
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
         let courses: Course[] = storedCourses ? JSON.parse(storedCourses) : [];
         const courseIndex = courses.findIndex(c => c.id === courseId);
 
         if (courseIndex > -1) {
-            courses[courseIndex] = updatedCourse;
+            courses[courseIndex] = updatedCourseData;
             localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
             toast({
                 title: "Curso Actualizado Exitosamente",
-                description: `El curso "${updatedCourse.title}" ha sido actualizado localmente.`,
+                description: `El curso "${updatedCourseData.title}" ha sido actualizado localmente.`,
             });
         } else {
             toast({ variant: "destructive", title: "Error de Actualización", description: "No se encontró el curso para actualizar." });
@@ -162,7 +173,6 @@ export default function EditCoursePage() {
   }
 
   if (!initialCourseData) {
-    // Message already shown by useEffect if course not found
     return (
          <div className="flex h-screen flex-col items-center justify-center space-y-4">
             <p className="text-lg text-destructive">No se pudieron cargar los datos del curso para editar.</p>

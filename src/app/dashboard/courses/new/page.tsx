@@ -20,7 +20,7 @@ export default function CreateCoursePage() {
   const handleSubmit = async (data: any, thumbnailUrl?: string) => {
     setIsSubmitting(true);
     
-    const newCourse: Course = {
+    const newCourseData: Course = {
       id: crypto.randomUUID(), // Generate a unique ID
       title: data.title,
       description: data.description,
@@ -34,20 +34,42 @@ export default function CreateCoursePage() {
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
         quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
+        quizOptions: lesson.quizOptions || [],
+        correctQuizOptionIndex: lesson.correctQuizOptionIndex,
       })),
       interactiveContent: data.interactiveContent,
       dataAiHint: data.title.substring(0,20) // Simple data-ai-hint from title
     };
 
+    // TODO: Reemplazar con llamada a API POST /api/courses
+    // try {
+    //   const response = await fetch('/api/courses', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify(newCourseData),
+    //   });
+    //   if (!response.ok) throw new Error('Fallo al crear el curso');
+    //   const createdCourse = await response.json();
+    //   toast({
+    //     title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
+    //     description: `El curso "${createdCourse.title}" ha sido creado.`,
+    //   });
+    //   // Redirigir según el rol
+    // } catch (error) {
+    //   console.error("Error creando curso vía API:", error);
+    //   toast({ variant: "destructive", title: "Error de Creación", description: "No se pudo crear el curso." });
+    // }
+
+    // Fallback a localStorage mientras la API no está lista
     try {
       const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
       const courses: Course[] = storedCourses ? JSON.parse(storedCourses) : [];
-      courses.push(newCourse);
+      courses.push(newCourseData);
       localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
 
       toast({
         title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
-        description: `El curso "${newCourse.title}" ha sido ${currentSessionRole === 'instructor' ? 'enviado para su revisión' : 'creado y añadido localmente'}.`,
+        description: `El curso "${newCourseData.title}" ha sido ${currentSessionRole === 'instructor' ? 'enviado para su revisión' : 'creado y añadido localmente'}.`,
       });
 
       if (currentSessionRole === 'administrador') {
