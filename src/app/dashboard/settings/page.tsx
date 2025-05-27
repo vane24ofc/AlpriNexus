@@ -32,11 +32,13 @@ const VALID_THEME_CLASSES = [
   'theme-monochrome-midnight',
   'theme-crimson-night',
   'theme-lavender-haze',
-  'theme-spring-meadow'
+  'theme-spring-meadow',
+  'theme-steel-blue',
+  'theme-vintage-paper'
 ];
 
 interface ThemeOption {
-  id: string; // This will be the CSS class name
+  id: string; 
   name: string;
   previewColors: { bg: string; primary: string; accent: string; text: string };
 }
@@ -86,6 +88,16 @@ const themeOptions: ThemeOption[] = [
     id: 'theme-spring-meadow',
     name: 'Pradera Primaveral',
     previewColors: { bg: 'hsl(50 40% 97%)', primary: 'hsl(100 50% 50%)', accent: 'hsl(50 90% 60%)', text: 'hsl(80 25% 20%)' }
+  },
+  {
+    id: 'theme-steel-blue',
+    name: 'Acero Industrial (Oscuro)',
+    previewColors: { bg: 'hsl(210 20% 15%)', primary: 'hsl(210 70% 60%)', accent: 'hsl(190 60% 70%)', text: 'hsl(210 15% 85%)' }
+  },
+  {
+    id: 'theme-vintage-paper',
+    name: 'Pergamino Clásico (Claro)',
+    previewColors: { bg: 'hsl(40 30% 95%)', primary: 'hsl(30 30% 40%)', accent: 'hsl(45 50% 60%)', text: 'hsl(30 20% 25%)' }
   }
 ];
 
@@ -131,24 +143,19 @@ export default function SettingsPage() {
       });
     }
 
-    let initialTheme = 'dark'; // Default if nothing is stored or system has no preference for light
+    let initialTheme = 'dark'; 
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
     
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
-      // Check system preference only if no valid theme is stored
       if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
          initialTheme = 'theme-light';
       }
     }
     setActiveTheme(initialTheme);
-    // Ensure RootLayout also gets this initial theme on first load if localStorage was empty
     if (!storedTheme && typeof window !== 'undefined') {
       localStorage.setItem('nexusAlpriTheme', initialTheme);
-      // This relies on RootLayout also applying this theme on its initial load.
-      // A more robust solution might involve a shared context for theme if immediate sync across components is vital
-      // before RootLayout's own useEffect runs. For now, this setup should work for user interaction.
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       root.classList.add(initialTheme);
@@ -166,7 +173,7 @@ export default function SettingsPage() {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       
-      root.classList.add(newThemeId); // theme-light has its own class for consistency now
+      root.classList.add(newThemeId); 
       
       localStorage.setItem('nexusAlpriTheme', newThemeId);
       setActiveTheme(newThemeId); 
@@ -229,7 +236,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-3 space-y-6"> {/* Changed to lg:col-span-3 to allow full width */}
+        <div className="lg:col-span-3 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Información de la Cuenta</CardTitle>
@@ -410,18 +417,18 @@ export default function SettingsPage() {
                             key={theme.id}
                             variant="outline"
                             className={cn(
-                                "w-full justify-start py-4 transition-all text-left h-auto", // Added text-left and h-auto
+                                "w-full justify-start py-4 transition-all text-left h-auto", 
                                 activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                             )}
                             onClick={() => handleThemeChange(theme.id)}
                         >
                             <div className="flex items-center justify-between w-full">
-                                <span className="text-sm font-medium">{theme.name}</span> {/* Adjusted font size and weight */}
+                                <span className="text-sm font-medium">{theme.name}</span>
                                 <div className="flex space-x-1.5">
                                     {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
                                         <div
                                             key={key}
-                                            className="h-5 w-5 rounded-full border border-border/50" // Adjusted size and border
+                                            className="h-5 w-5 rounded-full border border-border/50"
                                             style={{ backgroundColor: color }}
                                             title={`${key}: ${color}`}
                                         />

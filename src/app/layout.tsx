@@ -20,7 +20,9 @@ const VALID_THEME_CLASSES = [
   'theme-monochrome-midnight',
   'theme-crimson-night',
   'theme-lavender-haze',
-  'theme-spring-meadow'
+  'theme-spring-meadow',
+  'theme-steel-blue',
+  'theme-vintage-paper'
 ];
 
 export default function RootLayout({
@@ -37,13 +39,9 @@ export default function RootLayout({
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
-      // Check system preference if no theme is stored or stored theme is invalid
       if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-         // If system prefers light and no valid theme is stored, set to 'theme-light'
-         // This ensures 'light' is explicitly 'theme-light' for CSS class logic
          initialTheme = 'theme-light'; 
       }
-      // If system prefers dark or no preference, it defaults to 'dark' (our initial state)
     }
     setTheme(initialTheme);
   }, []);
@@ -52,13 +50,9 @@ export default function RootLayout({
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
-        // Remove all known theme classes first
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
         
-        // Add the selected theme class
-        // The default light theme is applied by :root, so 'theme-light' class explicitly adds it.
-        // Other themes (dark, oceanic, etc.) will have their specific classes.
-        if (theme) { // Ensure theme is not empty or null
+        if (theme) { 
             root.classList.add(theme);
         }
     }
