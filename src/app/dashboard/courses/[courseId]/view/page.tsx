@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle, Award, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtube, Puzzle, Award, ClipboardCheck, AlertTriangle, X } from 'lucide-react';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -15,9 +15,8 @@ import { Progress } from '@/components/ui/progress';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
-const ENGAGEMENT_DURATION = 3000; // 3 segundos para simular compromiso
+const ENGAGEMENT_DURATION = 3000; 
 
-// Fallback if course not found in localStorage
 const fallbackSampleCourse: Course = {
     id: 'fallback-course',
     title: 'Curso de Ejemplo No Encontrado',
@@ -28,10 +27,17 @@ const fallbackSampleCourse: Course = {
     status: 'approved',
     lessons: [
       {id: 'l1-fallback', title: 'Lección de Ejemplo 1', contentType: 'text', content: 'Contenido de la lección de ejemplo.'},
-      {id: 'l2-fallback', title: 'Lección de Ejemplo 2 (Video)', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Descripción del video de ejemplo.', quizOptions: ['Op1', 'Op2']}
+      {id: 'l2-fallback', title: 'Lección de Ejemplo 2 (Video)', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Descripción del video de ejemplo.'}
     ],
     interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">No hay contenido interactivo para este curso de ejemplo.</p>'
 };
+
+interface QuizAttemptState {
+  started: boolean;
+  answered: boolean;
+  selectedOptionIndex: number | null;
+  isCorrect: boolean | null;
+}
 
 export default function StudentCourseViewPage() {
   const router = useRouter();
@@ -43,7 +49,7 @@ export default function StudentCourseViewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-  const [quizState, setQuizState] = useState<Record<string, { started: boolean; answered: boolean; selectedOption: string | null }>>({});
+  const [quizState, setQuizState] = useState<Record<string, QuizAttemptState>>({});
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
@@ -69,7 +75,7 @@ export default function StudentCourseViewPage() {
           const initialCompleted = storedCompletedLessons ? new Set<string>(JSON.parse(storedCompletedLessons)) : new Set<string>();
           setCompletedLessons(initialCompleted);
 
-          const initialQuizStateFromStorage: Record<string, { started: boolean; answered: boolean; selectedOption: string | null }> = {};
+          const initialQuizStateFromStorage: Record<string, QuizAttemptState> = {};
           const initialReadyForCompletionFromStorage = new Set<string>();
 
           foundCourse.lessons.forEach(lesson => {
@@ -78,8 +84,9 @@ export default function StudentCourseViewPage() {
               const storedQuizStateForLesson = localStorage.getItem(`${QUIZ_STATE_STORAGE_PREFIX}${lesson.id}`);
               if (storedQuizStateForLesson) {
                 try {
-                    initialQuizStateFromStorage[lesson.id] = JSON.parse(storedQuizStateForLesson);
-                    if (initialQuizStateFromStorage[lesson.id].answered) {
+                    const parsedState = JSON.parse(storedQuizStateForLesson) as QuizAttemptState;
+                    initialQuizStateFromStorage[lesson.id] = parsedState;
+                    if (parsedState.answered) {
                         initialReadyForCompletionFromStorage.add(lesson.id);
                     }
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
@@ -87,7 +94,8 @@ export default function StudentCourseViewPage() {
                  initialQuizStateFromStorage[lesson.id] = {
                     started: isLessonCompleted, 
                     answered: isLessonCompleted,
-                    selectedOption: isLessonCompleted ? 'Simulado' : null
+                    selectedOptionIndex: null, // No way to know selected option if just marked complete
+                    isCorrect: null,
                 };
               }
               if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { 
@@ -155,7 +163,7 @@ export default function StudentCourseViewPage() {
         localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
 
         if (course && newSet.size === course.lessons.length) {
-            toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000 });
+            toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground" });
             const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_STORAGE_KEY) || '[]');
             if (!globalCompleted.includes(courseId)) {
                 globalCompleted.push(courseId);
@@ -189,19 +197,25 @@ export default function StudentCourseViewPage() {
   };
 
   const handleStartQuiz = (lessonId: string) => {
-    setQuizState(prev => {
-      const newState = { ...prev, [lessonId]: { started: true, answered: false, selectedOption: null } };
-      localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
-      return newState;
-    });
+    const currentQuiz = quizState[lessonId] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
+    if (currentQuiz.answered) return; // Don't restart if already answered
+
+    const newState = { ...quizState, [lessonId]: { ...currentQuiz, started: true } };
+    setQuizState(newState);
+    localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
   };
 
-  const handleAnswerQuiz = (lessonId: string, option: string) => {
-    setQuizState(prev => {
-      const newState = { ...prev, [lessonId]: { ...prev[lessonId], started: true, answered: true, selectedOption: option } };
-      localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
-      return newState;
-    });
+  const handleAnswerQuiz = (lessonId: string, selectedOptionIndex: number) => {
+    const lesson = course?.lessons.find(l => l.id === lessonId);
+    if (!lesson || !lesson.quizOptions || lesson.correctQuizOptionIndex === undefined) return;
+
+    const isCorrect = selectedOptionIndex === lesson.correctQuizOptionIndex;
+    const newState = {
+        ...quizState,
+        [lessonId]: { started: true, answered: true, selectedOptionIndex, isCorrect }
+    };
+    setQuizState(newState);
+    localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
 
     setLessonsReadyForCompletion(prev => {
         const newSet = new Set(prev);
@@ -209,10 +223,13 @@ export default function StudentCourseViewPage() {
         return newSet;
     });
     toast({
-        title: "Respuesta Registrada",
-        description: `Has seleccionado ${option}. ¡Buen trabajo!`,
+        title: isCorrect ? "¡Respuesta Correcta!" : "Respuesta Incorrecta",
+        description: isCorrect ? `Has seleccionado la opción correcta. ¡Buen trabajo!` : `Has seleccionado ${lesson.quizOptions[selectedOptionIndex]}. La respuesta correcta era: ${lesson.quizOptions[lesson.correctQuizOptionIndex]}`,
+        variant: isCorrect ? "default" : "destructive",
+        className: isCorrect ? "bg-green-500 border-green-600 text-white" : "",
     });
   };
+
 
   const handleAccordionChange = (value: string | undefined) => {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
@@ -248,9 +265,9 @@ export default function StudentCourseViewPage() {
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
-    const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => opt.trim() !== '').length > 0) 
-        ? lesson.quizOptions.filter(opt => opt.trim() !== '')
+    const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
+    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '').length > 0) 
+        ? lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '')
         : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
 
 
@@ -260,10 +277,10 @@ export default function StudentCourseViewPage() {
         return (
           <div className="space-y-3">
             {isYouTubeEmbed ? (
-              <div className="aspect-video bg-muted rounded-md overflow-hidden shadow-inner">
+              <div className="bg-muted rounded-md overflow-hidden shadow-inner">
                 <iframe
                   width="100%"
-                  height="100%"
+                  style={{ aspectRatio: '16/9' }}
                   src={lesson.videoUrl}
                   title={`Video: ${lesson.title}`}
                   frameBorder="0"
@@ -289,11 +306,10 @@ export default function StudentCourseViewPage() {
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
             <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
-            {!currentQuizData.started && !currentQuizData.answered ? (
+            {!currentQuizData.started && !completedLessons.has(lesson.id) ? (
               <Button
                 variant="outline"
                 onClick={() => handleStartQuiz(lesson.id)}
-                disabled={completedLessons.has(lesson.id)}
                 className="bg-card hover:bg-card/90"
               >
                 Comenzar Quiz
@@ -301,20 +317,44 @@ export default function StudentCourseViewPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex flex-col gap-2">
-                  {quizOptionsToDisplay.map((option, index) => (
-                    <Button
-                      key={index}
-                      variant={currentQuizData.selectedOption === option ? 'default' : 'outline'}
-                      onClick={() => handleAnswerQuiz(lesson.id, option)}
-                      disabled={currentQuizData.answered || completedLessons.has(lesson.id)}
-                      className={`w-full justify-start ${currentQuizData.selectedOption === option ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-card hover:bg-card/90'}`}
-                    >
-                      {currentQuizData.selectedOption === option && <CheckCircle className="mr-2 h-4 w-4" />}
-                      {option}
-                    </Button>
-                  ))}
+                  {quizOptionsToDisplay.map((option, index) => {
+                    let buttonVariant: "default" | "outline" | "destructive" | "secondary" = "outline";
+                    let icon = null;
+                    if (currentQuizData.answered) {
+                        if (currentQuizData.selectedOptionIndex === index) {
+                            buttonVariant = currentQuizData.isCorrect ? "default" : "destructive";
+                            icon = currentQuizData.isCorrect ? <CheckCircle className="mr-2 h-4 w-4" /> : <X className="mr-2 h-4 w-4" />;
+                        } else if (lesson.correctQuizOptionIndex === index) {
+                            buttonVariant = "default"; // Show correct answer if a wrong one was selected
+                            icon = <CheckCircle className="mr-2 h-4 w-4" />;
+                        }
+                    } else if (currentQuizData.selectedOptionIndex === index) {
+                        buttonVariant = "secondary"; // Temporarily selected, not yet confirmed
+                    }
+                    return (
+                        <Button
+                            key={index}
+                            variant={buttonVariant}
+                            onClick={() => !currentQuizData.answered && handleAnswerQuiz(lesson.id, index)}
+                            disabled={currentQuizData.answered || completedLessons.has(lesson.id)}
+                            className={`w-full justify-start 
+                                ${buttonVariant === "default" && currentQuizData.isCorrect ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                                ${buttonVariant === "default" && lesson.correctQuizOptionIndex === index && currentQuizData.selectedOptionIndex !== index ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                                ${buttonVariant === "destructive" ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                                ${buttonVariant === "outline" ? 'bg-card hover:bg-card/90' : ''}
+                            `}
+                        >
+                        {icon}
+                        {option}
+                        </Button>
+                    );
+                   })}
                 </div>
-                {currentQuizData.answered && <p className="text-xs text-accent mt-2">Tu respuesta ha sido registrada. ¡Buen trabajo!</p>}
+                {currentQuizData.answered && (
+                    <p className={`text-xs mt-2 font-medium ${currentQuizData.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {currentQuizData.isCorrect ? "¡Correcto! Tu respuesta ha sido registrada." : `Incorrecto. La respuesta correcta era: ${lesson.quizOptions ? lesson.quizOptions[lesson.correctQuizOptionIndex ?? 0] : '' }`}
+                    </p>
+                )}
               </div>
             )}
           </div>
@@ -341,9 +381,10 @@ export default function StudentCourseViewPage() {
   if (!course) { 
     return (
       <div className="text-center py-10">
-        <h1 className="text-2xl font-semibold">Curso no encontrado</h1>
+        <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <h1 className="text-2xl font-semibold text-destructive">Curso no encontrado</h1>
         <p className="text-muted-foreground">El curso que buscas no existe o ha sido eliminado.</p>
-        <Button onClick={() => router.back()} className="mt-4">
+        <Button onClick={() => router.back()} className="mt-6">
           <ArrowLeft className="mr-2 h-4 w-4" /> Volver
         </Button>
       </div>
@@ -353,7 +394,7 @@ export default function StudentCourseViewPage() {
   return (
     <div className="space-y-6">
       <Button variant="outline" onClick={() => router.back()} className="mb-2">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Volver a Mis Cursos
+        <ArrowLeft className="mr-2 h-4 w-4" /> Volver
       </Button>
 
       <Card className="shadow-xl overflow-hidden">
@@ -476,7 +517,6 @@ export default function StudentCourseViewPage() {
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center pt-6">
-                {/* SVG Container - Normal flow, centered, with negative top margin to pull it up slightly */}
                 <div className="relative w-32 h-32 mx-auto -mt-4"> 
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
@@ -496,14 +536,12 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
-                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                {/* Status Text Paragraph */}
                 <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
@@ -524,3 +562,4 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
