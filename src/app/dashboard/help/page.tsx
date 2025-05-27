@@ -83,7 +83,7 @@ export default function HelpPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <p className="text-sm">Si necesitas asistencia personalizada, puedes enviarnos un correo a:</p>
-            <p className="font-semibold text-primary">soporte@alprinexus.com</p>
+            <p className="font-semibold text-primary">desarrolloalprigrama@gmail.com</p>
             <p className="text-xs text-muted-foreground">Nuestro equipo de soporte te responderá lo antes posible (Horario de atención: Lunes a Viernes, 9 AM - 5 PM GMT-5).</p>
           </CardContent>
         </Card>
