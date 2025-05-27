@@ -96,11 +96,12 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }
 export default function AdminCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const initialSearchTerm = searchParams.get('search') || '';
   
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -108,14 +109,14 @@ export default function AdminCoursesPage() {
     try {
       const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
       if (storedCourses) {
-        setCourses(JSON.parse(storedCourses));
+        setAllCourses(JSON.parse(storedCourses));
       } else {
-        setCourses(initialSeedCourses);
+        setAllCourses(initialSeedCourses);
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
       }
     } catch (error) {
-      console.error("Error loading courses from localStorage:", error);
-      setCourses(initialSeedCourses); 
+      console.error("Error cargando cursos desde localStorage:", error);
+      setAllCourses(initialSeedCourses); 
       localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
     }
     setIsLoading(false);
@@ -130,11 +131,11 @@ export default function AdminCoursesPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!isLoading && courses.length > 0) { 
+    if (!isLoading && allCourses.length > 0) { 
         try {
-            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
+            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(allCourses));
         } catch (error) {
-            console.error("Error saving courses to localStorage:", error);
+            console.error("Error guardando cursos en localStorage:", error);
             toast({
                 variant: "destructive",
                 title: "Error de Guardado Local",
@@ -142,12 +143,12 @@ export default function AdminCoursesPage() {
             })
         }
     }
-  }, [courses, isLoading, toast]);
+  }, [allCourses, isLoading, toast]);
 
 
   const handleCourseAction = (courseId: string, newStatus: 'approved' | 'rejected') => {
-    setCourses(prevCourses => prevCourses.map(c => c.id === courseId ? { ...c, status: newStatus } : c));
-    const course = courses.find(c => c.id === courseId);
+    setAllCourses(prevCourses => prevCourses.map(c => c.id === courseId ? { ...c, status: newStatus } : c));
+    const course = allCourses.find(c => c.id === courseId);
     toast({
       title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
       description: `El curso "${course?.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
@@ -157,8 +158,8 @@ export default function AdminCoursesPage() {
   };
 
   const handleDeleteCourse = (courseId: string) => {
-    const courseTitle = courses.find(c => c.id === courseId)?.title;
-    setCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
+    const courseTitle = allCourses.find(c => c.id === courseId)?.title;
+    setAllCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
      toast({
       title: "Curso Eliminado",
       description: `El curso "${courseTitle}" ha sido eliminado.`,
@@ -175,17 +176,17 @@ export default function AdminCoursesPage() {
 
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
-      return courses;
+      return allCourses;
     }
     const lowercasedSearchTerm = searchTerm.toLowerCase();
-    return courses.filter(course =>
+    return allCourses.filter(course =>
       course.title.toLowerCase().includes(lowercasedSearchTerm) ||
       (course.instructorName && course.instructorName.toLowerCase().includes(lowercasedSearchTerm)) ||
       (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
     );
-  }, [courses, searchTerm]);
+  }, [allCourses, searchTerm]);
 
-  const renderCourseTable = (courseList: Course[], emptyMessage: string) => {
+  const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
     if (isLoading) {
         return (
             <div className="flex justify-center items-center py-8">
@@ -195,7 +196,7 @@ export default function AdminCoursesPage() {
         );
     }
     if (courseList.length === 0) {
-      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
+      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos ${tabName} para "${searchTerm}".` : emptyMessage}</p>;
     }
     return (
       <div className="overflow-x-auto">
@@ -217,9 +218,9 @@ export default function AdminCoursesPage() {
     );
   };
 
-  const pendingCourses = filteredCourses.filter(c => c.status === 'pending');
-  const publishedCourses = filteredCourses.filter(c => c.status === 'approved');
-  const rejectedCourses = filteredCourses.filter(c => c.status === 'rejected');
+  const pendingCourses = useMemo(() => filteredCourses.filter(c => c.status === 'pending'), [filteredCourses]);
+  const publishedCourses = useMemo(() => filteredCourses.filter(c => c.status === 'approved'), [filteredCourses]);
+  const rejectedCourses = useMemo(() => filteredCourses.filter(c => c.status === 'rejected'), [filteredCourses]);
 
   return (
     <div className="space-y-6">
@@ -228,7 +229,6 @@ export default function AdminCoursesPage() {
           <BookOpen className="mr-3 h-8 w-8 text-primary" />
           Gestión de Cursos
         </h1>
-        {/* Botón "Crear Nuevo Curso" eliminado de aquí */}
       </div>
 
        <Card className="shadow-md">
@@ -258,7 +258,7 @@ export default function AdminCoursesPage() {
           <TabsTrigger value="published" disabled={isLoading}>
             Publicados ({isLoading ? '...' : publishedCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex" disabled={isLoading}>
+          <TabsTrigger value="rejected" className="flex items-center justify-center" disabled={isLoading}>
             Rechazados ({isLoading ? '...' : rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
@@ -270,7 +270,7 @@ export default function AdminCoursesPage() {
               <CardDescription>Cursos enviados por instructores que esperan tu aprobación.</CardDescription>
             </CardHeader>
             <CardContent>
-              {renderCourseTable(pendingCourses, "No hay cursos pendientes de revisión.")}
+              {renderCourseTable(pendingCourses, "pendientes", "No hay cursos pendientes de revisión.")}
             </CardContent>
           </Card>
         </TabsContent>
@@ -282,7 +282,7 @@ export default function AdminCoursesPage() {
               <CardDescription>Cursos actualmente disponibles en la plataforma.</CardDescription>
             </CardHeader>
             <CardContent>
-              {renderCourseTable(publishedCourses, "No hay cursos publicados.")}
+              {renderCourseTable(publishedCourses, "publicados", "No hay cursos publicados.")}
             </CardContent>
           </Card>
         </TabsContent>
@@ -294,7 +294,7 @@ export default function AdminCoursesPage() {
               <CardDescription>Cursos que han sido revisados y no aprobados. Puedes aprobarlos desde aquí si es necesario.</CardDescription>
             </CardHeader>
             <CardContent>
-              {renderCourseTable(rejectedCourses, "No hay cursos rechazados.")}
+              {renderCourseTable(rejectedCourses, "rechazados", "No hay cursos rechazados.")}
             </CardContent>
           </Card>
         </TabsContent>
