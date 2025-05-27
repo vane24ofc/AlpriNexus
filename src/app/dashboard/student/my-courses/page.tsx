@@ -7,8 +7,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; 
-import type { Course } from '@/types/course'; 
+import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react';
+import type { Course } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -24,10 +24,10 @@ import { useToast } from '@/hooks/use-toast';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds'; // For globally completed courses
-const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_'; // For lesson progress within a course
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
 
-const initialSeedCoursesForStudent: Course[] = [ 
+const initialSeedCoursesForStudent: Course[] = [
   { id: 'studentSeed1', title: 'Fundamentos de Programación (Seed)', description: 'Aprende a programar.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Codes', status: 'approved', lessons: [{id: 'l1-sseed1', title: 'Intro Prog Seed'}], dataAiHint: 'programming basics' },
 ];
 
@@ -73,12 +73,12 @@ const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ cour
           <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className={`h-2 ${course.isCompleted ? "[&>div]:bg-accent" : ""}`} />
         </div>
         {course.isCompleted ? (
-             <Button onClick={() => onCertificateClick(course.title)} className="w-full bg-primary hover:bg-primary/90">
+             <Button onClick={() => onCertificateClick(course.title)} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
                 <Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)
             </Button>
         ) : (
             <Button asChild className="w-full bg-primary hover:bg-primary/90">
-                <Link href={`/dashboard/courses/${course.id}/view`}> 
+                <Link href={`/dashboard/courses/${course.id}/view`}>
                     {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'}
                     <Zap className="ml-2 h-4 w-4" />
                 </Link>
@@ -88,6 +88,7 @@ const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ cour
     </Card>
   );
 });
+MemoizedEnrolledCourseCard.displayName = 'MemoizedEnrolledCourseCard';
 
 
 export default function MyEnrolledCoursesPage() {
@@ -98,90 +99,124 @@ export default function MyEnrolledCoursesPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    setIsLoading(true);
-    let allAvailableCourses: Course[] = [];
-    try {
-      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-      if (storedCourses) {
-        const parsedCourses = JSON.parse(storedCourses);
-        if (Array.isArray(parsedCourses)) {
-          allAvailableCourses = parsedCourses;
-        } else {
-           allAvailableCourses = initialSeedCoursesForStudent; 
-           localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
-        }
-      } else {
-        allAvailableCourses = initialSeedCoursesForStudent; 
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
-      }
-    } catch (error) {
-      console.error("Error loading all courses from localStorage:", error);
-      allAvailableCourses = initialSeedCoursesForStudent; 
-    }
+    const loadEnrolledCourses = async () => {
+      setIsLoading(true);
+      let coursesToDisplay: EnrolledCourseDisplay[] = [];
 
-    const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-    let enrolledIds: Set<string> = new Set();
+      // TODO: API Call - GET /api/me/enrolled-courses (or similar)
+      // This API should return the list of courses the student is enrolled in,
+      // ideally including their progress and completion status.
+      // For now, we simulate this by reading from localStorage.
 
-    if (storedEnrolledIdsString) {
       try {
-        const parsedIds = JSON.parse(storedEnrolledIdsString);
-        if (Array.isArray(parsedIds)) {
-          enrolledIds = new Set(parsedIds);
-        }
-      } catch (error) {
-        console.error("Error al parsear IDs de cursos inscritos desde localStorage:", error);
-      }
-    }
+        let allAvailableCourses: Course[] = [];
+        // const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        // if (storedCourses) {
+        //   const parsedCourses = JSON.parse(storedCourses);
+        //   if (Array.isArray(parsedCourses)) {
+        //     allAvailableCourses = parsedCourses;
+        //   } else {
+        //      allAvailableCourses = initialSeedCoursesForStudent;
+        //      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
+        //   }
+        // } else {
+        //   allAvailableCourses = initialSeedCoursesForStudent;
+        //   localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
+        // }
 
-    const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
-    let completedIds: Set<string> = new Set();
-    if (storedCompletedIdsString) {
-        try {
-            const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
-            if (Array.isArray(parsedCompletedIds)) {
-                completedIds = new Set(parsedCompletedIds);
-            }
-        } catch (error) {
-            console.error("Error al parsear IDs de cursos completados desde localStorage:", error);
-        }
-    }
-
-    const coursesToDisplay = allAvailableCourses
-      .filter(course => enrolledIds.has(course.id) && course.status === 'approved') 
-      .map(course => {
-        const isCompleted = completedIds.has(course.id);
-        let progress = 0;
-        if (isCompleted) {
-            progress = 100;
+        // Fallback to localStorage while API is not ready
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        if (storedCourses) {
+          allAvailableCourses = JSON.parse(storedCourses);
         } else {
-            const courseLessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
-            const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
-            if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
-                try {
-                    const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
-                    progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-                } catch (e) {
-                    // Fallback to a random progress if parsing fails or for courses without lesson structure
-                    progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
-                }
-            } else if (course.lessons && course.lessons.length > 0) {
-                 progress = 0; 
-            } else {
-                // For courses without lessons, simulate some progress if not marked completed
-                progress = Math.floor(Math.random() * 99); 
-            }
+          allAvailableCourses = initialSeedCoursesForStudent;
+          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
         }
 
-        return {
-          ...course,
-          instructorName: course.instructorName || "Instructor Desconocido",
-          progress: progress,
-          isCompleted: isCompleted,
-        };
-      });
-      
-    setEnrolledCourses(coursesToDisplay);
-    setIsLoading(false);
+
+        let enrolledIds: Set<string> = new Set();
+        // const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+        // if (storedEnrolledIdsString) {
+        //   const parsedIds = JSON.parse(storedEnrolledIdsString);
+        //   if (Array.isArray(parsedIds)) {
+        //     enrolledIds = new Set(parsedIds);
+        //   }
+        // }
+
+        // Fallback to localStorage
+        const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+        if (storedEnrolledIdsString) {
+            enrolledIds = new Set(JSON.parse(storedEnrolledIdsString));
+        }
+
+
+        let completedIds: Set<string> = new Set();
+        // const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
+        // if (storedCompletedIdsString) {
+        //     const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
+        //     if (Array.isArray(parsedCompletedIds)) {
+        //         completedIds = new Set(parsedCompletedIds);
+        //     }
+        // }
+        // Fallback to localStorage
+        const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
+        if (storedCompletedIdsString) {
+            completedIds = new Set(JSON.parse(storedCompletedIdsString));
+        }
+
+
+        coursesToDisplay = allAvailableCourses
+          .filter(course => enrolledIds.has(course.id) && course.status === 'approved')
+          .map(course => {
+            const isCompleted = completedIds.has(course.id);
+            let progress = 0;
+
+            // TODO: API should provide progress or completed lessons
+            // For now, simulate from localStorage
+            if (isCompleted) {
+                progress = 100;
+            } else {
+                const courseLessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
+                const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
+                if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
+                    try {
+                        const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
+                        progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
+                    } catch (e) {
+                        progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
+                    }
+                } else if (course.lessons && course.lessons.length > 0) {
+                     progress = 0;
+                } else {
+                    progress = Math.floor(Math.random() * 99);
+                }
+            }
+
+            return {
+              ...course,
+              instructorName: course.instructorName || "Instructor Desconocido",
+              progress: progress,
+              isCompleted: isCompleted,
+            };
+          });
+
+      } catch (error) {
+        console.error("Error loading enrolled courses (simulated):", error);
+        toast({
+          variant: "destructive",
+          title: "Error al Cargar Cursos",
+          description: "No se pudieron cargar tus cursos inscritos. Se muestran datos de ejemplo.",
+        });
+        // Fallback to very basic example if all else fails
+        coursesToDisplay = initialSeedCoursesForStudent.map(c => ({...c, progress: 10, isCompleted: false}));
+      }
+
+      setEnrolledCourses(coursesToDisplay);
+      setIsLoading(false);
+    };
+
+    loadEnrolledCourses();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleCertificateClick = useCallback((courseTitle: string) => {
@@ -193,7 +228,7 @@ export default function MyEnrolledCoursesPage() {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-3 text-lg">Cargando tus cursos...</p>
+        <p className="ml-3 text-lg">Cargando tus cursos inscritos...</p>
       </div>
     );
   }
@@ -221,9 +256,9 @@ export default function MyEnrolledCoursesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {enrolledCourses.map((course) => (
-            <MemoizedEnrolledCourseCard 
-                key={course.id} 
-                course={course} 
+            <MemoizedEnrolledCourseCard
+                key={course.id}
+                course={course}
                 onCertificateClick={handleCertificateClick}
             />
           ))}
