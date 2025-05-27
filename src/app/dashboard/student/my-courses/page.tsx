@@ -10,10 +10,22 @@ import { Progress } from '@/components/ui/progress';
 import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react'; 
 import type { Course } from '@/types/course'; 
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds'; // For globally completed courses
+const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_'; // For lesson progress within a course
 
 const initialSeedCoursesForStudent: Course[] = [ 
   { id: 'studentSeed1', title: 'Fundamentos de Programación (Seed)', description: 'Aprende a programar.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Codes', status: 'approved', lessons: [{id: 'l1-sseed1', title: 'Intro Prog Seed'}], dataAiHint: 'programming basics' },
@@ -81,6 +93,9 @@ const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ cour
 export default function MyEnrolledCoursesPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCertificateDialogOpen, setIsCertificateDialogOpen] = useState(false);
+  const [certificateCourseTitle, setCertificateCourseTitle] = useState('');
+  const { toast } = useToast();
 
   useEffect(() => {
     setIsLoading(true);
@@ -88,7 +103,13 @@ export default function MyEnrolledCoursesPage() {
     try {
       const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
       if (storedCourses) {
-        allAvailableCourses = JSON.parse(storedCourses);
+        const parsedCourses = JSON.parse(storedCourses);
+        if (Array.isArray(parsedCourses)) {
+          allAvailableCourses = parsedCourses;
+        } else {
+           allAvailableCourses = initialSeedCoursesForStudent; 
+           localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
+        }
       } else {
         allAvailableCourses = initialSeedCoursesForStudent; 
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
@@ -133,25 +154,27 @@ export default function MyEnrolledCoursesPage() {
         if (isCompleted) {
             progress = 100;
         } else {
-            const courseLessonProgressKey = `${COMPLETED_COURSES_KEY}_${course.id}`;
+            const courseLessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
             const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
             if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
                 try {
                     const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
                     progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
                 } catch (e) {
-                    progress = Math.floor(Math.random() * 99); 
+                    // Fallback to a random progress if parsing fails or for courses without lesson structure
+                    progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
                 }
             } else if (course.lessons && course.lessons.length > 0) {
                  progress = 0; 
             } else {
+                // For courses without lessons, simulate some progress if not marked completed
                 progress = Math.floor(Math.random() * 99); 
             }
         }
 
         return {
           ...course,
-          instructorName: course.instructorName,
+          instructorName: course.instructorName || "Instructor Desconocido",
           progress: progress,
           isCompleted: isCompleted,
         };
@@ -162,7 +185,8 @@ export default function MyEnrolledCoursesPage() {
   }, []);
 
   const handleCertificateClick = useCallback((courseTitle: string) => {
-    alert(`¡Felicidades! Aquí se mostraría tu certificado para el curso "${courseTitle}".`);
+    setCertificateCourseTitle(courseTitle);
+    setIsCertificateDialogOpen(true);
   }, []);
 
   if (isLoading) {
@@ -205,9 +229,24 @@ export default function MyEnrolledCoursesPage() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={isCertificateDialogOpen} onOpenChange={setIsCertificateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+                <Award className="mr-2 h-6 w-6 text-accent" />
+                ¡Felicidades!
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Has completado el curso "{certificateCourseTitle}". Aquí se mostraría tu certificado digital.
+              Esta es una simulación, ¡pero tu esfuerzo es real!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setIsCertificateDialogOpen(false)}>Entendido</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
-
-
-    
