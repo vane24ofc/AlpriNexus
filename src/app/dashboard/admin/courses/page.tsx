@@ -10,7 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2 } from 'lucide-react';
+import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,6 +35,7 @@ import { Input } from '@/components/ui/input';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
+// Datos de ejemplo si localStorage está vacío
 const initialSeedCourses: Course[] = [
   { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
   { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
@@ -65,32 +74,48 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }
           {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
         </Badge>
       </TableCell>
-      <TableCell className="text-right space-x-1 md:space-x-0">
-        {(course.status === 'pending' || course.status === 'rejected') && (
-          <Button variant="outline" size="sm" onClick={() => onOpenDialog(course, 'approve')} className="mr-1" title="Aprobar Curso">
-            <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
-          </Button>
-        )}
-        {course.status === 'pending' && (
-          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => onOpenDialog(course, 'reject')} title="Rechazar Curso">
-            <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
-          </Button>
-        )}
-         <Button variant="ghost" size="icon" asChild title="Ver Curso">
-            <Link href={`/dashboard/courses/${course.id}/view`}>
-                <Eye className="h-4 w-4" />
-            </Link>
-        </Button>
-         <Button variant="ghost" size="icon" asChild title="Editar Curso">
-          <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
-        </Button>
-         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onOpenDialog(course, 'delete')} title="Eliminar Curso">
-          <Trash2 className="h-4 w-4" />
-        </Button>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Más acciones</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/courses/${course.id}/view`}>
+                <Eye className="mr-2 h-4 w-4" /> Ver Curso
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/courses/${course.id}/edit`}>
+                <Edit3 className="mr-2 h-4 w-4" /> Editar Curso
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {(course.status === 'pending' || course.status === 'rejected') && (
+              <DropdownMenuItem onClick={() => onOpenDialog(course, 'approve')}>
+                <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Aprobar Curso
+              </DropdownMenuItem>
+            )}
+            {course.status === 'pending' && (
+              <DropdownMenuItem onClick={() => onOpenDialog(course, 'reject')}>
+                <XCircle className="mr-2 h-4 w-4 text-orange-500" /> Rechazar Curso
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onOpenDialog(course, 'delete')} className="text-destructive hover:!text-destructive focus:!text-destructive">
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar Curso
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
 });
+MemoizedCourseRow.displayName = 'MemoizedCourseRow';
 
 
 export default function AdminCoursesPage() {
@@ -315,11 +340,12 @@ export default function AdminCoursesPage() {
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
+                  if (!courseToModify) return;
                   if (actionType === 'approve') handleCourseAction(courseToModify.id, 'approved');
                   if (actionType === 'reject') handleCourseAction(courseToModify.id, 'rejected');
                   if (actionType === 'delete') handleDeleteCourse(courseToModify.id);
                 }}
-                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'approve' ? 'bg-accent hover:bg-accent/90 text-accent-foreground' : '')}
+                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'approve' ? 'bg-green-500 hover:bg-green-600 text-white' : '')}
               >
                 {actionType === 'approve' && 'Aprobar'}
                 {actionType === 'reject' && 'Rechazar'}
