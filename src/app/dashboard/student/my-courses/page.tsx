@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
-const initialSeedCoursesForStudent: Course[] = [ // Fallback if localStorage is empty or for initial course list
+const initialSeedCoursesForStudent: Course[] = [ 
   { id: 'studentSeed1', title: 'Fundamentos de Programación (Seed)', description: 'Aprende a programar.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Codes', status: 'approved', lessons: [{id: 'l1-sseed1', title: 'Intro Prog Seed'}], dataAiHint: 'programming basics' },
 ];
 
@@ -23,6 +23,60 @@ interface EnrolledCourseDisplay extends Course {
   progress: number;
   isCompleted: boolean;
 }
+
+interface EnrolledCourseCardProps {
+  course: EnrolledCourseDisplay;
+  onCertificateClick: (courseTitle: string) => void;
+}
+
+const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ course, onCertificateClick }: EnrolledCourseCardProps) {
+  return (
+    <Card className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
+      <div className="relative w-full h-48">
+        <Image
+          src={course.thumbnailUrl}
+          alt={course.title}
+          fill
+          style={{ objectFit: 'cover' }}
+          className="bg-muted"
+          data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
+        />
+        {course.isCompleted && (
+            <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground flex items-center">
+                <CheckCircle className="mr-1 h-3.5 w-3.5" />
+                Completado
+            </Badge>
+        )}
+      </div>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
+        <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-end">
+        <div className="mb-3">
+          <div className="flex justify-between text-xs text-muted-foreground mb-1">
+            <span>Progreso</span>
+            <span>{course.progress}%</span>
+          </div>
+          <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className={`h-2 ${course.isCompleted ? "[&>div]:bg-accent" : ""}`} />
+        </div>
+        {course.isCompleted ? (
+             <Button onClick={() => onCertificateClick(course.title)} className="w-full bg-primary hover:bg-primary/90">
+                <Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)
+            </Button>
+        ) : (
+            <Button asChild className="w-full bg-primary hover:bg-primary/90">
+                <Link href={`/dashboard/courses/${course.id}/view`}> 
+                    {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'}
+                    <Zap className="ml-2 h-4 w-4" />
+                </Link>
+            </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
+
 
 export default function MyEnrolledCoursesPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseDisplay[]>([]);
@@ -36,12 +90,12 @@ export default function MyEnrolledCoursesPage() {
       if (storedCourses) {
         allAvailableCourses = JSON.parse(storedCourses);
       } else {
-        allAvailableCourses = initialSeedCoursesForStudent; // Fallback to seed if no courses in global storage
+        allAvailableCourses = initialSeedCoursesForStudent; 
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
       }
     } catch (error) {
       console.error("Error loading all courses from localStorage:", error);
-      allAvailableCourses = initialSeedCoursesForStudent; // Fallback
+      allAvailableCourses = initialSeedCoursesForStudent; 
     }
 
     const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
@@ -107,9 +161,9 @@ export default function MyEnrolledCoursesPage() {
     setIsLoading(false);
   }, []);
 
-  const handleCertificateClick = (courseTitle: string) => {
+  const handleCertificateClick = useCallback((courseTitle: string) => {
     alert(`¡Felicidades! Aquí se mostraría tu certificado para el curso "${courseTitle}".`);
-  };
+  }, []);
 
   if (isLoading) {
     return (
@@ -143,52 +197,17 @@ export default function MyEnrolledCoursesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {enrolledCourses.map((course) => (
-            <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
-              <div className="relative w-full h-48">
-                <Image
-                  src={course.thumbnailUrl}
-                  alt={course.title}
-                  fill
-                  style={{ objectFit: 'cover' }}
-                  className="bg-muted"
-                  data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
-                />
-                {course.isCompleted && (
-                    <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground flex items-center">
-                        <CheckCircle className="mr-1 h-3.5 w-3.5" />
-                        Completado
-                    </Badge>
-                )}
-              </div>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
-                <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-grow flex flex-col justify-end">
-                <div className="mb-3">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Progreso</span>
-                    <span>{course.progress}%</span>
-                  </div>
-                  <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className={`h-2 ${course.isCompleted ? "[&>div]:bg-accent" : ""}`} />
-                </div>
-                {course.isCompleted ? (
-                     <Button onClick={() => handleCertificateClick(course.title)} className="w-full bg-primary hover:bg-primary/90">
-                        <Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)
-                    </Button>
-                ) : (
-                    <Button asChild className="w-full bg-primary hover:bg-primary/90">
-                        <Link href={`/dashboard/courses/${course.id}/view`}> 
-                            {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'}
-                            <Zap className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
-                )}
-              </CardContent>
-            </Card>
+            <MemoizedEnrolledCourseCard 
+                key={course.id} 
+                course={course} 
+                onCertificateClick={handleCertificateClick}
+            />
           ))}
         </div>
       )}
     </div>
   );
 }
+
+
+    

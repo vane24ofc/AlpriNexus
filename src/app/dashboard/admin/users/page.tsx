@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -52,6 +52,84 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
   instructor: { label: "Instructor", icon: BookUser, badgeClass: "bg-accent text-accent-foreground" },
   estudiante: { label: "Estudiante", icon: GraduationCap, badgeClass: "bg-secondary text-secondary-foreground" },
 };
+
+
+interface UserRowProps {
+    user: User;
+    onOpenDialog: (user: User, type: 'delete' | 'changeRole', newRole?: Role) => void;
+}
+
+const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: UserRowProps) {
+    const roleInfo = roleDisplayInfo[user.role];
+    const RoleIcon = roleInfo.icon;
+    return (
+        <TableRow>
+            <TableCell className="hidden md:table-cell">
+            <Avatar className="h-9 w-9">
+                <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
+                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('').toUpperCase()}</AvatarFallback>
+            </Avatar>
+            </TableCell>
+            <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate">
+            {user.name}
+            <p className="text-xs text-muted-foreground md:hidden">{user.email}</p>
+            </TableCell>
+            <TableCell className="hidden sm:table-cell max-w-[150px] sm:max-w-xs truncate">{user.email}</TableCell>
+            <TableCell>
+            <Badge variant="outline" className={`text-xs ${roleInfo.badgeClass} border-current whitespace-nowrap`}>
+                <RoleIcon className="mr-1.5 h-3.5 w-3.5" />
+                {roleInfo.label}
+            </Badge>
+            </TableCell>
+            <TableCell className="hidden lg:table-cell whitespace-nowrap">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
+            <TableCell className="hidden md:table-cell">
+            <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
+                {user.status === 'active' ? 'Activo' : 'Inactivo'}
+            </Badge>
+            </TableCell>
+            <TableCell className="text-right">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Más acciones</span>
+                </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                    <Link href={`/dashboard/admin/users/${user.id}/edit`}>
+                    <Edit className="mr-2 h-4 w-4" /> Editar Usuario
+                    </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                    {React.createElement(roleInfo.icon, {className: "mr-2 h-4 w-4"})}
+                    Cambiar Rol a:
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                    <DropdownMenuSubContent>
+                        {(Object.keys(roleDisplayInfo) as Role[]).filter(r => r !== user.role).map(newRoleKey => (
+                            <DropdownMenuItem key={newRoleKey} onClick={() => onOpenDialog(user, 'changeRole', newRoleKey)}>
+                                {React.createElement(roleDisplayInfo[newRoleKey].icon, {className: "mr-2 h-4 w-4"})}
+                                {roleDisplayInfo[newRoleKey].label}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                </DropdownMenuSub>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onOpenDialog(user, 'delete')} className="text-destructive hover:!text-destructive focus:!text-destructive">
+                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar Usuario
+                </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            </TableCell>
+        </TableRow>
+    );
+});
+
 
 export default function AdminUsersPage() {
   const searchParams = useSearchParams();
@@ -117,13 +195,13 @@ export default function AdminUsersPage() {
     );
   }, [users, searchTerm]);
 
-  const openDialog = (user: User, type: 'delete' | 'changeRole', newRole?: Role) => {
+  const openDialog = useCallback((user: User, type: 'delete' | 'changeRole', newRole?: Role) => {
     setUserToModify(user);
     setActionType(type);
     if (type === 'changeRole' && newRole) {
       setNewRoleForChange(newRole);
     }
-  };
+  }, []);
 
   const closeDialog = () => {
     setUserToModify(null);
@@ -218,76 +296,9 @@ export default function AdminUsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => {
-                  const roleInfo = roleDisplayInfo[user.role];
-                  const RoleIcon = roleInfo.icon;
-                  return (
-                    <TableRow key={user.id}>
-                      <TableCell className="hidden md:table-cell">
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={user.avatarUrl} alt={user.name} data-ai-hint="user avatar" />
-                          <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('').toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                      </TableCell>
-                      <TableCell className="font-medium max-w-[150px] sm:max-w-xs truncate">
-                        {user.name}
-                        <p className="text-xs text-muted-foreground md:hidden">{user.email}</p>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell max-w-[150px] sm:max-w-xs truncate">{user.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-xs ${roleInfo.badgeClass} border-current whitespace-nowrap`}>
-                          <RoleIcon className="mr-1.5 h-3.5 w-3.5" />
-                          {roleInfo.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell whitespace-nowrap">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
-                          {user.status === 'active' ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Más acciones</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuItem asChild>
-                               <Link href={`/dashboard/admin/users/${user.id}/edit`}>
-                                <Edit className="mr-2 h-4 w-4" /> Editar Usuario
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuSub>
-                              <DropdownMenuSubTrigger>
-                                {React.createElement(roleInfo.icon, {className: "mr-2 h-4 w-4"})}
-                                Cambiar Rol a:
-                              </DropdownMenuSubTrigger>
-                              <DropdownMenuPortal>
-                                <DropdownMenuSubContent>
-                                  {(Object.keys(roleDisplayInfo) as Role[]).filter(r => r !== user.role).map(newRoleKey => (
-                                      <DropdownMenuItem key={newRoleKey} onClick={() => openDialog(user, 'changeRole', newRoleKey)}>
-                                          {React.createElement(roleDisplayInfo[newRoleKey].icon, {className: "mr-2 h-4 w-4"})}
-                                          {roleDisplayInfo[newRoleKey].label}
-                                      </DropdownMenuItem>
-                                  ))}
-                                </DropdownMenuSubContent>
-                              </DropdownMenuPortal>
-                            </DropdownMenuSub>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => openDialog(user, 'delete')} className="text-destructive hover:!text-destructive focus:!text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar Usuario
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {filteredUsers.map((user) => (
+                  <MemoizedUserRow key={user.id} user={user} onOpenDialog={openDialog} />
+                ))}
               </TableBody>
             </Table>
             </div>
@@ -324,4 +335,6 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+    
+
     

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -27,7 +27,6 @@ import { Input } from '@/components/ui/input';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
-// This will be the initial seed data if localStorage is empty.
 const initialSeedCourses: Course[] = [
   { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
   { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
@@ -35,6 +34,63 @@ const initialSeedCourses: Course[] = [
   { id: 'seedCourse4', title: 'Marketing Digital Estratégico (Seed)', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "digital marketing", instructorName: 'Admin User Seed', status: 'approved', lessons: [{id: 'l1-s4', title: 'Intro Seed Marketing'}]},
   { id: 'seedCourse5', title: 'Cocina Internacional Fácil (Seed)', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1-s5', title: 'Intro Seed Cocina'}]},
 ];
+
+interface CourseRowProps {
+  course: Course;
+  onOpenDialog: (course: Course, type: 'approve' | 'reject' | 'delete') => void;
+}
+
+const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }: CourseRowProps) {
+  return (
+    <TableRow>
+      <TableCell className="hidden md:table-cell">
+        <Image src={course.thumbnailUrl} alt={course.title} width={80} height={45} className="rounded-md object-cover" data-ai-hint={course.dataAiHint || "course education"} />
+      </TableCell>
+      <TableCell className="font-medium max-w-xs truncate">
+        <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
+        <p className="text-xs text-muted-foreground md:hidden">{course.instructorName}</p>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">{course.instructorName}</TableCell>
+      <TableCell className="hidden lg:table-cell">
+        <Badge variant={
+          course.status === 'approved' ? 'default' :
+          course.status === 'pending' ? 'secondary' : 'destructive'
+        } className={
+          course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' :
+          course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
+        }>
+          {course.status === 'approved' && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
+          {course.status === 'pending' && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
+          {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />}
+          {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right space-x-1 md:space-x-0">
+        {(course.status === 'pending' || course.status === 'rejected') && (
+          <Button variant="outline" size="sm" onClick={() => onOpenDialog(course, 'approve')} className="mr-1" title="Aprobar Curso">
+            <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
+          </Button>
+        )}
+        {course.status === 'pending' && (
+          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => onOpenDialog(course, 'reject')} title="Rechazar Curso">
+            <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
+          </Button>
+        )}
+         <Button variant="ghost" size="icon" asChild title="Ver Curso">
+            <Link href={`/dashboard/courses/${course.id}/view`}>
+                <Eye className="h-4 w-4" />
+            </Link>
+        </Button>
+         <Button variant="ghost" size="icon" asChild title="Editar Curso">
+          <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
+        </Button>
+         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onOpenDialog(course, 'delete')} title="Eliminar Curso">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 
 export default function AdminCoursesPage() {
@@ -48,7 +104,6 @@ export default function AdminCoursesPage() {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load courses from localStorage on mount
   useEffect(() => {
     setIsLoading(true);
     try {
@@ -56,21 +111,18 @@ export default function AdminCoursesPage() {
       if (storedCourses) {
         setCourses(JSON.parse(storedCourses));
       } else {
-        // If no courses in localStorage, use initial seed and save it
         setCourses(initialSeedCourses);
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
       }
     } catch (error) {
       console.error("Error loading courses from localStorage:", error);
-      setCourses(initialSeedCourses); // Fallback to seed if parsing fails
+      setCourses(initialSeedCourses); 
       localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
     }
     setIsLoading(false);
   }, []);
 
-  // Persist courses to localStorage whenever the courses state changes
   useEffect(() => {
-    // Avoid saving during initial load or if courses haven't been set yet
     if (!isLoading && courses.length > 0) { 
         try {
             localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
@@ -118,10 +170,10 @@ export default function AdminCoursesPage() {
     setActionType(null);
   }
 
-  const openDialog = (course: Course, type: 'approve' | 'reject' | 'delete') => {
+  const openDialog = useCallback((course: Course, type: 'approve' | 'reject' | 'delete') => {
     setCourseToModify(course);
     setActionType(type);
-  }
+  }, []);
 
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -134,56 +186,6 @@ export default function AdminCoursesPage() {
       (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
     );
   }, [courses, searchTerm]);
-
-  const CourseRow = ({ course }: { course: Course }) => (
-    <TableRow>
-      <TableCell className="hidden md:table-cell">
-        <Image src={course.thumbnailUrl} alt={course.title} width={80} height={45} className="rounded-md object-cover" data-ai-hint={course.dataAiHint || "course education"} />
-      </TableCell>
-      <TableCell className="font-medium max-w-xs truncate">
-        <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
-        <p className="text-xs text-muted-foreground md:hidden">{course.instructorName}</p>
-      </TableCell>
-      <TableCell className="hidden sm:table-cell">{course.instructorName}</TableCell>
-      <TableCell className="hidden lg:table-cell">
-        <Badge variant={
-          course.status === 'approved' ? 'default' :
-          course.status === 'pending' ? 'secondary' : 'destructive'
-        } className={
-          course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
-          course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
-        }>
-          {course.status === 'approved' && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
-          {course.status === 'pending' && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
-          {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />}
-          {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
-        </Badge>
-      </TableCell>
-      <TableCell className="text-right space-x-1 md:space-x-0">
-        {(course.status === 'pending' || course.status === 'rejected') && (
-          <Button variant="outline" size="sm" onClick={() => openDialog(course, 'approve')} className="mr-1" title="Aprobar Curso">
-            <CheckCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Aprobar</span>
-          </Button>
-        )}
-        {course.status === 'pending' && (
-          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10 mr-1" onClick={() => openDialog(course, 'reject')} title="Rechazar Curso">
-            <XCircle className="mr-1 h-4 w-4 md:mr-2" /> <span className="hidden md:inline">Rechazar</span>
-          </Button>
-        )}
-         <Button variant="ghost" size="icon" asChild title="Ver Curso">
-            <Link href={`/dashboard/courses/${course.id}/view`}>
-                <Eye className="h-4 w-4" />
-            </Link>
-        </Button>
-         <Button variant="ghost" size="icon" asChild title="Editar Curso">
-          <Link href={`/dashboard/courses/${course.id}/edit`}><Edit3 className="h-4 w-4" /></Link>
-        </Button>
-         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => openDialog(course, 'delete')} title="Eliminar Curso">
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </TableCell>
-    </TableRow>
-  );
 
   const renderCourseTable = (courseList: Course[], emptyMessage: string) => {
     if (isLoading) {
@@ -210,7 +212,7 @@ export default function AdminCoursesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {courseList.map(course => <CourseRow key={course.id} course={course} />)}
+            {courseList.map(course => <MemoizedCourseRow key={course.id} course={course} onOpenDialog={openDialog} />)}
           </TableBody>
         </Table>
       </div>
@@ -336,4 +338,6 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
+    
+
     

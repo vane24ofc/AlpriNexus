@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -32,7 +32,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { Bar, BarChart as ReBarChart, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; // Match the name used in course creation
+const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; 
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -56,10 +56,64 @@ const studentProgressChartConfig = {
   },
 } satisfies ChartConfig;
 
-const initialSeedCoursesForInstructor: Course[] = [ // Fallback if localStorage is empty
+const initialSeedCoursesForInstructor: Course[] = [ 
   { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Seed)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
   { id: 'instrSeed2', title: 'Diseño UX Avanzado (Seed)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
 ];
+
+interface InstructorCourseRowProps {
+  course: Course;
+  statusInfo: StatusInfo;
+  onOpenStatsModal: (course: Course) => void;
+}
+
+const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ course, statusInfo, onOpenStatsModal }: InstructorCourseRowProps) {
+  const StatusIcon = statusInfo.icon;
+  return (
+    <TableRow>
+      <TableCell className="hidden md:table-cell">
+        <Image 
+          src={course.thumbnailUrl} 
+          alt={course.title} 
+          width={80} 
+          height={45} 
+          className="rounded-md object-cover" 
+          data-ai-hint={course.dataAiHint || "course thumbnail education"}
+        />
+      </TableCell>
+      <TableCell className="font-medium max-w-xs truncate">
+         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
+        <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
+      </TableCell>
+      <TableCell className="hidden sm:table-cell">
+        <Badge variant={statusInfo.variant} className={statusInfo.className}>
+          <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
+          {statusInfo.text}
+        </Badge>
+      </TableCell>
+      <TableCell className="hidden lg:table-cell">
+        {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
+      </TableCell>
+      <TableCell className="text-right space-x-1 md:space-x-0">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
+            <Eye className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button variant="ghost" size="icon" asChild>
+           <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
+            <Edit3 className="h-4 w-4" />
+          </Link>
+        </Button>
+        <AlertDialogTrigger asChild>
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => onOpenStatsModal(course)}>
+            <BarChart2 className="h-4 w-4" />
+          </Button>
+        </AlertDialogTrigger>
+      </TableCell>
+    </TableRow>
+  );
+});
 
 
 export default function MyCoursesPage() {
@@ -81,23 +135,18 @@ export default function MyCoursesPage() {
       if (storedCourses) {
         setAllCourses(JSON.parse(storedCourses));
       } else {
-        // If no courses in localStorage, use initial seed for this instructor and save it (this part is tricky, as it would add to a global list)
-        // For simplicity here, we'll assume if global list is empty, the instructor specific seeds are used.
-        // In a real app, courses would be fetched from a backend.
-        // Let's simulate that if the global course list is empty, we add these instructor seeds.
         setAllCourses(initialSeedCoursesForInstructor);
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
       }
     } catch (error) {
       console.error("Error loading courses from localStorage:", error);
-      setAllCourses(initialSeedCoursesForInstructor); // Fallback
+      setAllCourses(initialSeedCoursesForInstructor); 
       localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
     }
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    // Filter courses for the current instructor
     const filtered = allCourses.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
     setInstructorCourses(filtered);
   }, [allCourses]);
@@ -156,10 +205,10 @@ export default function MyCoursesPage() {
     };
   };
 
-  const handleOpenStatsModal = (course: Course) => {
+  const handleOpenStatsModal = useCallback((course: Course) => {
     setSelectedCourseForStats(course);
     setSimulatedStats(generateSimulatedStats(course));
-  };
+  }, []);
 
   const handleCloseStatsModal = () => {
     setSelectedCourseForStats(null);
@@ -226,54 +275,14 @@ export default function MyCoursesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDisplayCourses.map((course) => {
-                    const statusInfo = getStatusInfo(course.status);
-                    const StatusIcon = statusInfo.icon;
-                    return (
-                      <TableRow key={course.id}>
-                        <TableCell className="hidden md:table-cell">
-                          <Image 
-                            src={course.thumbnailUrl} 
-                            alt={course.title} 
-                            width={80} 
-                            height={45} 
-                            className="rounded-md object-cover" 
-                            data-ai-hint={course.dataAiHint || "course thumbnail education"}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium max-w-xs truncate">
-                           <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary">{course.title}</Link>
-                          <p className="text-xs text-muted-foreground md:hidden">{statusInfo.text}</p>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Badge variant={statusInfo.variant} className={statusInfo.className}>
-                            <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
-                            {statusInfo.text}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
-                        </TableCell>
-                        <TableCell className="text-right space-x-1 md:space-x-0">
-                          <Button variant="ghost" size="icon" asChild>
-                            <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <Button variant="ghost" size="icon" asChild>
-                             <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
-                              <Edit3 className="h-4 w-4" />
-                            </Link>
-                          </Button>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => handleOpenStatsModal(course)}>
-                              <BarChart2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                  {filteredDisplayCourses.map((course) => (
+                    <MemoizedInstructorCourseRow 
+                        key={course.id} 
+                        course={course} 
+                        statusInfo={getStatusInfo(course.status)} 
+                        onOpenStatsModal={handleOpenStatsModal} 
+                    />
+                  ))}
                 </TableBody>
               </Table>
             </div>
@@ -353,3 +362,6 @@ export default function MyCoursesPage() {
     </div>
   );
 }
+
+
+    

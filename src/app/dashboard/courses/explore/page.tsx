@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
@@ -15,10 +15,102 @@ import { useToast } from '@/hooks/use-toast';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 
-const initialSeedCoursesForExplore: Course[] = [ // Fallback if localStorage is empty
+const initialSeedCoursesForExplore: Course[] = [ 
   { id: 'exploreSeed1', title: 'Introducción a la IA (Seed)', description: 'Conceptos básicos de Inteligencia Artificial.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'IA Expert', status: 'approved', lessons: [{id: 'l1-seed-e1', title: 'Intro IA Seed'}], dataAiHint: 'ai concepts' },
   { id: 'exploreSeed2', title: 'Marketing Digital 101 (Seed)', description: 'Fundamentos de marketing digital.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Marketing Guru', status: 'approved', lessons: [{id: 'l1-seed-e2', title: 'Intro Marketing Seed'}], dataAiHint: 'digital marketing basics' },
 ];
+
+interface CourseCardProps {
+  course: Course;
+  isEnrolled: boolean;
+  onEnroll: (courseId: string, courseTitle: string) => void;
+}
+
+const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, onEnroll }: CourseCardProps) {
+  return (
+    <Card className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
+      <div className="relative w-full h-48">
+        <Image
+          src={course.thumbnailUrl}
+          alt={course.title}
+          fill
+          style={{ objectFit: 'cover' }}
+          className="bg-muted"
+          data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
+        />
+      </div>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
+        <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow flex flex-col justify-between">
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{course.description}</p>
+        <div className="flex flex-col sm:flex-row gap-2 mt-auto">
+          <Button variant="outline" size="sm" asChild className="flex-1">
+            <Link href={`/dashboard/courses/${course.id}/view`}>
+              <Info className="mr-2 h-4 w-4" /> Ver Detalles
+            </Link>
+          </Button>
+          {isEnrolled ? (
+            <Button size="sm" variant="secondary" disabled className="flex-1">
+              <CheckCircle className="mr-2 h-4 w-4" /> Ya Inscrito
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="flex-1 bg-primary hover:bg-primary/90">
+              <CheckCircle className="mr-2 h-4 w-4" /> Inscribirme
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
+interface CourseListItemProps {
+  course: Course;
+  isEnrolled: boolean;
+  onEnroll: (courseId: string, courseTitle: string) => void;
+}
+
+const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEnrolled, onEnroll }: CourseListItemProps) {
+  return (
+    <Card className="shadow-md hover:shadow-primary/20 transition-shadow">
+      <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
+        <div className="relative w-full sm:w-40 h-32 sm:h-24 flex-shrink-0 rounded-md overflow-hidden">
+           <Image
+              src={course.thumbnailUrl}
+              alt={course.title}
+              fill
+              style={{ objectFit: 'cover' }}
+              className="bg-muted"
+              data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
+            />
+        </div>
+        <div className="flex-grow">
+          <CardTitle className="text-lg mb-1">{course.title}</CardTitle>
+          <CardDescription className="text-xs mb-2">Por: {course.instructorName}</CardDescription>
+          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
+        </div>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2 sm:mt-0 self-start sm:self-center flex-shrink-0">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/courses/${course.id}/view`}>
+              <Info className="mr-1 h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Ver Detalles</span>
+            </Link>
+          </Button>
+          {isEnrolled ? (
+            <Button size="sm" variant="secondary" disabled>
+              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Ya Inscrito
+            </Button>
+          ) : (
+            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="bg-primary hover:bg-primary/90">
+              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Inscribirme
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
 
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
@@ -83,7 +175,7 @@ export default function ExploreCoursesPage() {
     );
   }, [approvedCourses, searchTerm]);
 
-  const handleEnroll = (courseId: string, courseTitle: string) => {
+  const handleEnroll = useCallback((courseId: string, courseTitle: string) => {
     setEnrolledCourseIds(prevIds => {
       const newIds = new Set(prevIds);
       newIds.add(courseId);
@@ -94,7 +186,7 @@ export default function ExploreCoursesPage() {
       title: "¡Inscripción Exitosa! (Simulada)",
       description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
     });
-  };
+  }, [toast]);
 
   if (isLoading) {
     return (
@@ -149,89 +241,25 @@ export default function ExploreCoursesPage() {
           ) : (
             viewMode === 'grid' ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCourses.map((course) => {
-                  const isEnrolled = enrolledCourseIds.has(course.id);
-                  return (
-                    <Card key={course.id} className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
-                      <div className="relative w-full h-48">
-                        <Image
-                          src={course.thumbnailUrl}
-                          alt={course.title}
-                          fill
-                          style={{ objectFit: 'cover' }}
-                          className="bg-muted"
-                          data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
-                        />
-                      </div>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg leading-tight line-clamp-2" title={course.title}>{course.title}</CardTitle>
-                        <CardDescription className="text-xs pt-1">Por: {course.instructorName}</CardDescription>
-                      </CardHeader>
-                      <CardContent className="flex-grow flex flex-col justify-between">
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-3">{course.description}</p>
-                        <div className="flex flex-col sm:flex-row gap-2 mt-auto">
-                          <Button variant="outline" size="sm" asChild className="flex-1">
-                            <Link href={`/dashboard/courses/${course.id}/view`}>
-                              <Info className="mr-2 h-4 w-4" /> Ver Detalles
-                            </Link>
-                          </Button>
-                          {isEnrolled ? (
-                            <Button size="sm" variant="secondary" disabled className="flex-1">
-                              <CheckCircle className="mr-2 h-4 w-4" /> Ya Inscrito
-                            </Button>
-                          ) : (
-                            <Button size="sm" onClick={() => handleEnroll(course.id, course.title)} className="flex-1 bg-primary hover:bg-primary/90">
-                              <CheckCircle className="mr-2 h-4 w-4" /> Inscribirme
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {filteredCourses.map((course) => (
+                  <MemoizedCourseCard 
+                    key={course.id} 
+                    course={course} 
+                    isEnrolled={enrolledCourseIds.has(course.id)} 
+                    onEnroll={handleEnroll} 
+                  />
+                ))}
               </div>
-            ) : ( // Vista de Lista
+            ) : ( 
               <div className="space-y-4">
-                {filteredCourses.map((course) => {
-                   const isEnrolled = enrolledCourseIds.has(course.id);
-                   return (
-                    <Card key={course.id} className="shadow-md hover:shadow-primary/20 transition-shadow">
-                      <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
-                        <div className="relative w-full sm:w-40 h-32 sm:h-24 flex-shrink-0 rounded-md overflow-hidden">
-                           <Image
-                              src={course.thumbnailUrl}
-                              alt={course.title}
-                              fill
-                              style={{ objectFit: 'cover' }}
-                              className="bg-muted"
-                              data-ai-hint={course.dataAiHint || `course ${course.title.substring(0,15)}`}
-                            />
-                        </div>
-                        <div className="flex-grow">
-                          <CardTitle className="text-lg mb-1">{course.title}</CardTitle>
-                          <CardDescription className="text-xs mb-2">Por: {course.instructorName}</CardDescription>
-                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{course.description}</p>
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2 sm:mt-0 self-start sm:self-center flex-shrink-0">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/courses/${course.id}/view`}>
-                              <Info className="mr-1 h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Ver Detalles</span>
-                            </Link>
-                          </Button>
-                          {isEnrolled ? (
-                            <Button size="sm" variant="secondary" disabled>
-                              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Ya Inscrito
-                            </Button>
-                          ) : (
-                            <Button size="sm" onClick={() => handleEnroll(course.id, course.title)} className="bg-primary hover:bg-primary/90">
-                              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Inscribirme
-                            </Button>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                   );
-                })}
+                {filteredCourses.map((course) => (
+                   <MemoizedCourseListItem 
+                     key={course.id} 
+                     course={course} 
+                     isEnrolled={enrolledCourseIds.has(course.id)} 
+                     onEnroll={handleEnroll}
+                   />
+                ))}
               </div>
             )
           )}
@@ -240,3 +268,6 @@ export default function ExploreCoursesPage() {
     </div>
   );
 }
+
+
+    
