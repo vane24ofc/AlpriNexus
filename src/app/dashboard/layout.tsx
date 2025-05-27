@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -50,7 +49,7 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  const [activeTheme, setActiveTheme] = useState(''); // Default to empty, let useEffect handle it
+  const [activeTheme, setActiveTheme] = useState('');
   const [hasMountedLayout, setHasMountedLayout] = useState(false);
 
   useEffect(() => {
@@ -58,7 +57,7 @@ export default function DashboardLayout({
   }, []);
 
   useEffect(() => {
-    if (!hasMountedLayout) return; // Only run on client after mount
+    if (!hasMountedLayout) return;
 
     let initialDashboardTheme: string;
     const storedTheme = localStorage.getItem('nexusAlpriTheme');
@@ -66,24 +65,23 @@ export default function DashboardLayout({
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialDashboardTheme = storedTheme;
     } else {
-      // Default to light theme for the dashboard if no preference is stored
       initialDashboardTheme = 'theme-light'; 
       localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
     }
     
     setActiveTheme(initialDashboardTheme);
+    // Apply theme here directly
     const root = window.document.documentElement;
     VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
     if (VALID_THEME_CLASSES.includes(initialDashboardTheme)) {
       root.classList.add(initialDashboardTheme);
-    } else { // Fallback if somehow an invalid theme was stored
+    } else {
       root.classList.add('theme-light');
     }
   }, [hasMountedLayout]);
 
-  // Effect for applying theme changes when activeTheme state changes
   useEffect(() => {
-    if (!hasMountedLayout || !activeTheme) return; // Don't run if not mounted or no theme set
+    if (!hasMountedLayout || !activeTheme) return;
 
     if (VALID_THEME_CLASSES.includes(activeTheme)) {
         const root = window.document.documentElement;
@@ -93,9 +91,11 @@ export default function DashboardLayout({
     }
   }, [activeTheme, hasMountedLayout]);
 
-  // Effect for determining and persisting user role
   useEffect(() => {
-    if (!hasMountedLayout) return; // Only run on client after layout has mounted
+    if (!hasMountedLayout) {
+      setIsLoadingRole(true); 
+      return;
+    }
 
     setIsLoadingRole(true);
     let roleFromStorage: Role | null = localStorage.getItem('sessionRole') as Role | null;
@@ -119,35 +119,34 @@ export default function DashboardLayout({
     } else if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
       finalDeterminedRole = roleFromStorage;
     } else {
-      finalDeterminedRole = 'estudiante'; // Default if no specific path and nothing in storage
+      finalDeterminedRole = 'estudiante'; 
       localStorage.setItem('sessionRole', finalDeterminedRole);
     }
     
-    // Only update state if the role has actually changed to prevent unnecessary re-renders
     if (currentSessionRole !== finalDeterminedRole) {
       setCurrentSessionRole(finalDeterminedRole);
     }
     setIsLoadingRole(false);
 
-  }, [pathname, hasMountedLayout]); // currentSessionRole removed from dependencies here
+  }, [pathname, hasMountedLayout]); // currentSessionRole is intentionally not a dependency here to avoid loops based on its own update
+
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole
   }), [currentSessionRole, isLoadingRole]);
 
-  // Show loader until layout is mounted and role is determined
   if (!hasMountedLayout || isLoadingRole || !currentSessionRole) {
     return <FullPageLoader message="Cargando panel y determinando rol..." />;
   }
   
   return (
     <SessionRoleContext.Provider value={contextValue}>
-      {/* Keying SidebarProvider ensures its children (including AppSidebarNav) remount cleanly if role changes */}
-      <SidebarProvider key={String(currentSessionRole)} defaultOpen={true}>
-        <AppSidebarNav /> {/* AppSidebarNav will use its own hasMounted for its skeleton */}
+      {/* Keying SidebarProvider ensures its children remount cleanly if role changes */}
+      <SidebarProvider key={currentSessionRole || 'provider-loading'} defaultOpen={true}>
+        <AppSidebarNav key={`sidebar-nav-${currentSessionRole || 'loading'}`} />
         <SidebarInset key="sidebar-inset"> {/* Static key for SidebarInset */}
-          <AppHeader /> {/* AppHeader also has its own hasMounted for its skeleton */}
+          <AppHeader key={`header-${currentSessionRole || 'loading'}`} />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             {children}
             <Image
