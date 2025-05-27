@@ -12,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
 import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
@@ -41,7 +40,8 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(),
+  quizPlaceholder: z.string().optional(), // Will be used as the quiz question
+  quizOptions: z.array(z.string().min(1, { message: "La opción no puede estar vacía." })).optional().default(['', '', '']), // Default to 3 empty options
 });
 
 const courseFormSchema = z.object({
@@ -93,7 +93,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         content: l.content || '',
         videoUrl: l.videoUrl || '',
         quizPlaceholder: l.quizPlaceholder || '',
-      })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: '' }],
+        quizOptions: l.quizOptions && l.quizOptions.length > 0 ? l.quizOptions : ['', '', ''],
+      })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
       interactiveContent: initialData?.interactiveContent || '',
     },
   });
@@ -115,8 +116,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
           contentType: l.contentType || 'text',
           content: l.content || '',
           videoUrl: l.videoUrl || '',
-          quizPlaceholder: l.quizPlaceholder || ''
-        })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: '' }],
+          quizPlaceholder: l.quizPlaceholder || '',
+          quizOptions: l.quizOptions && l.quizOptions.length > 0 ? l.quizOptions : ['', '', ''],
+        })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
         interactiveContent: initialData.interactiveContent || '',
       });
       setThumbnailPreview(initialData.thumbnailUrl || null);
@@ -217,6 +219,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     try {
       const input: GenerateLessonContentInput = { courseTitle, courseDescription, lessonTitle };
       const result = await generateLessonContent(input);
+
       if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
         const currentContent = form.getValues(`lessons.${lessonIndex}.content`);
         if (currentContent && currentContent.trim() !== '') {
@@ -268,6 +271,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
         quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
+        quizOptions: lesson.contentType === 'quiz' ? (lesson.quizOptions || ['', '', '']).filter(opt => opt.trim() !== '') : undefined,
         contentType: lesson.contentType || 'text'
     }));
 
@@ -350,10 +354,14 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                               <FormLabel>Tipo de Contenido</FormLabel>
                               <Select onValueChange={(value) => {
                                   lessonTypeField.onChange(value);
-                                  // Limpiar campos no relevantes al cambiar tipo
-                                  if (value !== 'text') update(index, { ...fields[index], content: ''});
-                                  if (value !== 'video') update(index, { ...fields[index], videoUrl: ''});
-                                  if (value !== 'quiz') update(index, { ...fields[index], quizPlaceholder: ''});
+                                  update(index, { 
+                                    ...fields[index], 
+                                    contentType: value as 'text' | 'video' | 'quiz',
+                                    content: value !== 'text' ? '' : fields[index].content,
+                                    videoUrl: value !== 'video' ? '' : fields[index].videoUrl,
+                                    quizPlaceholder: value !== 'quiz' ? '' : fields[index].quizPlaceholder,
+                                    quizOptions: value !== 'quiz' ? ['', '', ''] : fields[index].quizOptions || ['', '', '']
+                                  });
                                 }} 
                                 defaultValue={lessonTypeField.value} 
                                 disabled={formDisabled}>
@@ -418,17 +426,34 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           />
                         )}
                         {currentLessonType === 'quiz' && (
-                          <FormField
-                            control={form.control}
-                            name={`lessons.${index}.quizPlaceholder`}
-                            render={({ field: lessonQuizField }) => (
-                              <FormItem>
-                                <FormLabel>Texto Descriptivo del Quiz</FormLabel>
-                                <FormControl><Textarea placeholder="Ej: Describe brevemente el quiz o incluye una pregunta de ejemplo." {...lessonQuizField} rows={3} disabled={formDisabled} /></FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
+                          <div className="space-y-3">
+                            <FormField
+                              control={form.control}
+                              name={`lessons.${index}.quizPlaceholder`}
+                              render={({ field: lessonQuizQuestionField }) => (
+                                <FormItem>
+                                  <FormLabel>Pregunta del Quiz</FormLabel>
+                                  <FormControl><Textarea placeholder="Escribe aquí la pregunta principal del quiz." {...lessonQuizQuestionField} rows={2} disabled={formDisabled} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            {(form.getValues(`lessons.${index}.quizOptions`) || ['', '', '']).map((_, optionIndex) => (
+                              <FormField
+                                key={`lessons.${index}.quizOptions.${optionIndex}`}
+                                control={form.control}
+                                name={`lessons.${index}.quizOptions.${optionIndex}`}
+                                render={({ field: lessonQuizOptionField }) => (
+                                  <FormItem>
+                                    <FormLabel>Opción {optionIndex + 1}</FormLabel>
+                                    <FormControl><Input placeholder={`Respuesta opción ${optionIndex + 1}`} {...lessonQuizOptionField} disabled={formDisabled} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            ))}
+                             {/* Potentially add a button here to add/remove quiz options if needed later */}
+                          </div>
                         )}
                       </div>
                       {fields.length > 1 && (
@@ -440,7 +465,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   </div>
                   );
                 })}
-                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: `Quiz sobre: Nueva Lección ${fields.length + 1}` })} className="w-full mt-4" disabled={formDisabled}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''] })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (

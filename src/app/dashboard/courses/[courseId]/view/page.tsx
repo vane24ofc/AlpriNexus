@@ -130,7 +130,7 @@ export default function StudentCourseViewPage() {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, toast]); 
+  }, [courseId]); 
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -249,7 +249,8 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    const quizOptions = ['Opción A', 'Opción B', 'Opción C']; 
+    // Use defined options, or default if not available or empty
+    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.length > 0) ? lesson.quizOptions : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
 
     switch (contentType) {
       case 'video':
@@ -298,7 +299,7 @@ export default function StudentCourseViewPage() {
             ) : (
               <div className="space-y-3">
                 <div className="flex flex-col gap-2">
-                  {quizOptions.map((option, index) => (
+                  {quizOptionsToDisplay.map((option, index) => (
                     <Button
                       key={index}
                       variant={currentQuizData.selectedOption === option ? 'default' : 'outline'}
@@ -405,7 +406,7 @@ export default function StudentCourseViewPage() {
                         LessonIcon = CheckCircle;
                         iconClassName = "text-green-500";
                     } else if (isReadyForCompletion) {
-                        LessonIcon = ClipboardCheck; // Icono para "lista para completar"
+                        LessonIcon = ClipboardCheck; 
                         iconClassName = "text-blue-500";
                     }
 
@@ -472,20 +473,19 @@ export default function StudentCourseViewPage() {
             <CardHeader style={{ padding: '16px 20px 8px' }}>
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-6"> {/* Added pt-6 for overall top padding */}
-                {/* SVG Container */}
-                <div className="relative w-32 h-32 mx-auto -mt-4"> {/* Maintained -mt-4 to pull circle up */}
-                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
+            <CardContent style={{ textAlign: 'center', paddingTop: '24px', paddingBottom: '20px', paddingLeft: '20px', paddingRight: '20px' }}>
+                <div className="relative w-32 h-32 mx-auto -mt-4"> 
+                    <svg className="w-full h-full" viewBox="0 0 36 36" style={{transform: 'rotate(-90deg)'}}>
                         <path
                         className="text-muted/30"
-                        strokeWidth="2.5" 
+                        strokeWidth="4" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
                         className={allLessonsCompleted ? "text-accent" : "text-primary"}
-                        strokeWidth="2.5" 
+                        strokeWidth="4" 
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -493,15 +493,13 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
-                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
-                    <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                {/* Status Text Paragraph */}
-                <p className={`text-sm mt-2 mb-4 ${allLessonsCompleted ? "text-foreground font-normal" : "text-muted-foreground font-normal"}`}>
+                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
@@ -521,5 +519,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-
-    
