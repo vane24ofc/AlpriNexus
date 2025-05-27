@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity, Loader2 } from 'lucide-react';
+import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity, Loader2, MoreHorizontal } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -20,7 +20,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  // Removed AlertDialogTrigger as it's now part of DropdownMenu
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 import {
@@ -30,9 +30,17 @@ import {
 } from "@/components/ui/chart";
 import type { ChartConfig } from "@/components/ui/chart";
 import { Bar, BarChart as ReBarChart, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; 
+const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)";
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -56,7 +64,7 @@ const studentProgressChartConfig = {
   },
 } satisfies ChartConfig;
 
-const initialSeedCoursesForInstructor: Course[] = [ 
+const initialSeedCoursesForInstructor: Course[] = [
   { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Seed)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
   { id: 'instrSeed2', title: 'Diseño UX Avanzado (Seed)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
 ];
@@ -72,12 +80,12 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
   return (
     <TableRow>
       <TableCell className="hidden md:table-cell">
-        <Image 
-          src={course.thumbnailUrl} 
-          alt={course.title} 
-          width={80} 
-          height={45} 
-          className="rounded-md object-cover" 
+        <Image
+          src={course.thumbnailUrl}
+          alt={course.title}
+          width={80}
+          height={45}
+          className="rounded-md object-cover"
           data-ai-hint={course.dataAiHint || "course thumbnail education"}
         />
       </TableCell>
@@ -94,70 +102,80 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
       <TableCell className="hidden lg:table-cell">
         {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
       </TableCell>
-      <TableCell className="text-right space-x-1 md:space-x-0">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href={`/dashboard/courses/${course.id}/view`} title="Ver Curso">
-            <Eye className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button variant="ghost" size="icon" asChild>
-           <Link href={`/dashboard/courses/${course.id}/edit`} title="Editar Curso">
-            <Edit3 className="h-4 w-4" />
-          </Link>
-        </Button>
-        <AlertDialogTrigger asChild>
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary" title="Estadísticas" onClick={() => onOpenStatsModal(course)}>
-            <BarChart2 className="h-4 w-4" />
-          </Button>
-        </AlertDialogTrigger>
+      <TableCell className="text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Más acciones</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/courses/${course.id}/view`}>
+                <Eye className="mr-2 h-4 w-4" /> Ver Curso
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/courses/${course.id}/edit`}>
+                <Edit3 className="mr-2 h-4 w-4" /> Editar Curso
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onOpenStatsModal(course)}>
+              <BarChart2 className="mr-2 h-4 w-4" /> Ver Estadísticas
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </TableCell>
     </TableRow>
   );
 });
+MemoizedInstructorCourseRow.displayName = 'MemoizedInstructorCourseRow';
 
 
 export default function MyCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const initialSearchTerm = searchParams.get('search') || '';
-  
+
+
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
   const [simulatedStats, setSimulatedStats] = useState<CourseStats | null>(null);
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     setIsLoading(true);
+    const initialSearch = searchParams.get('search') || '';
+    setSearchTerm(initialSearch);
+
     try {
       const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
       if (storedCourses) {
         setAllCourses(JSON.parse(storedCourses));
       } else {
-        setAllCourses(initialSeedCoursesForInstructor);
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+        // If no courses in localStorage, use initial seed and save them
+        const coursesToSeed = initialSeedCoursesForInstructor.filter(c => c.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
+        setAllCourses(coursesToSeed); // Assuming initialSeedCoursesForInstructor is the global seed
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(coursesToSeed));
       }
     } catch (error) {
       console.error("Error loading courses from localStorage:", error);
-      setAllCourses(initialSeedCoursesForInstructor); 
-      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+      const coursesToSeed = initialSeedCoursesForInstructor.filter(c => c.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
+      setAllCourses(coursesToSeed);
+      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(coursesToSeed));
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
     }
     setIsLoading(false);
-  }, []);
+  }, [searchParams, toast]);
 
   useEffect(() => {
     const filtered = allCourses.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
     setInstructorCourses(filtered);
   }, [allCourses]);
 
-  useEffect(() => {
-    const urlSearchTerm = searchParams.get('search') || '';
-    if (urlSearchTerm !== searchTerm) {
-      setSearchTerm(urlSearchTerm);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   const filteredDisplayCourses = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -214,7 +232,7 @@ export default function MyCoursesPage() {
     setSelectedCourseForStats(null);
     setSimulatedStats(null);
   };
-  
+
   if (isLoading) {
     return (
         <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
@@ -253,7 +271,6 @@ export default function MyCoursesPage() {
                 className="pl-10 w-full md:w-1/2 lg:w-1/3"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                disabled={isLoading}
               />
             </div>
           </div>
@@ -276,11 +293,11 @@ export default function MyCoursesPage() {
                 </TableHeader>
                 <TableBody>
                   {filteredDisplayCourses.map((course) => (
-                    <MemoizedInstructorCourseRow 
-                        key={course.id} 
-                        course={course} 
-                        statusInfo={getStatusInfo(course.status)} 
-                        onOpenStatsModal={handleOpenStatsModal} 
+                    <MemoizedInstructorCourseRow
+                        key={course.id}
+                        course={course}
+                        statusInfo={getStatusInfo(course.status)}
+                        onOpenStatsModal={handleOpenStatsModal}
                     />
                   ))}
                 </TableBody>
@@ -289,7 +306,7 @@ export default function MyCoursesPage() {
           )}
         </CardContent>
       </Card>
-      
+
       {selectedCourseForStats && simulatedStats && (
         <AlertDialog open={!!selectedCourseForStats} onOpenChange={handleCloseStatsModal}>
           <AlertDialogContent className="sm:max-w-lg md:max-w-xl">
@@ -329,7 +346,7 @@ export default function MyCoursesPage() {
                   </CardContent>
                 </Card>
               </div>
-              
+
               <Card className="col-span-1 sm:col-span-3">
                 <CardHeader>
                     <CardTitle className="flex items-center">
@@ -363,5 +380,3 @@ export default function MyCoursesPage() {
   );
 }
 
-
-    
