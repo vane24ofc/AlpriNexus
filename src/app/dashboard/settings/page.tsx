@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff, Check } from 'lucide-react';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -22,6 +21,40 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
+
+const VALID_THEME_CLASSES = ['theme-light', 'dark', 'theme-oceanic', 'theme-sunset']; // Add 'theme-forest' if defined
+
+interface ThemeOption {
+  id: string; // Corresponds to CSS class and localStorage value
+  name: string;
+  previewColors: { bg: string; primary: string; accent: string; text: string }; // Example structure
+}
+
+const themeOptions: ThemeOption[] = [
+  { 
+    id: 'theme-light', 
+    name: 'Claro Predeterminado', 
+    previewColors: { bg: 'hsl(0 0% 100%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 3.9%)' }
+  },
+  { 
+    id: 'dark', 
+    name: 'Oscuro Predeterminado', 
+    previewColors: { bg: 'hsl(0 0% 4%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 95%)' } 
+  },
+  { 
+    id: 'theme-oceanic', 
+    name: 'Oceánico Profundo', 
+    previewColors: { bg: 'hsl(200 50% 10%)', primary: 'hsl(180 70% 50%)', accent: 'hsl(170 80% 40%)', text: 'hsl(180 30% 90%)' }
+  },
+  { 
+    id: 'theme-sunset', 
+    name: 'Atardecer Cálido', 
+    previewColors: { bg: 'hsl(25 30% 10%)', primary: 'hsl(30 90% 55%)', accent: 'hsl(0 80% 60%)', text: 'hsl(35 80% 90%)' }
+  },
+  // Add more themes here if defined in globals.css
+];
+
 
 export default function SettingsPage() {
   const { currentSessionRole } = useSessionRole();
@@ -38,10 +71,9 @@ export default function SettingsPage() {
     appUpdates: false,
   });
   
-  const [currentTheme, setCurrentTheme] = useState('dark');
+  const [currentTheme, setCurrentTheme] = useState('dark'); // Default to dark for initial state
   const [isSaving, setIsSaving] = useState(false);
 
-  // State for password change dialog
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -66,7 +98,11 @@ export default function SettingsPage() {
     }
 
     const storedTheme = localStorage.getItem('nexusAlpriTheme') || 'dark';
-    setCurrentTheme(storedTheme);
+    if (VALID_THEME_CLASSES.includes(storedTheme)) {
+      setCurrentTheme(storedTheme);
+    } else {
+        setCurrentTheme('dark'); // Fallback to dark
+    }
   }, [currentSessionRole]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,16 +110,23 @@ export default function SettingsPage() {
     setUserData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleThemeChange = (newTheme: string) => {
-    setCurrentTheme(newTheme);
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
-    root.classList.add(newTheme);
-    localStorage.setItem('nexusAlpriTheme', newTheme);
-    toast({
-      title: "Tema Actualizado",
-      description: `El tema de la aplicación ha cambiado a ${newTheme === 'dark' ? 'Oscuro' : 'Claro'}.`,
-    });
+  const handleThemeChange = (newThemeId: string) => {
+    setCurrentTheme(newThemeId);
+    if (typeof window !== 'undefined') {
+      const root = window.document.documentElement;
+      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
+      
+      if (newThemeId !== 'theme-light') { // Assuming 'theme-light' is base :root style
+        root.classList.add(newThemeId);
+      } else {
+         root.classList.add('theme-light'); // Or just rely on :root if no 'theme-light' class
+      }
+      localStorage.setItem('nexusAlpriTheme', newThemeId);
+      toast({
+        title: "Tema Aplicado",
+        description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
+      });
+    }
   };
 
   const handleSaveChanges = () => {
@@ -115,8 +158,6 @@ export default function SettingsPage() {
       setPasswordError('La nueva contraseña y la confirmación no coinciden.');
       return;
     }
-
-    // Simulate API call
     console.log("Simulando cambio de contraseña...");
     setTimeout(() => {
       toast({
@@ -311,19 +352,36 @@ export default function SettingsPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Apariencia</CardTitle>
-              <CardDescription>Personaliza la apariencia de la plataforma.</CardDescription>
+              <CardDescription>Personaliza la apariencia visual de la plataforma.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="theme-select">Tema</Label>
-              <Select value={currentTheme} onValueChange={handleThemeChange}>
-                <SelectTrigger id="theme-select" className="w-[180px]">
-                  <SelectValue placeholder="Seleccionar tema" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">Claro</SelectItem>
-                  <SelectItem value="dark">Oscuro</SelectItem>
-                </SelectContent>
-              </Select>
+            <CardContent className="space-y-4">
+                <Label>Seleccionar Tema</Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {themeOptions.map((theme) => (
+                        <Card 
+                            key={theme.id} 
+                            className={cn(
+                                "cursor-pointer hover:shadow-lg transition-shadow overflow-hidden",
+                                currentTheme === theme.id ? "ring-2 ring-primary shadow-primary/50" : "ring-1 ring-border"
+                            )}
+                            onClick={() => handleThemeChange(theme.id)}
+                        >
+                            <CardContent className="p-0">
+                                <div className="h-20 w-full flex items-stretch">
+                                    <div style={{ backgroundColor: theme.previewColors.bg }} className="w-1/3"></div>
+                                    <div style={{ backgroundColor: theme.previewColors.primary }} className="w-1/3"></div>
+                                    <div style={{ backgroundColor: theme.previewColors.accent }} className="w-1/3"></div>
+                                </div>
+                                <div className="p-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium truncate" style={{color: theme.previewColors.text, backgroundColor: theme.previewColors.bg }}>{theme.name}</p>
+                                        {currentTheme === theme.id && <Check className="h-5 w-5 text-primary" />}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             </CardContent>
           </Card>
 
@@ -338,3 +396,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
