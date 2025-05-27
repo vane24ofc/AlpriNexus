@@ -20,7 +20,7 @@ body {
     --secondary: 0 0% 96.1%;
     --secondary-foreground: 0 0% 9%;
     --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
+    --muted-foreground: 0 0% 55%; /* Ligeramente más oscuro para mejor contraste */
     --accent: 160 70% 45%; /* Teal vibrante */
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
@@ -31,11 +31,12 @@ body {
     --radius: 0.5rem;
 
     /* Chart colors - Light theme */
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 290 65% 60%;
-    --chart-5: 0 70% 50%;
+    --chart-1: 220 70% 50%; /* Azul más oscuro */
+    --chart-2: 25 80% 55%; /* Naranja */
+    --chart-3: 130 60% 45%; /* Verde */
+    --chart-4: 290 65% 60%; /* Púrpura */
+    --chart-5: 350 75% 55%; /* Rojo rosado */
+
 
     /* Sidebar specific colors - Light theme */
     --sidebar-background: 0 0% 97%;
@@ -79,7 +80,7 @@ body {
     --secondary: 215 28% 17%;
     --secondary-foreground: 0 0% 98%;
     --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 70%;
+    --muted-foreground: 0 0% 70%; /* Ligeramente más claro para mejor contraste */
     --accent: 160 70% 45%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 75% 55%;
@@ -89,18 +90,19 @@ body {
     --ring: 217 91% 65%;
 
     /* Chart colors - Dark theme */
-    --chart-1: 200 80% 55%;
-    --chart-2: 340 85% 60%;
-    --chart-3: 45 100% 50%;
-    --chart-4: 150 70% 45%;
-    --chart-5: 280 75% 65%;
+    --chart-1: 200 80% 55%; /* Cian brillante */
+    --chart-2: 340 85% 60%; /* Rosa/Magenta */
+    --chart-3: 45 100% 50%; /* Amarillo/Naranja */
+    --chart-4: 150 70% 45%; /* Verde */
+    --chart-5: 280 75% 65%; /* Púrpura */
+
 
     /* Sidebar specific colors - Dark theme */
-    --sidebar-background: 220 15% 10%;
+    --sidebar-background: 220 15% 10%; /* Azul muy oscuro */
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: hsl(var(--primary));
     --sidebar-primary-foreground: hsl(var(--primary-foreground));
-    --sidebar-accent: 220 40% 28%;
+    --sidebar-accent: 220 40% 28%; /* Azul zafiro oscuro */
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 220 15% 15%;
     --sidebar-ring: hsl(var(--ring));
@@ -137,7 +139,7 @@ body {
     --secondary: 200 40% 20%;
     --secondary-foreground: 180 30% 90%;
     --muted: 200 35% 25%;
-    --muted-foreground: 180 30% 85%;
+    --muted-foreground: 180 30% 75%; /* Ajustado */
     --accent: 170 80% 40%;
     --accent-foreground: 200 100% 5%;
     --destructive: 0 75% 55%;
@@ -178,7 +180,7 @@ body {
     --secondary: 25 20% 20%;
     --secondary-foreground: 35 80% 90%;
     --muted: 25 15% 25%;
-    --muted-foreground: 35 70% 85%;
+    --muted-foreground: 35 70% 80%; /* Ajustado */
     --accent: 0 80% 60%;
     --accent-foreground: 35 100% 95%;
     --destructive: 0 75% 55%;
@@ -219,7 +221,7 @@ body {
     --secondary: 110 25% 20%;
     --secondary-foreground: 90 30% 90%;
     --muted: 110 20% 25%;
-    --muted-foreground: 90 30% 85%;
+    --muted-foreground: 90 30% 75%; /* Ajustado */
     --accent: 40 60% 55%;
     --accent-foreground: 40 100% 10%;
     --destructive: 0 75% 55%;
@@ -260,7 +262,7 @@ body {
     --secondary: 240 3% 15%;
     --secondary-foreground: 0 0% 95%;
     --muted: 240 2% 20%;
-    --muted-foreground: 0 0% 80%;
+    --muted-foreground: 0 0% 85%; /* Ajustado */
     --accent: 0 0% 50%;
     --accent-foreground: 0 0% 95%;
     --destructive: 0 75% 55%;
@@ -301,7 +303,7 @@ body {
     --secondary: 240 2% 18%;
     --secondary-foreground: 0 0% 90%;
     --muted: 240 2% 22%;
-    --muted-foreground: 0 0% 80%;
+    --muted-foreground: 0 0% 75%; /* Ajustado */
     --accent: 15 80% 55%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
@@ -342,7 +344,7 @@ body {
     --secondary: 250 35% 92%;
     --secondary-foreground: 250 20% 30%;
     --muted: 250 30% 90%;
-    --muted-foreground: 250 15% 55%;
+    --muted-foreground: 250 15% 60%; /* Ajustado */
     --accent: 300 70% 80%;
     --accent-foreground: 260 50% 30%;
     --destructive: 0 84.2% 60.2%;
@@ -383,7 +385,7 @@ body {
     --secondary: 90 40% 94%;
     --secondary-foreground: 80 25% 25%;
     --muted: 90 40% 92%;
-    --muted-foreground: 80 20% 50%;
+    --muted-foreground: 80 20% 55%; /* Ajustado */
     --accent: 50 90% 60%;
     --accent-foreground: 70 40% 25%;
     --destructive: 0 84.2% 60.2%;
@@ -424,7 +426,7 @@ body {
     --secondary: 210 18% 25%;
     --secondary-foreground: 210 15% 85%;
     --muted: 210 15% 30%;
-    --muted-foreground: 210 15% 75%;
+    --muted-foreground: 210 15% 80%; /* Ajustado */
     --accent: 190 60% 70%;
     --accent-foreground: 210 100% 5%;
     --destructive: 0 65% 55%;
@@ -465,7 +467,7 @@ body {
     --secondary: 40 25% 92%;
     --secondary-foreground: 30 20% 30%;
     --muted: 40 20% 90%;
-    --muted-foreground: 30 15% 55%;
+    --muted-foreground: 30 15% 60%; /* Ajustado */
     --accent: 45 50% 60%;
     --accent-foreground: 30 40% 15%;
     --destructive: 0 70% 50%;
@@ -506,7 +508,7 @@ body {
     --secondary: 270 10% 20%;
     --secondary-foreground: 45 50% 85%;
     --muted: 270 8% 25%;
-    --muted-foreground: 45 40% 80%;
+    --muted-foreground: 45 40% 75%; /* Ajustado */
     --accent: 45 70% 60%;
     --accent-foreground: 270 60% 15%;
     --destructive: 0 70% 50%;
@@ -547,7 +549,7 @@ body {
     --secondary: 340 50% 95%;
     --secondary-foreground: 340 30% 35%;
     --muted: 340 40% 92%;
-    --muted-foreground: 340 25% 55%;
+    --muted-foreground: 340 25% 60%; /* Ajustado */
     --accent: 0 70% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
@@ -595,27 +597,29 @@ body {
   content: '';
   display: block;
   position: absolute;
-  bottom: 3px; /* Adjusted */
+  bottom: 3px; /* Adjusted for better visibility */
   left: 50%;
   transform: translateX(-50%);
-  width: 6px;  /* Adjusted */
-  height: 6px; /* Adjusted */
+  width: 6px;  /* Made slightly larger */
+  height: 6px; /* Made slightly larger */
   border-radius: 50%;
-  background-color: hsl(var(--accent));
+  background-color: hsl(var(--accent)); /* Default dot color to accent */
   z-index: 1;
 }
 
+/* Dot color for SELECTED day */
 .rdp-day_selected.day-with-event-dot::after,
-button.rdp-day_selected.day-with-event-dot:hover::after,
+button.rdp-day_selected.day-with-event-dot:hover::after, /* Ensures selected hover also uses this */
 button.rdp-day_selected.day-with-event-dot:focus::after {
-  background-color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary-foreground)); /* Contrasts with primary bg */
 }
 
+/* Dot color for TODAY (not selected) - this applies to the resting state of "today" */
 .rdp-day_today.day-with-event-dot:not(.rdp-day_selected)::after {
-  background-color: hsl(var(--accent-foreground));
+  background-color: hsl(var(--accent-foreground)); /* Contrasts with accent bg for today */
 }
 
-.day-with-event-dot > .rdp-day_button_level1 {
-  position: relative;
-  z-index: 2;
+/* Dot color for a day with an event WHEN IT IS HOVERED (and not selected) */
+.rdp-day.day-with-event-dot:not(.rdp-day_selected):hover::after {
+  background-color: hsl(var(--accent-foreground)); /* To contrast with the button's hover bg (which is accent) */
 }
