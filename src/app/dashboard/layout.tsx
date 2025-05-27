@@ -37,45 +37,42 @@ export default function DashboardLayout({
 
   useEffect(() => {
     setIsLoadingRole(true);
-    
     let roleFromStorage: Role | null = null;
     if (typeof window !== 'undefined') {
       roleFromStorage = localStorage.getItem('sessionRole') as Role | null;
     }
 
-    let roleFromPath: Role | null = null;
+    let finalDeterminedRole: Role;
+
     if (pathname.startsWith('/dashboard/admin')) {
-      roleFromPath = 'administrador';
+      finalDeterminedRole = 'administrador';
     } else if (pathname.startsWith('/dashboard/instructor')) {
-      roleFromPath = 'instructor';
-    } else if (pathname.startsWith('/dashboard/student')) {
-      roleFromPath = 'estudiante';
-    }
-
-    let finalDeterminedRole: Role | null = null;
-
-    if (roleFromPath) {
-      finalDeterminedRole = roleFromPath;
-      if (typeof window !== 'undefined' && roleFromStorage !== finalDeterminedRole) {
-        localStorage.setItem('sessionRole', finalDeterminedRole);
-      }
-    } else if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
-      finalDeterminedRole = roleFromStorage;
-    } else {
-      // Fallback to 'estudiante' if nothing found in path or storage
+      finalDeterminedRole = 'instructor';
+    } else if (pathname.startsWith('/dashboard/student')) { 
+      // This path is for specific student sections like /dashboard/student/profile
+      // If current path IS /dashboard/student/*, role is 'estudiante'.
       finalDeterminedRole = 'estudiante';
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionRole', finalDeterminedRole);
+    } else { 
+      // For generic paths like /dashboard, /dashboard/resources, /dashboard/calendar
+      // Rely on localStorage. If localStorage is empty or invalid, default to 'estudiante'.
+      if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
+        finalDeterminedRole = roleFromStorage;
+      } else {
+        finalDeterminedRole = 'estudiante'; // Default for generic paths if storage is invalid/empty
       }
     }
     
+    // Ensure localStorage reflects the determined role, especially if a path dictated it.
+    if (typeof window !== 'undefined' && localStorage.getItem('sessionRole') !== finalDeterminedRole) {
+        localStorage.setItem('sessionRole', finalDeterminedRole);
+    }
+
+    // Only update if the role has actually changed from its previous state or if it's the initial load (currentSessionRole is null)
     if (currentSessionRole !== finalDeterminedRole) {
       setCurrentSessionRole(finalDeterminedRole);
     }
-    
     setIsLoadingRole(false);
-
-  }, [pathname]); // Only depends on pathname to re-evaluate
+  }, [pathname]); // Only re-run if pathname changes
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
@@ -90,7 +87,6 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        {/* Removed key={currentSessionRole} from AppSidebarNav */}
         <AppSidebarNav /> 
         <SidebarInset>
           <AppHeader />
