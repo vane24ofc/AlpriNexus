@@ -41,7 +41,7 @@ interface StoredCalendarEvent {
 
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 
-const initialSampleEvents: StoredCalendarEvent[] = [ 
+const initialSampleEvents: StoredCalendarEvent[] = [
   { id: 'sample1', date: startOfDay(new Date()).toISOString(), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' },
   { id: 'sample2', date: startOfDay(new Date(new Date().setDate(new Date().getDate() + 1))).toISOString(), title: 'Entrega Proyecto Alfa', description: 'Fecha límite para el proyecto Alfa.', time: '17:00' },
 ];
@@ -161,7 +161,7 @@ export default function CalendarPage() {
             time: eventTime || undefined,
           },
         ];
-    
+
     setEvents(updatedEventsList.sort((a, b) => {
         const dateComparison = a.date.getTime() - b.date.getTime();
         if (dateComparison !== 0) return dateComparison;
@@ -179,9 +179,12 @@ export default function CalendarPage() {
     setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
   };
 
-  const eventsForSelectedDay = events.filter(event =>
-    selectedDate && isSameDay(event.date, selectedDate)
-  );
+  const eventsForSelectedDay = useMemo(() => {
+    return events.filter(event =>
+      selectedDate && isSameDay(event.date, selectedDate)
+    );
+  }, [events, selectedDate]);
+
 
   const eventDayModifier = useMemo(() => {
     // Get all unique dates that have events
@@ -197,7 +200,7 @@ export default function CalendarPage() {
         const dateWithTime = parse(timeString, 'HH:mm', new Date());
         return format(dateWithTime, 'p', { locale: es });
     } catch (error) {
-        return timeString; 
+        return timeString;
     }
   };
 
@@ -221,7 +224,7 @@ export default function CalendarPage() {
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
               setIsDialogOpen(isOpen);
               if (!isOpen) {
-                setEditingEvent(null); 
+                setEditingEvent(null);
                 resetFormFields();
               }
           }}>
@@ -234,7 +237,7 @@ export default function CalendarPage() {
               <DialogHeader>
                 <DialogTitle>{editingEvent ? 'Editar Evento' : 'Añadir Nuevo Evento'}</DialogTitle>
                 <DialogDescription>
-                  {editingEvent ? 'Modifica los detalles del evento.' : 'Completa los detalles para el nuevo evento.'}
+                  {editingEvent ? 'Modifica los detalles del evento existente.' : 'Completa los detalles para el nuevo evento.'}
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
@@ -301,7 +304,7 @@ export default function CalendarPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         <Card className="lg:col-span-4 xl:col-span-5 shadow-lg">
-          <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start">
+          <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start bg-black">
             <Calendar
               mode="single"
               selected={selectedDate}
