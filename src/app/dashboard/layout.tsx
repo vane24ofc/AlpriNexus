@@ -64,20 +64,29 @@ export default function DashboardLayout({
       localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
     }
     
-    if (activeTheme !== initialDashboardTheme) {
-      setActiveTheme(initialDashboardTheme);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+    setActiveTheme(initialDashboardTheme); // Set state once
 
+    // Apply the determined theme
+    const root = window.document.documentElement;
+    VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
+    if (VALID_THEME_CLASSES.includes(initialDashboardTheme)) {
+      root.classList.add(initialDashboardTheme);
+    } else {
+      root.classList.add('theme-light'); // Fallback
+    }
+  }, []); // Runs once on mount
+
+  // Effect to update theme if activeTheme state changes (e.g., from settings page)
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const root = window.document.documentElement;
         VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
         if (activeTheme && VALID_THEME_CLASSES.includes(activeTheme)) { 
             root.classList.add(activeTheme);
+            localStorage.setItem('nexusAlpriTheme', activeTheme); // Persist change
         } else {
             root.classList.add('theme-light'); // Fallback
+            localStorage.setItem('nexusAlpriTheme', 'theme-light');
         }
     }
   }, [activeTheme]); 
@@ -99,6 +108,7 @@ export default function DashboardLayout({
     } else if (pathname.startsWith('/dashboard/student')) {
       finalDeterminedRole = 'estudiante';
     } else {
+      // For generic dashboard paths, use stored role or default to student
       if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
         finalDeterminedRole = roleFromStorage;
       } else {
@@ -106,12 +116,14 @@ export default function DashboardLayout({
       }
     }
     
+    // Update localStorage if a specific path determined a role different from storage,
+    // or if no role was in storage for a generic path.
     if (typeof window !== 'undefined') {
         if (['/dashboard/admin', '/dashboard/instructor', '/dashboard/student'].some(p => pathname.startsWith(p))) {
              if (localStorage.getItem('sessionRole') !== finalDeterminedRole) {
                 localStorage.setItem('sessionRole', finalDeterminedRole);
              }
-        } else if (!roleFromStorage) { // If on a generic dashboard path and no role was in storage, set the determined role.
+        } else if (!roleFromStorage && finalDeterminedRole) { 
             localStorage.setItem('sessionRole', finalDeterminedRole);
         }
     }
@@ -134,8 +146,11 @@ export default function DashboardLayout({
   return (
     <SessionRoleContext.Provider value={contextValue}>
       <SidebarProvider defaultOpen={true}>
-        {/* Re-added key to AppSidebarNav to force re-mount on role change */}
-        <AppSidebarNav key={String(currentSessionRole) || 'loading-sidebar'} />
+        {/* Re-added key to AppSidebarNav to force re-mount on role change, 
+            ensuring a clean state for the sidebar.
+            Use String(currentSessionRole) to handle null initial value gracefully.
+        */}
+        <AppSidebarNav key={String(currentSessionRole)} /> 
         <SidebarInset>
           <AppHeader />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
