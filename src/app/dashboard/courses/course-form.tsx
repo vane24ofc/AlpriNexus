@@ -40,8 +40,8 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(), // Will be used as the quiz question
-  quizOptions: z.array(z.string().min(1, { message: "La opción no puede estar vacía." })).optional().default(['', '', '']), // Default to 3 empty options
+  quizPlaceholder: z.string().optional(),
+  quizOptions: z.array(z.string().min(1, { message: "La opción no puede estar vacía si se provee." }).or(z.literal(''))).optional().default(['', '', '']),
 });
 
 const courseFormSchema = z.object({
@@ -93,7 +93,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         content: l.content || '',
         videoUrl: l.videoUrl || '',
         quizPlaceholder: l.quizPlaceholder || '',
-        quizOptions: l.quizOptions && l.quizOptions.length > 0 ? l.quizOptions : ['', '', ''],
+        quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
       })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
       interactiveContent: initialData?.interactiveContent || '',
     },
@@ -117,7 +117,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
           content: l.content || '',
           videoUrl: l.videoUrl || '',
           quizPlaceholder: l.quizPlaceholder || '',
-          quizOptions: l.quizOptions && l.quizOptions.length > 0 ? l.quizOptions : ['', '', ''],
+          quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
         })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
         interactiveContent: initialData.interactiveContent || '',
       });
@@ -265,15 +265,20 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         finalThumbnailUrl = thumbnailPreview || "https://placehold.co/600x400.png?text=Curso"; 
     }
 
-    const lessonsWithDefaults = data.lessons.map(lesson => ({
-        ...lesson,
-        id: lesson.id || crypto.randomUUID(),
-        content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
-        videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
-        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
-        quizOptions: lesson.contentType === 'quiz' ? (lesson.quizOptions || ['', '', '']).filter(opt => opt.trim() !== '') : undefined,
-        contentType: lesson.contentType || 'text'
-    }));
+    const lessonsWithDefaults = data.lessons.map(lesson => {
+        const filteredQuizOptions = lesson.contentType === 'quiz' 
+            ? (lesson.quizOptions || []).filter(opt => opt.trim() !== '') 
+            : undefined;
+        return {
+            ...lesson,
+            id: lesson.id || crypto.randomUUID(),
+            content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
+            videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
+            quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
+            quizOptions: filteredQuizOptions && filteredQuizOptions.length > 0 ? filteredQuizOptions : undefined,
+            contentType: lesson.contentType || 'text'
+        };
+    });
 
     await onSubmitCourse({...data, lessons: lessonsWithDefaults}, finalThumbnailUrl);
   };
@@ -360,7 +365,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                     content: value !== 'text' ? '' : fields[index].content,
                                     videoUrl: value !== 'video' ? '' : fields[index].videoUrl,
                                     quizPlaceholder: value !== 'quiz' ? '' : fields[index].quizPlaceholder,
-                                    quizOptions: value !== 'quiz' ? ['', '', ''] : fields[index].quizOptions || ['', '', '']
+                                    quizOptions: value !== 'quiz' ? ['', '', ''] : (fields[index].quizOptions || ['', '', '']),
                                   });
                                 }} 
                                 defaultValue={lessonTypeField.value} 
@@ -438,9 +443,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                 </FormItem>
                               )}
                             />
-                            {(form.getValues(`lessons.${index}.quizOptions`) || ['', '', '']).map((_, optionIndex) => (
+                            {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).map((_, optionIndex) => (
                               <FormField
-                                key={`lessons.${index}.quizOptions.${optionIndex}`}
+                                key={`${field.id}-quizOption-${optionIndex}`} // Asegurar key única
                                 control={form.control}
                                 name={`lessons.${index}.quizOptions.${optionIndex}`}
                                 render={({ field: lessonQuizOptionField }) => (
@@ -452,7 +457,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                 )}
                               />
                             ))}
-                             {/* Potentially add a button here to add/remove quiz options if needed later */}
                           </div>
                         )}
                       </div>

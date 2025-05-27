@@ -28,7 +28,7 @@ const fallbackSampleCourse: Course = {
     status: 'approved',
     lessons: [
       {id: 'l1-fallback', title: 'Lección de Ejemplo 1', contentType: 'text', content: 'Contenido de la lección de ejemplo.'},
-      {id: 'l2-fallback', title: 'Lección de Ejemplo 2 (Video)', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Descripción del video de ejemplo.'}
+      {id: 'l2-fallback', title: 'Lección de Ejemplo 2 (Video)', contentType: 'video', videoUrl: 'https://www.youtube.com/embed/PkZNo7MFNFg', content: 'Descripción del video de ejemplo.', quizOptions: ['Op1', 'Op2']}
     ],
     interactiveContent: '<p class="text-center p-4 bg-muted rounded-md">No hay contenido interactivo para este curso de ejemplo.</p>'
 };
@@ -249,8 +249,10 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOption: null };
-    // Use defined options, or default if not available or empty
-    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.length > 0) ? lesson.quizOptions : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
+    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => opt.trim() !== '').length > 0) 
+        ? lesson.quizOptions.filter(opt => opt.trim() !== '')
+        : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
+
 
     switch (contentType) {
       case 'video':
@@ -465,7 +467,7 @@ export default function StudentCourseViewPage() {
                 <CardTitle className="text-xl">Contenido Interactivo Adicional</CardTitle>
               </CardHeader>
               <CardContent>
-                <div dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
+                <div className="prose prose-sm dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: course.interactiveContent }} />
               </CardContent>
             </Card>
           )}
@@ -473,9 +475,10 @@ export default function StudentCourseViewPage() {
             <CardHeader style={{ padding: '16px 20px 8px' }}>
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent style={{ textAlign: 'center', paddingTop: '24px', paddingBottom: '20px', paddingLeft: '20px', paddingRight: '20px' }}>
+            <CardContent className="text-center pt-6">
+                {/* SVG Container - Normal flow, centered, with negative top margin to pull it up slightly */}
                 <div className="relative w-32 h-32 mx-auto -mt-4"> 
-                    <svg className="w-full h-full" viewBox="0 0 36 36" style={{transform: 'rotate(-90deg)'}}>
+                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
                         strokeWidth="4" 
@@ -493,12 +496,14 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
+                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
                         <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
+                {/* Status Text Paragraph */}
                 <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
