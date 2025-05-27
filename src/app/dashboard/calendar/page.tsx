@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { PlusCircle, Trash2, CalendarDays, Edit3 } from 'lucide-react';
+import { PlusCircle, Trash2, CalendarDays, Edit3, Loader2, Info } from 'lucide-react';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { format, isSameDay, parseISO, startOfDay, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -41,10 +41,17 @@ interface StoredCalendarEvent {
 
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 
+const initialSampleEvents: StoredCalendarEvent[] = [ // Sample data if localStorage is empty
+  { id: 'sample1', date: startOfDay(new Date()).toISOString(), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' },
+  { id: 'sample2', date: startOfDay(new Date(new Date().setDate(new Date().getDate() + 1))).toISOString(), title: 'Entrega Proyecto Alfa', description: 'Fecha límite para el proyecto Alfa.', time: '17:00' },
+];
+
+
 export default function CalendarPage() {
   const { currentSessionRole } = useSessionRole();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
 
@@ -54,43 +61,54 @@ export default function CalendarPage() {
   const [eventDateForDialog, setEventDateForDialog] = useState<Date>(new Date());
 
   useEffect(() => {
+    setIsLoading(true);
     const storedEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
+    let loadedEvents: CalendarEvent[] = [];
     if (storedEventsString) {
       try {
         const storedEvents: StoredCalendarEvent[] = JSON.parse(storedEventsString);
-        const loadedEvents: CalendarEvent[] = storedEvents.map(event => ({
+        loadedEvents = storedEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
           time: event.time || undefined,
         }));
-        setEvents(loadedEvents.sort((a, b) => {
-            const dateComparison = a.date.getTime() - b.date.getTime();
-            if (dateComparison !== 0) return dateComparison;
-            if (a.time && b.time) return a.time.localeCompare(b.time);
-            return 0;
-        }));
       } catch (error) {
         console.error("Error al cargar eventos del calendario desde localStorage:", error);
-        // Fallback to sample if parsing fails
-        setEvents([
-          { id: 'sample1', date: startOfDay(new Date()), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' }
-        ]);
+        loadedEvents = initialSampleEvents.map(event => ({
+          ...event,
+          date: startOfDay(parseISO(event.date)),
+        }));
+        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
       }
     } else {
-       setEvents([
-        { id: 'sample1', date: startOfDay(new Date()), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' }
-      ]);
+        loadedEvents = initialSampleEvents.map(event => ({
+          ...event,
+          date: startOfDay(parseISO(event.date)),
+        }));
+        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
     }
+    setEvents(loadedEvents.sort((a, b) => {
+        const dateComparison = a.date.getTime() - b.date.getTime();
+        if (dateComparison !== 0) return dateComparison;
+        if (a.time && b.time) return a.time.localeCompare(b.time);
+        if (a.time) return -1; // Events with time first
+        if (b.time) return 1;
+        return 0;
+    }));
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
-    const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
-      ...event,
-      date: event.date.toISOString(),
-      time: event.time || undefined,
-    }));
-    localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
-  }, [events]);
+    // Do not save during initial load when events might be empty or default
+    if (!isLoading) {
+        const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
+        ...event,
+        date: event.date.toISOString(),
+        time: event.time || undefined,
+        }));
+        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
+    }
+  }, [events, isLoading]);
 
   const resetFormFields = () => {
     setEventTitle('');
@@ -121,9 +139,8 @@ export default function CalendarPage() {
       return;
     }
 
-    if (editingEvent) { // Editing existing event
-      setEvents(prevEvents =>
-        prevEvents.map(ev =>
+    const updatedEventsList = editingEvent
+      ? events.map(ev =>
           ev.id === editingEvent.id
             ? {
                 ...ev,
@@ -133,28 +150,27 @@ export default function CalendarPage() {
                 time: eventTime || undefined,
               }
             : ev
-        ).sort((a, b) => {
-            const dateComparison = a.date.getTime() - b.date.getTime();
-            if (dateComparison !== 0) return dateComparison;
-            if (a.time && b.time) return a.time.localeCompare(b.time);
-            return 0;
-        })
-      );
-    } else { // Adding new event
-      const newEvent: CalendarEvent = {
-        id: crypto.randomUUID(),
-        date: startOfDay(eventDateForDialog),
-        title: eventTitle.trim(),
-        description: eventDescription.trim(),
-        time: eventTime || undefined,
-      };
-      setEvents(prevEvents => [...prevEvents, newEvent].sort((a, b) => {
+        )
+      : [
+          ...events,
+          {
+            id: crypto.randomUUID(),
+            date: startOfDay(eventDateForDialog),
+            title: eventTitle.trim(),
+            description: eventDescription.trim(),
+            time: eventTime || undefined,
+          },
+        ];
+    
+    setEvents(updatedEventsList.sort((a, b) => {
         const dateComparison = a.date.getTime() - b.date.getTime();
         if (dateComparison !== 0) return dateComparison;
         if (a.time && b.time) return a.time.localeCompare(b.time);
+        if (a.time) return -1;
+        if (b.time) return 1;
         return 0;
     }));
-    }
+
     setIsDialogOpen(false);
     setEditingEvent(null);
   };
@@ -180,6 +196,15 @@ export default function CalendarPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="ml-3 text-lg">Cargando calendario...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -196,7 +221,7 @@ export default function CalendarPage() {
 
       <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
           setIsDialogOpen(isOpen);
-          if (!isOpen) setEditingEvent(null); // Reset editing state when dialog closes
+          if (!isOpen) setEditingEvent(null); 
       }}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -218,8 +243,8 @@ export default function CalendarPage() {
                 placeholder="Ej: Reunión de equipo"
               />
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="event-description" className="text-right">
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="event-description" className="text-right pt-2">
                 Descripción
               </Label>
               <Textarea
@@ -341,9 +366,12 @@ export default function CalendarPage() {
                 No hay eventos para este día.
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                Selecciona un día en el calendario.
-              </p>
+                 <div className="text-center py-4">
+                    <Info className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                        Selecciona un día en el calendario para ver los eventos programados.
+                    </p>
+                 </div>
             )}
           </CardContent>
         </Card>
@@ -351,3 +379,4 @@ export default function CalendarPage() {
     </div>
   );
 }
+
