@@ -7,6 +7,7 @@ export interface Lesson {
   videoUrl?: string; // if contentType is 'video'
   quizPlaceholder?: string; // Used as the main question for quizzes
   quizOptions?: string[]; // Array of answer options for quizzes
+  correctQuizOptionIndex?: number; // Index of the correct option in quizOptions
 }
 
 export interface Course {

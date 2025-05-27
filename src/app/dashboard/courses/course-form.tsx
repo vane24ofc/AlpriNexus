@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
@@ -40,9 +41,28 @@ const lessonSchema = z.object({
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
-  quizPlaceholder: z.string().optional(),
-  quizOptions: z.array(z.string().min(1, { message: "La opción no puede estar vacía si se provee." }).or(z.literal(''))).optional().default(['', '', '']),
+  quizPlaceholder: z.string().optional(), // Main question for the quiz
+  quizOptions: z.array(z.string().optional()).optional().default(['', '', '']), // Options for the quiz
+  correctQuizOptionIndex: z.number().optional(), // Index of the correct option
+}).refine(data => {
+  if (data.contentType === 'quiz') {
+    const providedOptions = data.quizOptions?.filter(opt => opt && opt.trim() !== '').length || 0;
+    if (providedOptions < 2) {
+      return false; // Quiz must have at least 2 options
+    }
+    if (data.correctQuizOptionIndex !== undefined && (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= providedOptions)) {
+      return false; // Correct option index must be valid
+    }
+    if (providedOptions > 0 && data.correctQuizOptionIndex === undefined){
+        return false; // If options are provided, a correct one must be selected
+    }
+  }
+  return true;
+}, {
+  message: "Para quizzes, debe proporcionar al menos 2 opciones y seleccionar una respuesta correcta. El índice de la opción correcta debe ser válido.",
+  path: ['correctQuizOptionIndex'], 
 });
+
 
 const courseFormSchema = z.object({
   title: z.string().min(5, { message: "El título del curso debe tener al menos 5 caracteres." }),
@@ -93,8 +113,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         content: l.content || '',
         videoUrl: l.videoUrl || '',
         quizPlaceholder: l.quizPlaceholder || '',
-        quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
-      })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
+        quizOptions: l.quizOptions && l.quizOptions.length >= 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
+        correctQuizOptionIndex: l.correctQuizOptionIndex
+      })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined }],
       interactiveContent: initialData?.interactiveContent || '',
     },
   });
@@ -117,8 +138,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
           content: l.content || '',
           videoUrl: l.videoUrl || '',
           quizPlaceholder: l.quizPlaceholder || '',
-          quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
-        })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''] }],
+          quizOptions: l.quizOptions && l.quizOptions.length >= 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
+          correctQuizOptionIndex: l.correctQuizOptionIndex
+        })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined }],
         interactiveContent: initialData.interactiveContent || '',
       });
       setThumbnailPreview(initialData.thumbnailUrl || null);
@@ -129,7 +151,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const handleThumbnailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
         toast({ variant: "destructive", title: "Archivo Demasiado Grande", description: "La imagen no debe exceder los 5MB." });
         form.setValue('thumbnailFile', null);
         setThumbnailPreview(initialData?.thumbnailUrl || null);
@@ -170,6 +192,14 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       });
       return;
     }
+    if (!title.trim()) {
+       form.setError("title", { type: "manual", message: "El título es requerido para generar la miniatura."});
+       return;
+    }
+    if (!description.trim()) {
+        form.setError("description", { type: "manual", message: "La descripción es requerida para generar la miniatura."});
+        return;
+    }
 
     setIsAiGeneratingThumbnail(true);
     try {
@@ -207,11 +237,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     const lessonTitle = form.getValues(`lessons.${lessonIndex}.title`);
 
     if (!courseTitle.trim()) {
-      toast({ variant: "destructive", title: "Falta Título del Curso", description: "Por favor, introduce un título para el curso." });
+      form.setError("title", { type: "manual", message: "El título del curso es necesario para generar contenido de lección."});
       return;
     }
     if (!lessonTitle.trim()) {
-      toast({ variant: "destructive", title: "Falta Título de Lección", description: `Por favor, introduce un título para la Lección ${lessonIndex + 1}.` });
+      form.setError(`lessons.${lessonIndex}.title`, { type: "manual", message: "El título de la lección es necesario."});
       return;
     }
     
@@ -265,9 +295,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         finalThumbnailUrl = thumbnailPreview || "https://placehold.co/600x400.png?text=Curso"; 
     }
 
-    const lessonsWithDefaults = data.lessons.map(lesson => {
+    const lessonsWithDetails = data.lessons.map(lesson => {
         const filteredQuizOptions = lesson.contentType === 'quiz' 
-            ? (lesson.quizOptions || []).filter(opt => opt.trim() !== '') 
+            ? (lesson.quizOptions || []).filter(opt => opt && opt.trim() !== '') 
             : undefined;
         return {
             ...lesson,
@@ -276,11 +306,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
             videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
             quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
             quizOptions: filteredQuizOptions && filteredQuizOptions.length > 0 ? filteredQuizOptions : undefined,
+            correctQuizOptionIndex: lesson.contentType === 'quiz' && filteredQuizOptions && filteredQuizOptions.length > 0 ? lesson.correctQuizOptionIndex : undefined,
             contentType: lesson.contentType || 'text'
         };
     });
 
-    await onSubmitCourse({...data, lessons: lessonsWithDefaults}, finalThumbnailUrl);
+    await onSubmitCourse({...data, lessons: lessonsWithDetails}, finalThumbnailUrl);
   };
   
   const formDisabled = isSubmitting || isAnyAiWorking;
@@ -329,24 +360,24 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((field, index) => {
+                {fields.map((fieldItem, index) => {
                   const currentLessonType = form.watch(`lessons.${index}.contentType`);
                   const isCurrentLessonAiGenerating = aiGeneratingLessonContentFor === index;
                   const lessonTitleValue = form.watch(`lessons.${index}.title`);
                   const courseTitleValue = form.watch("title");
 
                   return (
-                  <div key={field.id} className="flex flex-col gap-3 p-4 border rounded-md bg-muted/30 shadow-sm">
+                  <div key={fieldItem.id} className="flex flex-col gap-3 p-4 border rounded-md bg-muted/30 shadow-sm">
                     <div className="flex items-start gap-3">
                       <span className="font-semibold text-primary pt-2 text-lg">{index + 1}.</span>
                       <div className="flex-grow space-y-3">
                         <FormField
                           control={form.control}
                           name={`lessons.${index}.title`}
-                          render={({ field: lessonTitleField }) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Título de la Lección</FormLabel>
-                              <FormControl><Input placeholder={`Título para Lección ${index + 1}`} {...lessonTitleField} disabled={formDisabled} /></FormControl>
+                              <FormControl><Input placeholder={`Título para Lección ${index + 1}`} {...field} disabled={formDisabled} /></FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -354,21 +385,24 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                         <FormField
                           control={form.control}
                           name={`lessons.${index}.contentType`}
-                          render={({ field: lessonTypeField }) => (
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Tipo de Contenido</FormLabel>
                               <Select onValueChange={(value) => {
-                                  lessonTypeField.onChange(value);
-                                  update(index, { 
-                                    ...fields[index], 
+                                  field.onChange(value);
+                                  // Reset related fields when type changes
+                                  const currentLessonValues = form.getValues(`lessons.${index}`);
+                                  form.setValue(`lessons.${index}`, {
+                                    ...currentLessonValues,
                                     contentType: value as 'text' | 'video' | 'quiz',
-                                    content: value !== 'text' ? '' : fields[index].content,
-                                    videoUrl: value !== 'video' ? '' : fields[index].videoUrl,
-                                    quizPlaceholder: value !== 'quiz' ? '' : fields[index].quizPlaceholder,
-                                    quizOptions: value !== 'quiz' ? ['', '', ''] : (fields[index].quizOptions || ['', '', '']),
+                                    content: value === 'text' ? currentLessonValues.content || '' : '',
+                                    videoUrl: value === 'video' ? currentLessonValues.videoUrl || '' : '',
+                                    quizPlaceholder: value === 'quiz' ? currentLessonValues.quizPlaceholder || 'Pregunta de ejemplo' : '',
+                                    quizOptions: value === 'quiz' ? (currentLessonValues.quizOptions || ['', '', '']) : ['', '', ''],
+                                    correctQuizOptionIndex: value === 'quiz' ? currentLessonValues.correctQuizOptionIndex : undefined,
                                   });
                                 }} 
-                                defaultValue={lessonTypeField.value} 
+                                defaultValue={field.value} 
                                 disabled={formDisabled}>
                                 <FormControl>
                                   <SelectTrigger>
@@ -394,7 +428,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                           <FormField
                             control={form.control}
                             name={`lessons.${index}.content`}
-                            render={({ field: lessonContentField }) => (
+                            render={({ field }) => (
                               <FormItem>
                                 <div className="flex justify-between items-center mb-1">
                                   <FormLabel>Contenido de Texto</FormLabel>
@@ -411,52 +445,87 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                     {isCurrentLessonAiGenerating ? 'Generando...' : 'IA Borrador'}
                                   </Button>
                                 </div>
-                                <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...lessonContentField} rows={4} disabled={formDisabled}/></FormControl>
+                                <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...field} rows={4} disabled={formDisabled}/></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                         )}
                         {currentLessonType === 'video' && (
-                          <FormField
+                           <FormField
                             control={form.control}
                             name={`lessons.${index}.videoUrl`}
-                            render={({ field: lessonVideoUrlField }) => (
+                            render={({ field }) => (
                               <FormItem>
                                 <FormLabel>URL del Video (YouTube Embed)</FormLabel>
-                                <FormControl><Input placeholder="Ej: https://www.youtube.com/embed/VIDEO_ID" {...lessonVideoUrlField} disabled={formDisabled} /></FormControl>
+                                <FormControl><Input placeholder="Ej: https://www.youtube.com/embed/VIDEO_ID" {...field} value={field.value ?? ''} disabled={formDisabled} /></FormControl>
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
                         )}
                         {currentLessonType === 'quiz' && (
-                          <div className="space-y-3">
+                          <div className="space-y-3 pt-2 border-t mt-3">
                             <FormField
                               control={form.control}
                               name={`lessons.${index}.quizPlaceholder`}
-                              render={({ field: lessonQuizQuestionField }) => (
+                              render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Pregunta del Quiz</FormLabel>
-                                  <FormControl><Textarea placeholder="Escribe aquí la pregunta principal del quiz." {...lessonQuizQuestionField} rows={2} disabled={formDisabled} /></FormControl>
+                                  <FormControl><Textarea placeholder="Escribe aquí la pregunta principal del quiz." {...field} value={field.value ?? ''} rows={2} disabled={formDisabled} /></FormControl>
                                   <FormMessage />
                                 </FormItem>
                               )}
                             />
-                            {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).map((_, optionIndex) => (
+                            <FormLabel>Opciones de Respuesta (mínimo 2 requeridas):</FormLabel>
+                            {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).slice(0,3).map((_, optionIndex) => (
                               <FormField
-                                key={`${field.id}-quizOption-${optionIndex}`} // Asegurar key única
+                                key={`${fieldItem.id}-quizOption-${optionIndex}`}
                                 control={form.control}
                                 name={`lessons.${index}.quizOptions.${optionIndex}`}
-                                render={({ field: lessonQuizOptionField }) => (
+                                render={({ field }) => (
                                   <FormItem>
-                                    <FormLabel>Opción {optionIndex + 1}</FormLabel>
-                                    <FormControl><Input placeholder={`Respuesta opción ${optionIndex + 1}`} {...lessonQuizOptionField} disabled={formDisabled} /></FormControl>
+                                    <div className="flex items-center gap-2">
+                                       <FormLabel className="w-20 text-sm">Opción {optionIndex + 1}:</FormLabel>
+                                       <FormControl><Input placeholder={`Respuesta opción ${optionIndex + 1}`} {...field} value={field.value ?? ''} disabled={formDisabled} /></FormControl>
+                                    </div>
                                     <FormMessage />
                                   </FormItem>
                                 )}
                               />
                             ))}
+                             <FormField
+                                control={form.control}
+                                name={`lessons.${index}.correctQuizOptionIndex`}
+                                render={({ field }) => (
+                                <FormItem className="space-y-2">
+                                    <FormLabel>Seleccionar Respuesta Correcta:</FormLabel>
+                                    <FormControl>
+                                    <RadioGroup
+                                        onValueChange={(value) => field.onChange(parseInt(value, 10))}
+                                        value={field.value !== undefined ? field.value.toString() : ""}
+                                        className="flex flex-col space-y-1"
+                                        disabled={formDisabled}
+                                    >
+                                        {(form.watch(`lessons.${index}.quizOptions`) || ['', '', '']).slice(0,3).map((optionText, optIdx) => {
+                                            const hasText = optionText && optionText.trim() !== '';
+                                            return (
+                                            <FormItem key={`${fieldItem.id}-correctOpt-${optIdx}`} className="flex items-center space-x-3 space-y-0">
+                                                <FormControl>
+                                                    <RadioGroupItem value={optIdx.toString()} disabled={formDisabled || !hasText} />
+                                                </FormControl>
+                                                <FormLabel className={`font-normal ${!hasText ? 'text-muted-foreground italic' : ''}`}>
+                                                    Opción {optIdx + 1} {!hasText && "(Definir texto primero)"}
+                                                </FormLabel>
+                                            </FormItem>
+                                            )
+                                        })}
+                                    </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage /> {/* For correctQuizOptionIndex errors from refine */}
+                                </FormItem>
+                                )}
+                            />
                           </div>
                         )}
                       </div>
@@ -469,7 +538,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   </div>
                   );
                 })}
-                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''] })} className="w-full mt-4" disabled={formDisabled}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                  {form.formState.errors.lessons?.root?.message && (
