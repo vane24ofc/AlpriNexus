@@ -33,15 +33,15 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarGroup,
+  SidebarMenuSkeleton, // Importar SidebarMenuSkeleton
 } from '@/components/ui/sidebar';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Logo } from '@/components/common/logo';
 import React, { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 
 export interface NavItem {
-  id: string;
+  id: string; // Asegurar que id sea string para las keys
   href?: string;
   label: string;
   icon: React.ElementType;
@@ -50,6 +50,7 @@ export interface NavItem {
   badge?: string;
 }
 
+// Definición de los elementos de navegación con IDs únicos
 const navItems: NavItem[] = [
   { id: 'nav-panel-principal', href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
   {
@@ -79,18 +80,18 @@ const navItems: NavItem[] = [
     roles: ['estudiante'],
     children: [
       { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
+      { id: 'nav-student-my-courses', href: '/dashboard/student/my-courses', label: 'Mis Cursos Inscritos', icon: BookOpen, roles: ['estudiante'] },
     ],
   },
   { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
   { id: 'nav-explore-courses', href: '/dashboard/courses/explore', label: 'Explorar Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-enrolled-courses', href: '/dashboard/student/my-courses', label: 'Cursos Inscritos', icon: BookOpen, roles: ['administrador', 'instructor', 'estudiante'] },
+  // "Cursos Inscritos" se movió al grupo "Portal del Estudiante"
   { id: 'nav-virtual-sessions', href: '/dashboard/virtual-sessions', label: 'Sesiones Virtuales', icon: VideoIcon, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
   { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
 ];
 
-const dashboardPath = '/dashboard';
 
 export function AppSidebarNav() {
   const pathname = usePathname();
@@ -120,11 +121,16 @@ export function AppSidebarNav() {
     }, [] as NavItem[]);
   }, [currentSessionRole, isLoadingRole]);
 
+  // useEffect para gestionar la apertura/cierre de submenús basados en la ruta activa
   useEffect(() => {
-    if (!hasMounted || isLoadingRole || !currentSessionRole) {
-      if (Object.keys(openSubmenus).length > 0) { // Only update if not already empty
-        setOpenSubmenus({});
-      }
+    // Si no está montado en el cliente, o el rol está cargando, o no hay rol,
+    // o no hay elementos filtrados, reseteamos los submenús abiertos.
+    if (!hasMounted || isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
+      setOpenSubmenus(currentOpen => {
+        // Solo actualiza si no está ya vacío para evitar un bucle si este efecto se dispara innecesariamente
+        if (Object.keys(currentOpen).length > 0) return {};
+        return currentOpen;
+      });
       return;
     }
 
@@ -147,24 +153,29 @@ export function AppSidebarNav() {
 
     const newCalculatedOpenState = calculateNewOpenState();
 
-    // Perform a robust check to see if the state actually needs to change
-    const currentKeys = Object.keys(openSubmenus);
-    const newKeys = Object.keys(newCalculatedOpenState);
-    let needsUpdate = currentKeys.length !== newKeys.length;
+    // Usamos la forma funcional de setOpenSubmenus para comparar con el estado previo
+    // y evitar añadir openSubmenus al array de dependencias directamente.
+    setOpenSubmenus(prevOpenSubmenus => {
+      const currentKeys = Object.keys(prevOpenSubmenus);
+      const newKeys = Object.keys(newCalculatedOpenState);
+      let needsUpdate = currentKeys.length !== newKeys.length;
 
-    if (!needsUpdate) {
-      for (const key of newKeys) {
-        if (openSubmenus[key] !== newCalculatedOpenState[key]) {
-          needsUpdate = true;
-          break;
+      if (!needsUpdate) {
+        for (const key of newKeys) {
+          if (prevOpenSubmenus[key] !== newCalculatedOpenState[key]) {
+            needsUpdate = true;
+            break;
+          }
         }
       }
-    }
 
-    if (needsUpdate) {
-      setOpenSubmenus(newCalculatedOpenState);
-    }
-  }, [pathname, filteredNavItems, isLoadingRole, currentSessionRole, hasMounted, openSubmenus]);
+      if (needsUpdate) {
+        return newCalculatedOpenState;
+      }
+      return prevOpenSubmenus; // No actual change needed, return the previous state
+    });
+
+  }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]); // 'openSubmenus' NO está en este array de dependencias.
 
 
   const toggleSubmenu = (itemId: string) => {
@@ -198,8 +209,8 @@ export function AppSidebarNav() {
       if (!effectiveHref) return null;
       const Comp = isSubmenu ? SidebarMenuSubButton : SidebarMenuButton;
       let isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
-      if (effectiveHref === dashboardPath && item.id === 'nav-panel-principal') {
-        isActive = pathname === dashboardPath; 
+      if (effectiveHref === "/dashboard" && item.id === 'nav-panel-principal') {
+        isActive = pathname === "/dashboard"; 
       }
       return (
         <SidebarMenuItem key={item.id}>
@@ -219,7 +230,7 @@ export function AppSidebarNav() {
     return (
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+          <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
             <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
             <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
           </Link>
@@ -228,10 +239,7 @@ export function AppSidebarNav() {
           <SidebarMenu>
             {Array.from({ length: 8 }).map((_, index) => (
               <SidebarMenuItem key={`skeleton-nav-${index}`}>
-                <div className="flex items-center gap-2 p-2 h-8 rounded-md">
-                  <Skeleton className="h-4 w-4 rounded" />
-                  <Skeleton className="h-4 w-3/4 rounded group-data-[collapsible=icon]:hidden" />
-                </div>
+                <SidebarMenuSkeleton showIcon />
               </SidebarMenuItem>
             ))}
           </SidebarMenu>
@@ -248,7 +256,7 @@ export function AppSidebarNav() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href={dashboardPath} className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+        <Link href="/dashboard" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <Logo className="h-8 w-auto group-data-[collapsible=icon]:h-7 group-data-[collapsible=icon]:w-7" href={null} />
           <span className="font-semibold group-data-[collapsible=icon]:hidden">AlpriNexus</span>
         </Link>
