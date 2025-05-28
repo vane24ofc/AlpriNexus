@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -116,6 +117,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
 
   const handleResetPlatformData = () => {
     try {
+      if (typeof window === 'undefined') return;
       localStorage.removeItem(USERS_STORAGE_KEY);
       localStorage.removeItem(COURSES_STORAGE_KEY);
       localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY);
@@ -223,31 +225,16 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
                     <span className="font-medium">Configuración</span>
                 </Link>
             </Button>
-            <AlertDialog>
-              <ActualAlertDialogTrigger asChild>
+             <ActualAlertDialogTrigger asChild>
                   <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
                       <Trash2 className="h-8 w-8 mb-2"/>
                       <span className="font-medium">Restablecer Datos de Plataforma</span>
                   </Button>
               </ActualAlertDialogTrigger>
-              <AlertDialogContent>
-                  <AlertDialogHeader>
-                  <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                      Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
-                  </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleResetPlatformData} className="bg-destructive hover:bg-destructive/90">
-                      Sí, Restablecer Datos
-                  </AlertDialogAction>
-                  </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
           </CardContent>
         </Card>
       </div>
+      {/* AlertDialog para Restablecer Datos se mueve a AdminDashboardWrapperWithData */}
     </div>
   );
 };
@@ -259,7 +246,8 @@ interface InstructorDashboardContentProps {
 }
 
 const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ allCourses }) => {
-  const currentInstructorName = "Usuario Actual (Instructor)"; 
+  const { userProfile } = useSessionRole();
+  const currentInstructorName = userProfile.name; // Usar el nombre del perfil actual
 
   const instructorCourses = useMemo(() => 
     allCourses.filter(c => c.instructorName === currentInstructorName),
@@ -270,16 +258,16 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
 
   const stats = [
     { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" }, 
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder
+    { title: "Estudiantes Totales (Simulado)", value: "350", icon: Users, link: "#" }, 
     { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
-    { title: "Calificación Promedio", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
+    { title: "Calificación Promedio (Simulado)", value: "4.7/5", icon: BarChartIcon, link: "#" }, 
   ];
   
-  const recentFeedbacks = [
-    { student: "Emily R.", course: instructorCourses[0]?.title || "Curso Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
-    { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
-    { student: "Sarah K.", course: instructorCourses[2]?.title || "Tercer Curso", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
-  ].filter(f => f.course !== "Curso Ejemplo" && f.course !== "Otro Curso" && f.course !== "Tercer Curso" || instructorCourses.length > 0);
+  const recentFeedbacks = useMemo(() => [
+    { student: "Emily R.", course: instructorCourses[0]?.title || "Curso de Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
+    { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso de Ejemplo", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
+    { student: "Sarah K.", course: instructorCourses[2]?.title || "Tercer Curso de Ejemplo", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
+  ].filter(f => instructorCourses.length > 0), [instructorCourses]);
 
 
   return (
@@ -413,6 +401,7 @@ interface StudentDashboardContentProps {
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCourses, enrolledCourseIds, completedCourseIds }) => {
   const studentCourses = useMemo(() => {
+    if (typeof window === 'undefined') return []; // Evitar acceso a localStorage en servidor
     return allCourses
       .filter(course => enrolledCourseIds.has(course.id) && course.status === 'approved')
       .map(course => {
@@ -422,12 +411,15 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
           progress = 100;
         } else {
           const lessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
-          const storedLessonProgress = typeof window !== 'undefined' ? localStorage.getItem(lessonProgressKey) : null;
+          const storedLessonProgress = localStorage.getItem(lessonProgressKey);
           if (storedLessonProgress && course.lessons && course.lessons.length > 0) {
             try {
               const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgress);
               progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-            } catch (e) { progress = Math.floor(Math.random() * 99); }
+            } catch (e) { 
+              console.warn("Error parsing lesson progress for course:", course.id, e);
+              progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99); 
+            }
           } else {
             progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
           }
@@ -592,7 +584,7 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
   const [announcementAudience, setAnnouncementAudience] = React.useState('all'); 
   const { toast } = useToast();
 
-  const handleSendAnnouncement = () => {
+  const handleSendAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementMessage.trim()) {
       toast({
         variant: "destructive",
@@ -601,7 +593,8 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
       });
       return;
     }
-    console.log("Enviando anuncio:", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
+    // TODO: API Call - POST /api/announcements
+    console.log("Enviando anuncio (simulado):", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
     toast({
       title: "Anuncio Enviado (Simulado)",
       description: `El anuncio "${announcementTitle}" ha sido enviado a "${announcementAudience}".`,
@@ -677,6 +670,55 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <AlertDialog>
+        {/* AlertDialog para Restablecer Datos, el Trigger está en AdminDashboardContent */}
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+                onClick={() => {
+                    try {
+                        if (typeof window === 'undefined') return;
+                        localStorage.removeItem(USERS_STORAGE_KEY);
+                        localStorage.removeItem(COURSES_STORAGE_KEY);
+                        localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY);
+                        localStorage.removeItem(COMPLETED_COURSES_KEY);
+                        localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
+                        localStorage.removeItem(VIRTUAL_SESSIONS_STORAGE_KEY);
+                        localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
+                        localStorage.removeItem(LEARNING_RESOURCES_STORAGE_KEY);
+                        Object.keys(localStorage).forEach(key => {
+                            if (key.startsWith(COMPLETED_LESSONS_PREFIX) || key.startsWith(QUIZ_STATE_STORAGE_PREFIX)) {
+                            localStorage.removeItem(key);
+                            }
+                        });
+                        toast({
+                            title: "Datos Restablecidos",
+                            description: "Todos los datos simulados de la plataforma han sido eliminados. La página se recargará.",
+                        });
+                        setTimeout(() => window.location.reload(), 1500);
+                    } catch (error) {
+                        console.error("Error al restablecer datos:", error);
+                        toast({
+                            variant: "destructive",
+                            title: "Error al Restablecer",
+                            description: "No se pudieron eliminar todos los datos simulados.",
+                        });
+                    }
+                }} 
+                className="bg-destructive hover:bg-destructive/90"
+            >
+                Sí, Restablecer Datos
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -684,6 +726,7 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
 
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const { toast } = useToast(); // Mover useToast aquí para que esté disponible en el efecto
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
@@ -691,35 +734,47 @@ export default function DashboardHomePage() {
   const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
 
   useEffect(() => {
-    const loadData = () => {
+    const loadData = async () => { // Convertido a async
       if (typeof window === 'undefined') {
         setIsLoadingDashboardData(false);
         return;
       }
       setIsLoadingDashboardData(true);
       try {
+        // Simulación de carga de datos
+        // TODO: API Call - GET /api/courses
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        setAllCourses(storedCourses ? JSON.parse(storedCourses) : initialSampleCourses);
+        const coursesData = storedCourses ? JSON.parse(storedCourses) : initialSampleCourses;
+        setAllCourses(coursesData);
         if (!storedCourses) localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
 
-
+        // TODO: API Call - GET /api/users (probablemente con permisos de administrador)
         const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        setAllUsers(storedUsers ? JSON.parse(storedUsers) : initialSampleUsers);
+        const usersData = storedUsers ? JSON.parse(storedUsers) : initialSampleUsers;
+        setAllUsers(usersData);
         if (!storedUsers) localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
 
-
+        // TODO: API Call - GET /api/me/enrollments
         const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        setEnrolledCourseIds(storedEnrolled ? new Set(JSON.parse(storedEnrolled)) : new Set());
+        const enrolledIdsData = storedEnrolled ? new Set<string>(JSON.parse(storedEnrolled)) : new Set<string>();
+        setEnrolledCourseIds(enrolledIdsData);
         
         const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
-        setCompletedCourseIds(storedCompleted ? new Set(JSON.parse(storedCompleted)) : new Set());
+        const completedIdsData = storedCompleted ? new Set<string>(JSON.parse(storedCompleted)) : new Set<string>();
+        setCompletedCourseIds(completedIdsData);
 
       } catch (error) {
         console.error("Error loading data from localStorage for dashboard:", error);
+        toast({ // useToast debe estar disponible en este scope
+            variant: "destructive",
+            title: "Error al Cargar Datos",
+            description: "No se pudieron cargar los datos del panel. Se usarán datos de ejemplo."
+        });
         setAllCourses(initialSampleCourses);
         setAllUsers(initialSampleUsers);
         setEnrolledCourseIds(new Set());
         setCompletedCourseIds(new Set());
+        // Asegurarse de que localStorage tenga los datos de ejemplo si falla la carga
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
       }
@@ -731,7 +786,8 @@ export default function DashboardHomePage() {
     } else if (!isLoadingRole && !currentSessionRole) {
       setIsLoadingDashboardData(false);
     }
-  }, [isLoadingRole, currentSessionRole]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingRole, currentSessionRole]); // No añadir toast como dependencia aquí para evitar bucles
 
 
   if (isLoadingRole || isLoadingDashboardData) { 
@@ -763,6 +819,9 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />;
     default: 
+      // Fallback a estudiante si el rol no es reconocido, pero debería ser manejado por la lógica de `currentSessionRole`
       return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
   }
 }
+
+    
