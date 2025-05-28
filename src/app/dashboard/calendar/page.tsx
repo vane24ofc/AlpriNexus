@@ -71,8 +71,8 @@ export default function CalendarPage() {
         loadedEvents = storedEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
-          time: event.time || undefined, // Ensure time is undefined if not present
-        })).sort((a, b) => { // Sort by date then by time
+          time: event.time || undefined, 
+        })).sort((a, b) => { 
             const dateComparison = a.date.getTime() - b.date.getTime();
             if (dateComparison !== 0) return dateComparison;
             if (a.time && b.time) return a.time.localeCompare(b.time);
@@ -82,7 +82,6 @@ export default function CalendarPage() {
           });
       } catch (error) {
         console.error("Error al cargar eventos del calendario desde localStorage:", error);
-        // Fallback to sorted initial samples if parsing fails
         loadedEvents = initialSampleEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
@@ -97,7 +96,6 @@ export default function CalendarPage() {
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
       }
     } else {
-        // Fallback to sorted initial samples if no data in localStorage
         loadedEvents = initialSampleEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
@@ -116,11 +114,10 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    // Do not save during initial load when events might be empty or default
-    if (!isLoading) {
+    if (!isLoading && events.length >= 0) {
         const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
         ...event,
-        date: event.date.toISOString(), // Store date as ISO string
+        date: event.date.toISOString(), 
         time: event.time || undefined,
         }));
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
@@ -131,7 +128,6 @@ export default function CalendarPage() {
     setEventTitle('');
     setEventDescription('');
     setEventTime('');
-    // Ensure date is start of day for consistency
     setEventDateForDialog(startOfDay(selectedDate || new Date()));
   };
 
@@ -147,7 +143,7 @@ export default function CalendarPage() {
     setEventTitle(event.title);
     setEventDescription(event.description || '');
     setEventTime(event.time || '');
-    setEventDateForDialog(event.date); // Already startOfDay from loading
+    setEventDateForDialog(event.date); 
     setIsDialogOpen(true);
   };
 
@@ -157,7 +153,7 @@ export default function CalendarPage() {
       return;
     }
 
-    const processedDate = startOfDay(eventDateForDialog); // Ensure it's start of day
+    const processedDate = startOfDay(eventDateForDialog); 
 
     const updatedEventsList = editingEvent
       ? events.map(ev =>
@@ -167,7 +163,7 @@ export default function CalendarPage() {
                 title: eventTitle.trim(),
                 description: eventDescription.trim(),
                 date: processedDate,
-                time: eventTime || undefined, // Store empty string as undefined
+                time: eventTime || undefined, 
               }
             : ev
         )
@@ -178,11 +174,10 @@ export default function CalendarPage() {
             date: processedDate,
             title: eventTitle.trim(),
             description: eventDescription.trim(),
-            time: eventTime || undefined, // Store empty string as undefined
+            time: eventTime || undefined, 
           },
         ];
 
-    // Sort again after add/edit
     setEvents(updatedEventsList.sort((a, b) => {
         const dateComparison = a.date.getTime() - b.date.getTime();
         if (dateComparison !== 0) return dateComparison;
@@ -208,7 +203,6 @@ export default function CalendarPage() {
 
 
   const eventDayModifier = useMemo(() => {
-    // Get all unique dates that have events
     const datesWithEvents = new Set(events.map(event => event.date.getTime()));
     return Array.from(datesWithEvents).map(time => new Date(time));
   }, [events]);
@@ -218,12 +212,10 @@ export default function CalendarPage() {
   const formatTimeDisplay = (timeString?: string) => {
     if (!timeString) return '';
     try {
-        // Assuming timeString is "HH:mm"
         const dateWithTime = parse(timeString, 'HH:mm', new Date());
-        return format(dateWithTime, 'p', { locale: es }); // 'p' for localized time, e.g., "10:00 AM"
+        return format(dateWithTime, 'p', { locale: es }); 
     } catch (error) {
-        // If parsing fails, return the original string or a placeholder
-        return timeString; // Or handle error appropriately
+        return timeString; 
     }
   };
 
@@ -247,7 +239,7 @@ export default function CalendarPage() {
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
               setIsDialogOpen(isOpen);
               if (!isOpen) {
-                setEditingEvent(null); // Reset editing state when dialog closes
+                setEditingEvent(null); 
                 resetFormFields();
               }
           }}>
@@ -296,8 +288,8 @@ export default function CalendarPage() {
                   <Input
                     id="event-date"
                     type="date"
-                    value={format(eventDateForDialog, 'yyyy-MM-dd')} // Format date for input
-                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))} // Parse and set as start of day
+                    value={format(eventDateForDialog, 'yyyy-MM-dd')} 
+                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))} 
                     className="col-span-3"
                   />
                 </div>
@@ -328,23 +320,25 @@ export default function CalendarPage() {
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         <Card className="lg:col-span-4 xl:col-span-5 shadow-lg">
           <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start bg-black">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={setSelectedDate}
-              className="rounded-md"
-              locale={es}
-              ISOWeek
-              weekStartsOn={1} /* Lunes como inicio de semana */
-              modifiers={{ eventDay: eventDayModifier }}
-              modifiersClassNames={{
-                eventDay: 'day-with-event-dot',
-              }}
-              classNames={{
-                day_selected: 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
-                day_today: 'bg-accent text-accent-foreground',
-              }}
-            />
+            <div className="dark"> {/* Aplicamos el tema oscuro al contenedor del calendario */}
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                className="rounded-md"
+                locale={es}
+                ISOWeek
+                weekStartsOn={1} 
+                modifiers={{ eventDay: eventDayModifier }}
+                modifiersClassNames={{
+                  eventDay: 'day-with-event-dot',
+                }}
+                classNames={{
+                  day_selected: 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
+                  day_today: 'bg-accent text-accent-foreground',
+                }}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -372,11 +366,11 @@ export default function CalendarPage() {
                       {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
                     </div>
                     {canManageEvents && (
-                      <div className="flex space-x-1 shrink-0">
+                      <div className="flex space-x-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
                           onClick={() => handleOpenDialogForEdit(event)}
                           aria-label="Editar evento"
                         >
@@ -385,7 +379,7 @@ export default function CalendarPage() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive/60 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="h-7 w-7 text-destructive/60 hover:text-destructive"
                           onClick={() => handleDeleteEvent(event.id)}
                           aria-label="Eliminar evento"
                         >
