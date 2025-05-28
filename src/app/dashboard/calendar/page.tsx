@@ -320,24 +320,26 @@ export default function CalendarPage() {
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         <Card className="lg:col-span-4 xl:col-span-5 shadow-lg">
           <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start bg-black">
-            <div className="dark"> {/* Aplicamos el tema oscuro al contenedor del calendario */}
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="rounded-md"
-                locale={es}
-                ISOWeek
-                weekStartsOn={1} 
-                modifiers={{ eventDay: eventDayModifier }}
-                modifiersClassNames={{
-                  eventDay: 'day-with-event-dot',
-                }}
-                classNames={{
-                  day_selected: 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
-                  day_today: 'bg-accent text-accent-foreground',
-                }}
-              />
+            <div className="dark">
+              <div className="md:scale-110 lg:scale-125 origin-center transition-transform duration-300">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  className="rounded-md"
+                  locale={es}
+                  ISOWeek
+                  weekStartsOn={1} 
+                  modifiers={{ eventDay: eventDayModifier }}
+                  modifiersClassNames={{
+                    eventDay: 'day-with-event-dot',
+                  }}
+                  classNames={{
+                    day_selected: 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground',
+                    day_today: 'bg-accent text-accent-foreground',
+                  }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -417,3 +419,5 @@ export default function CalendarPage() {
   );
 }
 
+
+    
