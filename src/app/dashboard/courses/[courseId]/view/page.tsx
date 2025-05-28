@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useEffect, useState, useMemo, useRef } from 'react';
@@ -14,6 +15,7 @@ import { Progress } from '@/components/ui/progress';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
+const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_'; // Used for lesson completion
 const ENGAGEMENT_DURATION = 3000; 
 
 const fallbackSampleCourse: Course = {
@@ -55,21 +57,22 @@ export default function StudentCourseViewPage() {
   useEffect(() => {
     if (courseId) {
       setIsLoading(true);
+      // Simulate API call delay
       setTimeout(() => { 
         let foundCourse: Course | undefined;
-        try {
-          const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-          if (storedCourses) {
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        if (storedCourses) {
+          try {
             const allCourses: Course[] = JSON.parse(storedCourses);
             foundCourse = allCourses.find(c => c.id === courseId);
+          } catch (error) {
+            console.error("Error parsing courses from localStorage:", error);
           }
-        } catch (error) {
-          console.error("Error loading course from localStorage:", error);
         }
 
         if (foundCourse) {
           setCourse(foundCourse);
-          const storedCompletedKey = `${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`;
+          const storedCompletedKey = `${COMPLETED_LESSONS_PREFIX}${courseId}`;
           const storedCompletedLessons = localStorage.getItem(storedCompletedKey);
           const initialCompleted = storedCompletedLessons ? new Set<string>(JSON.parse(storedCompletedLessons)) : new Set<string>();
           setCompletedLessons(initialCompleted);
@@ -85,28 +88,32 @@ export default function StudentCourseViewPage() {
                 try {
                     const parsedState = JSON.parse(storedQuizStateForLesson) as QuizAttemptState;
                     initialQuizStateFromStorage[lesson.id] = parsedState;
-                    if (parsedState.answered) {
+                    if (parsedState.answered) { // If already answered, it's ready for completion
                         initialReadyForCompletionFromStorage.add(lesson.id);
                     }
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               } else {
+                 // Default state if not in localStorage
                  initialQuizStateFromStorage[lesson.id] = {
-                    started: isLessonCompleted, 
+                    started: isLessonCompleted, // If lesson marked complete, assume quiz was started/answered
                     answered: isLessonCompleted,
-                    selectedOptionIndex: null, 
+                    selectedOptionIndex: null, // Will be set if lesson.correctQuizOptionIndex is defined and lesson is completed
                     isCorrect: null,
                 };
               }
+              // If lesson is marked completed or quiz state indicates answered, mark as ready
               if (isLessonCompleted || initialQuizStateFromStorage[lesson.id]?.answered) { 
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
-            } else if (isLessonCompleted) { 
+
+            } else if (isLessonCompleted) { // For non-quiz lessons
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
           setQuizState(initialQuizStateFromStorage);
           setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
 
+          // Auto-open first uncompleted lesson or first lesson if all completed
           if (foundCourse.lessons && foundCourse.lessons.length > 0) {
             const allDone = initialCompleted.size === foundCourse.lessons.length;
             if (!allDone) {
@@ -116,6 +123,7 @@ export default function StudentCourseViewPage() {
                  setActiveAccordionItem(`lesson-${foundCourse.lessons[0].id}`);
             }
           }
+
         } else {
           toast({
             variant: "destructive",
@@ -131,13 +139,14 @@ export default function StudentCourseViewPage() {
           }
         }
         setIsLoading(false);
-      }, 500);
+      }, 500); // Simulate API delay
     }
+     // Cleanup timers on component unmount
      return () => {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]); 
+  }, [courseId]); // toast is not a dependency here
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -153,13 +162,15 @@ export default function StudentCourseViewPage() {
     setCompletedLessons(prev => {
       const newSet = new Set(prev);
       if (newSet.has(lessonId)) {
-        // newSet.delete(lessonId); 
+        // To un-complete: newSet.delete(lessonId);
+        // For now, once completed, stays completed.
       } else {
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
 
-        localStorage.setItem(`${COMPLETED_COURSES_STORAGE_KEY}_${courseId}`, JSON.stringify(Array.from(newSet)));
+        // Persist individual lesson completion for this course
+        localStorage.setItem(`${COMPLETED_LESSONS_PREFIX}${courseId}`, JSON.stringify(Array.from(newSet)));
 
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground" });
@@ -184,6 +195,7 @@ export default function StudentCourseViewPage() {
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
+      // If all are somehow completed but allLessonsCompleted flag is false (should not happen)
       setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
     }
   };
@@ -197,16 +209,18 @@ export default function StudentCourseViewPage() {
 
   const handleStartQuiz = (lessonId: string) => {
     const currentQuiz = quizState[lessonId] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
-    if (currentQuiz.answered) return;
+    // Allow re-starting quiz only if not already answered and marked as completed (lesson completion is separate)
+    if (currentQuiz.answered && completedLessons.has(lessonId)) return;
 
-    const newState = { ...quizState, [lessonId]: { ...currentQuiz, started: true } };
+    const newState = { ...quizState, [lessonId]: { ...currentQuiz, started: true, answered: false, selectedOptionIndex: null, isCorrect: null } };
     setQuizState(newState);
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
   };
 
   const handleAnswerQuiz = (lessonId: string, selectedOptionIndex: number) => {
     const lesson = course?.lessons.find(l => l.id === lessonId);
-    if (!lesson || !lesson.quizOptions || lesson.correctQuizOptionIndex === undefined) return;
+    if (!lesson || !lesson.quizOptions || typeof lesson.correctQuizOptionIndex === 'undefined') return;
+    if (quizState[lessonId]?.answered) return; // Prevent re-answering if already answered
 
     const isCorrect = selectedOptionIndex === lesson.correctQuizOptionIndex;
     const newState = {
@@ -221,9 +235,10 @@ export default function StudentCourseViewPage() {
         newSet.add(lessonId);
         return newSet;
     });
+
     toast({
         title: isCorrect ? "¡Respuesta Correcta!" : "Respuesta Incorrecta",
-        description: isCorrect ? `Has seleccionado la opción correcta. ¡Buen trabajo!` : `Has seleccionado ${lesson.quizOptions[selectedOptionIndex]}. La respuesta correcta era: ${lesson.quizOptions[lesson.correctQuizOptionIndex]}`,
+        description: isCorrect ? `Has seleccionado la opción correcta. ¡Buen trabajo!` : `Has seleccionado "${lesson.quizOptions[selectedOptionIndex]}". La respuesta correcta era: "${lesson.quizOptions[lesson.correctQuizOptionIndex]}"`,
         variant: isCorrect ? "default" : "destructive",
         className: isCorrect ? "bg-green-500 border-green-600 text-white" : "",
     });
@@ -234,18 +249,21 @@ export default function StudentCourseViewPage() {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
     const currentActiveLessonIdKey = value?.replace('lesson-', '');
 
+    // Clear timer for previously active lesson if it wasn't completed or ready
     if (prevActiveLessonIdKey && engagementTimersRef.current[prevActiveLessonIdKey]) {
       if (!lessonsReadyForCompletion.has(prevActiveLessonIdKey) && !completedLessons.has(prevActiveLessonIdKey)) {
         clearTimeout(engagementTimersRef.current[prevActiveLessonIdKey]);
-        delete engagementTimersRef.current[prevActiveLessonIdKey];
+        delete engagementTimersRef.current[prevActiveLessonIdKey]; // Remove timer ID
       }
     }
 
     setActiveAccordionItem(value);
 
+    // Start timer for newly active lesson if it's text/video and not yet completed/ready
     if (value && currentActiveLessonIdKey) {
       const lesson = course?.lessons.find(l => l.id === currentActiveLessonIdKey);
       if (lesson && (lesson.contentType === 'text' || lesson.contentType === 'video')) {
+        // Only start timer if not completed and not already marked as ready
         if (!completedLessons.has(lesson.id) && !lessonsReadyForCompletion.has(lesson.id)) {
           engagementTimersRef.current[lesson.id] = setTimeout(() => {
             setLessonsReadyForCompletion(prev => {
@@ -253,6 +271,7 @@ export default function StudentCourseViewPage() {
                 newSet.add(lesson.id);
                 return newSet;
             });
+            // Once timer fires, we can clear its ID
             if (engagementTimersRef.current[lesson.id]) { 
                 delete engagementTimersRef.current[lesson.id];
             }
@@ -265,6 +284,8 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
+    
+    // Use provided quiz options, or fallback to examples if none/empty are provided.
     const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '').length > 0) 
         ? lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '')
         : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
@@ -304,32 +325,39 @@ export default function StudentCourseViewPage() {
               <Puzzle className="h-6 w-6 mr-2" />
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
-            <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "¿Cuál es la respuesta correcta?"}</p>
-            {!currentQuizData.started && !completedLessons.has(lesson.id) ? (
+            <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
+            {!currentQuizData.started || (!currentQuizData.answered && currentQuizData.started) ? (
               <Button
                 variant="outline"
                 onClick={() => handleStartQuiz(lesson.id)}
                 className="bg-card hover:bg-card/90"
+                disabled={currentQuizData.started && !currentQuizData.answered}
               >
-                Comenzar Quiz
+                {currentQuizData.started && !currentQuizData.answered ? "Responde arriba" : "Comenzar Quiz"}
               </Button>
-            ) : (
+            ) : null}
+
+            {currentQuizData.started && (
               <div className="space-y-3">
                 <div className="flex flex-col gap-2">
                   {quizOptionsToDisplay.map((option, index) => {
                     let buttonVariant: "default" | "outline" | "destructive" | "secondary" = "outline";
                     let icon = null;
+                    const isSelected = currentQuizData.selectedOptionIndex === index;
+                    const isCorrectAnswer = index === lesson.correctQuizOptionIndex;
+
                     if (currentQuizData.answered) {
-                        if (currentQuizData.selectedOptionIndex === index) {
-                            buttonVariant = currentQuizData.isCorrect ? "default" : "destructive";
-                            icon = currentQuizData.isCorrect ? <CheckCircle className="mr-2 h-4 w-4" /> : <X className="mr-2 h-4 w-4" />;
-                        } else if (lesson.correctQuizOptionIndex === index) {
-                            buttonVariant = "default"; 
-                            icon = <CheckCircle className="mr-2 h-4 w-4" />;
-                        }
-                    } else if (currentQuizData.selectedOptionIndex === index) {
+                      if (isSelected) { // The option student picked
+                        buttonVariant = currentQuizData.isCorrect ? "default" : "destructive";
+                        icon = currentQuizData.isCorrect ? <CheckCircle className="mr-2 h-4 w-4" /> : <X className="mr-2 h-4 w-4" />;
+                      } else if (isCorrectAnswer) { // The actual correct answer, if not selected
+                        buttonVariant = "default"; 
+                        icon = <CheckCircle className="mr-2 h-4 w-4" />;
+                      }
+                    } else if (isSelected) { // While answering, before submitting (if we had a submit button)
                         buttonVariant = "secondary"; 
                     }
+                    
                     return (
                         <Button
                             key={index}
@@ -337,9 +365,9 @@ export default function StudentCourseViewPage() {
                             onClick={() => !currentQuizData.answered && handleAnswerQuiz(lesson.id, index)}
                             disabled={currentQuizData.answered || completedLessons.has(lesson.id)}
                             className={`w-full justify-start 
-                                ${buttonVariant === "default" && currentQuizData.isCorrect ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
-                                ${buttonVariant === "default" && lesson.correctQuizOptionIndex === index && currentQuizData.selectedOptionIndex !== index ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
-                                ${buttonVariant === "destructive" ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
+                                ${currentQuizData.answered && isSelected && currentQuizData.isCorrect ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                                ${currentQuizData.answered && isCorrectAnswer && (!isSelected || !currentQuizData.isCorrect) ? 'bg-green-500 hover:bg-green-600 text-white opacity-70 border-2 border-green-700' : ''}
+                                ${currentQuizData.answered && isSelected && !currentQuizData.isCorrect ? 'bg-red-500 hover:bg-red-600 text-white' : ''}
                                 ${buttonVariant === "outline" ? 'bg-card hover:bg-card/90' : ''}
                             `}
                         >
@@ -351,7 +379,7 @@ export default function StudentCourseViewPage() {
                 </div>
                 {currentQuizData.answered && (
                     <p className={`text-xs mt-2 font-medium ${currentQuizData.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {currentQuizData.isCorrect ? "¡Correcto! Tu respuesta ha sido registrada." : `Incorrecto. La respuesta correcta era: ${lesson.quizOptions ? lesson.quizOptions[lesson.correctQuizOptionIndex ?? 0] : '' }`}
+                        {currentQuizData.isCorrect ? "¡Correcto! Tu respuesta ha sido registrada." : `Incorrecto. La respuesta correcta era: "${quizOptionsToDisplay[lesson.correctQuizOptionIndex ?? 0]}"`}
                     </p>
                 )}
               </div>
@@ -516,17 +544,18 @@ export default function StudentCourseViewPage() {
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
             <CardContent className="text-center pt-6">
-                <div className="relative w-32 h-32 mx-auto -mt-4"> 
-                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
+                {/* SVG Container - Normal flow, centered, with negative top margin to pull it up slightly */}
+                <div className="relative w-32 h-32 mx-auto -mt-4"> {/* Tailwind equivalent of margin-top: -16px; */}
+                    <svg className="w-full h-full" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
                         <path
-                        className="text-muted/30"
+                        className="text-muted/30" // Tailwind equivalent of rgba(224, 224, 224, 0.3)
                         strokeWidth="4" 
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
-                        className={allLessonsCompleted ? "text-accent" : "text-primary"}
+                        className={allLessonsCompleted ? "text-accent" : "text-primary"} // Dynamic color
                         strokeWidth="4" 
                         fill="none"
                         strokeLinecap="round"
@@ -535,22 +564,24 @@ export default function StudentCourseViewPage() {
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                     </svg>
+                    {/* Text for percentage, positioned absolutely to overlay the SVG */}
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
-                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
+                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}> {/* Dynamic color */}
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
+                {/* Status Text Paragraph */}
+                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}> {/* Dynamic color and margin */}
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : ""}`} />
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} /> {/* Dynamic progress bar color */}
                 <Button 
                     className="w-full text-base py-2.5"
                     onClick={handleCourseAction}
-                    variant={allLessonsCompleted ? "default" : "default"}
-                    style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
+                    variant={allLessonsCompleted ? "default" : "default"} // Could be different variants
+                    style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}} // Dynamic button style
                 >
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
@@ -561,3 +592,6 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
+
+    
