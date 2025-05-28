@@ -76,8 +76,22 @@ export default function ResourcesPage() {
   const canUploadAndManage = useMemo(() => currentSessionRole === 'administrador' || currentSessionRole === 'instructor', [currentSessionRole]);
 
   useEffect(() => {
-    setIsLoading(true);
-    const loadResources = () => {
+    const loadResources = async () => {
+      setIsLoading(true);
+      // TODO: API Call - GET /api/resources/company and GET /api/resources/learning
+      // Example for company resources:
+      // try {
+      //   const response = await fetch('/api/resources/company');
+      //   if (!response.ok) throw new Error('Failed to fetch company resources');
+      //   const data = await response.json();
+      //   setCompanyResources(data);
+      // } catch (error) {
+      //   console.error("Error fetching company resources:", error);
+      //   // Fallback to localStorage or initial samples
+      // }
+      // Similar for learning resources
+
+      // Fallback to localStorage
       try {
         const storedCompany = localStorage.getItem(COMPANY_RESOURCES_STORAGE_KEY);
         setCompanyResources(storedCompany ? JSON.parse(storedCompany) : initialSampleCompanyResources);
@@ -94,8 +108,10 @@ export default function ResourcesPage() {
         console.error("Error cargando recursos desde localStorage:", error);
         setCompanyResources(initialSampleCompanyResources);
         setLearningResources(initialSampleLearningResources);
-        localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
-        localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
+            localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
+        }
       } finally {
         setIsLoading(false);
       }
@@ -112,7 +128,7 @@ export default function ResourcesPage() {
 
       if (role === 'administrador') return true;
       if (role === 'instructor') {
-        return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
+        return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Instructors can see their private learning files
       }
       return file.visibility === 'public';
     });
@@ -131,8 +147,22 @@ export default function ResourcesPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const confirmDeleteResource = () => {
+  const confirmDeleteResource = async () => {
     if (!resourceToDelete) return;
+
+    // TODO: API Call - DELETE /api/resources/:resourceId (or specific endpoint based on category)
+    // Example:
+    // try {
+    //   const response = await fetch(`/api/resources/${resourceToDelete.id}?category=${resourceToDelete.category}`, { method: 'DELETE' });
+    //   if (!response.ok) throw new Error('Failed to delete resource');
+    //   // If API call is successful, then update local state
+    // } catch (error) {
+    //   console.error("Error deleting resource via API:", error);
+    //   toast({ variant: "destructive", title: "Error de Eliminación", description: "No se pudo eliminar el recurso." });
+    //   setResourceToDelete(null);
+    //   setIsDeleteDialogOpen(false);
+    //   return;
+    // }
 
     let updatedResources: ResourceFile[];
     let storageKey: string;
@@ -215,7 +245,7 @@ export default function ResourcesPage() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">{file.uploadDate}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
+                        <div className="flex justify-end items-center space-x-2">
                           <Button variant="outline" size="sm" asChild>
                             <a href={file.url || '#'} target="_blank" rel="noopener noreferrer">
                               <Eye className="mr-1 h-4 w-4" /> Visualizar
@@ -227,9 +257,9 @@ export default function ResourcesPage() {
                             </a>
                           </Button>
                           {canUploadAndManage && (
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => openDeleteDialog(file)}
                               title="Eliminar Recurso"
@@ -326,5 +356,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-
-    

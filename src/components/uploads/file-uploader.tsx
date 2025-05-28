@@ -73,11 +73,11 @@ export function FileUploader() {
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles: UploadedFile[] = acceptedFiles.map(file => ({
       file,
-      id: Math.random().toString(36).substring(7),
+      id: crypto.randomUUID(),
       progress: 0,
       status: 'pending',
       visibility: selectedVisibility,
-      category: isAdmin ? selectedCategory : 'learning', // Admin chooses, instructor defaults to learning
+      category: isAdmin ? selectedCategory : 'learning',
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
   }, [selectedVisibility, selectedCategory, isAdmin]);
@@ -103,76 +103,87 @@ export function FileUploader() {
     return extension.toUpperCase();
   };
 
-  const handleSimulateUploadAll = () => {
-    const pendingFiles = files.filter(f => f.status === 'pending');
+  const handleSimulateUploadAll = async () => {
+    const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'uploading');
     if (pendingFiles.length === 0) {
         toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero." });
         return;
     }
     setIsSimulatingUpload(true);
+    toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
 
-    let filesProcessed = 0;
-
-    pendingFiles.forEach(uploadedFile => {
+    for (const uploadedFile of pendingFiles) {
       setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0 } : f));
       
-      let currentProgress = 0;
-      const interval = setInterval(() => {
-        currentProgress += Math.floor(Math.random() * 20) + 20; 
-        if (currentProgress >= 100) {
-          clearInterval(interval);
-          const success = Math.random() > 0.1; // 90% success rate
-          const newStatus = success ? 'success' : 'error';
-          const errorMsg = success ? undefined : 'Fallo al subir (simulado)';
+      // Simulate progress
+      for (let currentProgress = 0; currentProgress <= 100; currentProgress += Math.floor(Math.random() * 20) + 20) {
+        await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+        setFiles(prev =>
+          prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: Math.min(currentProgress, 100) } : f))
+        );
+        if (currentProgress >= 100) break;
+      }
 
-          setFiles(prev =>
-            prev.map(f =>
-              f.id === uploadedFile.id ? { 
-                  ...f, 
-                  progress: 100, 
-                  status: newStatus,
-                  error: errorMsg
-              } : f
-            )
-          );
+      const success = Math.random() > 0.1; // 90% success rate
+      const newStatus = success ? 'success' : 'error';
+      const errorMsg = success ? undefined : 'Fallo al subir (simulado)';
 
-          if (success) {
-            const storedResource: StoredResource = {
-              id: uploadedFile.id,
-              name: uploadedFile.file.name,
-              type: getFileType(uploadedFile.file.name),
-              size: formatBytes(uploadedFile.file.size),
-              uploadDate: new Date().toISOString().split('T')[0],
-              url: '#', // Placeholder URL
-              visibility: uploadedFile.visibility,
-              category: uploadedFile.category,
-            };
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === uploadedFile.id ? { 
+              ...f, 
+              progress: 100, 
+              status: newStatus,
+              error: errorMsg
+          } : f
+        )
+      );
 
-            const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
-            try {
-              const existingResourcesString = localStorage.getItem(storageKey);
-              const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
-              localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
-            } catch (e) {
-              console.error("Error guardando recurso en localStorage:", e);
-              toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
-            }
+      if (success) {
+        const storedResource: StoredResource = {
+          id: uploadedFile.id,
+          name: uploadedFile.file.name,
+          type: getFileType(uploadedFile.file.name),
+          size: formatBytes(uploadedFile.file.size),
+          uploadDate: new Date().toISOString().split('T')[0],
+          url: '#', // Placeholder URL
+          visibility: uploadedFile.visibility,
+          category: uploadedFile.category,
+        };
+
+        // TODO: API Call - POST /api/resources
+        // Example:
+        // try {
+        //   const response = await fetch('/api/resources', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify(storedResource),
+        //   });
+        //   if (!response.ok) throw new Error('Failed to upload resource metadata');
+        //   // Handle successful API response if needed
+        // } catch (e) {
+        //   console.error("Error saving resource via API:", e);
+        //   toast({ variant: "destructive", title: "Error de Subida", description: "No se pudo guardar el archivo en el servidor." });
+        //   // Optionally revert status in UI
+        //   setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'error', error: 'Error de servidor' } : f));
+        //   continue; // Skip localStorage update for this file
+        // }
+
+        const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
+        try {
+          if (typeof window !== 'undefined') {
+            const existingResourcesString = localStorage.getItem(storageKey);
+            const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
+            localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
           }
-          
-          filesProcessed++;
-          if (filesProcessed === pendingFiles.length) {
-            setIsSimulatingUpload(false);
-            toast({ title: "Proceso de Subida Completado", description: "Algunos archivos pueden haber fallado (simulado)." });
-          }
-
-        } else {
-          setFiles(prev =>
-            prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: currentProgress } : f))
-          );
+        } catch (e) {
+          console.error("Error guardando recurso en localStorage:", e);
+          toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
         }
-      }, 200 + Math.random() * 300); 
-    });
-    toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
+      }
+    }
+    setIsSimulatingUpload(false);
+    toast({ title: "Proceso de Subida Completado", description: "Algunos archivos pueden haber fallado (simulado)." });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -193,9 +204,8 @@ export function FileUploader() {
     setFiles(prevFiles => prevFiles.filter(file => file.id !== id && file.status !== 'uploading'));
   };
   
-  const clearAllFiles = () => {
-    // Only clear files that are not currently in 'uploading' state
-    setFiles(prev => prev.filter(f => f.status === 'uploading')); 
+  const clearAllPendingFiles = () => {
+    setFiles(prev => prev.filter(f => f.status === 'uploading' || f.status === 'success' || f.status === 'error'));
     if (files.some(f => f.status === 'uploading')) {
       toast({title: "No se pueden limpiar todos", description: "Algunos archivos están en proceso de subida."})
     }
@@ -210,7 +220,6 @@ export function FileUploader() {
   };
   
   const filesToUploadCount = files.filter(f => f.status === 'pending').length;
-
 
   if (!canUpload) return null;
 
@@ -266,7 +275,7 @@ export function FileUploader() {
               <Select 
                   value={selectedVisibility} 
                   onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}
-                  disabled={isSimulatingUpload}
+                  disabled={isSimulatingUpload || (isAdmin && selectedCategory === 'company' && false)} // Visibilidad siempre editable, incluso para company resources
               >
               <SelectTrigger id="visibility-select">
                   <SelectValue placeholder="Seleccionar visibilidad" />
@@ -363,7 +372,7 @@ export function FileUploader() {
         )}
          {files.length > 0 && (
             <div className="mt-6 flex justify-end gap-2">
-                 <Button variant="outline" onClick={clearAllFiles} disabled={isSimulatingUpload && files.some(f=> f.status === 'uploading')}>Limpiar Cola</Button>
+                 <Button variant="outline" onClick={clearAllPendingFiles} disabled={isSimulatingUpload && files.some(f=> f.status === 'uploading')}>Limpiar Pendientes</Button>
                  <Button onClick={handleSimulateUploadAll} disabled={isSimulatingUpload || filesToUploadCount === 0} className="min-w-[150px]">
                     {isSimulatingUpload ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Send className="mr-2 h-5 w-5" />}
                     {isSimulatingUpload ? 'Subiendo...' : `Subir ${filesToUploadCount > 0 ? `(${filesToUploadCount}) Archivo(s)` : 'Archivos Pendientes'}`}
