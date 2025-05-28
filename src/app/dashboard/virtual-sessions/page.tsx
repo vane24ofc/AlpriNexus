@@ -75,39 +75,61 @@ export default function VirtualSessionsPage() {
   const canManageSessions = currentSessionRole === 'administrador' || currentSessionRole === 'instructor';
 
   useEffect(() => {
-    setIsLoading(true);
-    try {
-      const storedSessions = localStorage.getItem(VIRTUAL_SESSIONS_STORAGE_KEY);
-      if (storedSessions) {
-        const parsedSessions: VirtualSession[] = JSON.parse(storedSessions);
-        // Sort sessions by date and time
-        parsedSessions.sort((a, b) => {
-          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-          return dateTimeA - dateTimeB;
-        });
-        setSessions(parsedSessions);
-      } else {
+    const loadSessions = async () => {
+      setIsLoading(true);
+      // TODO: API Call - GET /api/virtual-sessions
+      // const response = await fetch('/api/virtual-sessions');
+      // if (!response.ok) {
+      //   toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar las sesiones virtuales." });
+      //   setSessions(initialSampleSessions); // Fallback
+      // } else {
+      //   const data: VirtualSession[] = await response.json();
+      //   data.sort((a, b) => { // Sort sessions by date and time
+      //     const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+      //     const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+      //     return dateTimeA - dateTimeB;
+      //   });
+      //   setSessions(data);
+      // }
+
+      // Fallback to localStorage
+      try {
+        const storedSessions = localStorage.getItem(VIRTUAL_SESSIONS_STORAGE_KEY);
+        if (storedSessions) {
+          const parsedSessions: VirtualSession[] = JSON.parse(storedSessions);
+          parsedSessions.sort((a, b) => {
+            const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+            const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+            return dateTimeA - dateTimeB;
+          });
+          setSessions(parsedSessions);
+        } else {
+          const sortedInitial = initialSampleSessions.sort((a, b) => {
+            const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+            const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+            return dateTimeA - dateTimeB;
+          });
+          setSessions(sortedInitial);
+          localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(sortedInitial));
+        }
+      } catch (error) {
+        console.error("Error cargando sesiones de localStorage:", error);
         setSessions(initialSampleSessions.sort((a, b) => {
-          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-          return dateTimeA - dateTimeB;
-        }));
-        localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(initialSampleSessions));
+            const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
+            const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
+            return dateTimeA - dateTimeB;
+          }));
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error cargando sesiones de localStorage:", error);
-      setSessions(initialSampleSessions.sort((a, b) => {
-          const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
-          const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
-          return dateTimeA - dateTimeB;
-        }));
-    }
-    setIsLoading(false);
+    };
+    loadSessions();
   }, []);
 
+  // This useEffect persists changes to localStorage.
+  // With a backend, this would be removed, and data would be refetched or updated via optimistic updates.
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && sessions.length >= 0) { 
         try {
             localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(sessions));
         } catch (error) {
@@ -129,7 +151,7 @@ export default function VirtualSessionsPage() {
     setNewSessionLink('');
   };
 
-  const handleCreateSession = () => {
+  const handleCreateSession = async () => {
     if (!newSessionTitle || !newSessionDate || !newSessionTime || !newSessionLink) {
       toast({
         variant: "destructive",
@@ -150,48 +172,62 @@ export default function VirtualSessionsPage() {
       return;
     }
 
-    const newSession: VirtualSession = {
-      id: crypto.randomUUID(),
+    const newSessionData: Omit<VirtualSession, 'id'> = {
       title: newSessionTitle,
       date: newSessionDate,
       time: newSessionTime,
       description: newSessionDescription,
       meetingLink: newSessionLink,
-      organizer: currentSessionRole === 'administrador' ? 'Administrador AlpriNexus' : 'Instructor AlpriNexus', 
+      organizer: currentSessionRole === 'administrador' ? 'Administrador AlpriNexus' : 'Instructor AlpriNexus',
     };
 
-    // Update virtual sessions
+    // TODO: API Call - POST /api/virtual-sessions
+    // const response = await fetch('/api/virtual-sessions', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(newSessionData),
+    // });
+    // if (!response.ok) {
+    //   toast({ variant: "destructive", title: "Error", description: "No se pudo programar la sesión." });
+    //   return;
+    // }
+    // const createdSession: VirtualSession = await response.json();
+    // setSessions(prev => [...prev, createdSession].sort((a,b) => new Date(`${a.date}T${a.time || '00:00'}`).getTime() - new Date(`${b.date}T${b.time || '00:00'}`).getTime()));
+    // TODO: API Call - Optionally, if backend doesn't handle calendar event creation:
+    // await fetch('/api/calendar-events', { /* ... payload for calendar event ... */ });
+
+    // Fallback to localStorage
+    const newSession: VirtualSession = {
+      ...newSessionData,
+      id: crypto.randomUUID(),
+    };
     const updatedSessions = [...sessions, newSession].sort((a, b) => {
         const dateTimeA = new Date(`${a.date}T${a.time || '00:00'}`).getTime();
         const dateTimeB = new Date(`${b.date}T${b.time || '00:00'}`).getTime();
         return dateTimeA - dateTimeB;
     });
     setSessions(updatedSessions);
-    localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions));
+    // localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions)); // Handled by useEffect
 
-    // Create and save corresponding calendar event
+    // Create and save corresponding calendar event to localStorage
     try {
         const calendarEvent: StoredCalendarEvent = {
-            id: `vs-${newSession.id}`, // Use a prefix to avoid ID conflicts if calendar has its own events
+            id: `vs-${newSession.id}`,
             title: `[Sesión Virtual] ${newSession.title}`,
-            date: startOfDay(parseISO(newSession.date)).toISOString(), // Ensure date is start of day ISO string
+            date: startOfDay(parseISO(newSession.date)).toISOString(),
             time: newSession.time,
             description: newSession.description,
         };
-        
         const storedCalendarEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
         let calendarEvents: StoredCalendarEvent[] = storedCalendarEventsString ? JSON.parse(storedCalendarEventsString) : [];
         calendarEvents.push(calendarEvent);
-        // Sort calendar events as well
         calendarEvents.sort((a,b) => {
             const dateTimeA = new Date(`${parseISO(a.date).toISOString().split('T')[0]}T${a.time || '00:00'}`).getTime();
             const dateTimeB = new Date(`${parseISO(b.date).toISOString().split('T')[0]}T${b.time || '00:00'}`).getTime();
             return dateTimeA - dateTimeB;
         });
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(calendarEvents));
-        
         toast({ title: "Sesión Programada y Añadida al Calendario", description: `La sesión "${newSession.title}" ha sido creada y agendada.` });
-
     } catch (e) {
         console.error("Error al guardar evento en calendario:", e);
         toast({ variant: "destructive", title: "Error de Calendario", description: "La sesión se programó, pero no se pudo añadir al calendario." });
@@ -201,16 +237,37 @@ export default function VirtualSessionsPage() {
     setIsDialogOpen(false);
   };
 
-  const handleDeleteSession = (sessionId: string) => {
-    const sessionTitle = sessions.find(s => s.id === sessionId)?.title;
+  const handleDeleteSession = async (sessionId: string) => {
+    const sessionToDelete = sessions.find(s => s.id === sessionId);
+    if (!sessionToDelete) return;
+
+    // TODO: API Call - DELETE /api/virtual-sessions/:sessionId
+    // const response = await fetch(`/api/virtual-sessions/${sessionId}`, { method: 'DELETE' });
+    // if (!response.ok) {
+    //   toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la sesión." });
+    //   return;
+    // }
+    // setSessions(prev => prev.filter(s => s.id !== sessionId));
+    // TODO: API Call - Optionally, delete corresponding calendar event
+
+    // Fallback to localStorage
     const updatedSessions = sessions.filter(s => s.id !== sessionId);
     setSessions(updatedSessions);
-    localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions));
-
-    // Note: This does NOT automatically delete the corresponding calendar event.
-    // That would require more complex logic to find and remove the matching calendar event by vs-${sessionId} or title/date/time.
-    // For now, we'll leave this out for simplicity.
-    toast({ title: "Sesión Eliminada", description: `La sesión "${sessionTitle}" ha sido eliminada. El evento en el calendario, si existe, debe eliminarse manualmente.`, variant: "destructive" });
+    // localStorage.setItem(VIRTUAL_SESSIONS_STORAGE_KEY, JSON.stringify(updatedSessions)); // Handled by useEffect
+    
+    // Also remove from calendar in localStorage
+    try {
+        const storedCalendarEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
+        if (storedCalendarEventsString) {
+            let calendarEvents: StoredCalendarEvent[] = JSON.parse(storedCalendarEventsString);
+            calendarEvents = calendarEvents.filter(event => event.id !== `vs-${sessionId}`);
+            localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(calendarEvents));
+        }
+        toast({ title: "Sesión Eliminada", description: `La sesión "${sessionToDelete.title}" y su evento de calendario asociado han sido eliminados.`, variant: "destructive" });
+    } catch (e) {
+        console.error("Error eliminando evento del calendario de localStorage:", e);
+        toast({ title: "Sesión Eliminada (Parcial)", description: `La sesión "${sessionToDelete.title}" ha sido eliminada, pero hubo un problema al quitarla del calendario.`, variant: "destructive" });
+    }
   };
 
   const formatDate = (dateString: string) => {
