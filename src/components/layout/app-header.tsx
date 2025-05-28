@@ -25,15 +25,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const { currentSessionRole, isLoadingRole } = useSessionRole();
+  const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole(); // Get userProfile from context
   const [searchTerm, setSearchTerm] = useState('');
   const [searchPlaceholder, setSearchPlaceholder] = useState('Buscar...');
   const [roleDisplay, setRoleDisplay] = useState("Usuario");
   const [profileLinkPath, setProfileLinkPath] = useState("/dashboard");
   const [dashboardPath, setDashboardPath] = useState("/dashboard");
   const [userAvatar, setUserAvatar] = useState("https://placehold.co/100x100.png");
-  const [userName, setUserName] = useState("Cargando...");
-  const [userEmail, setUserEmail] = useState("...");
+  // userName and userEmail will now come from userProfile context
 
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -47,45 +46,41 @@ export function AppHeader() {
       let determinedProfileLink = "/dashboard/student/profile";
       let determinedDashboardPath = "/dashboard";
       let determinedSearchPlaceholder = "Buscar cursos...";
-      let avatarInitial = "E";
-      let emailDomain = "student@example.com";
+      let avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "E";
+
 
       switch (currentSessionRole) {
         case 'administrador':
           determinedRoleDisplay = 'Administrador';
-          determinedProfileLink = '/dashboard'; // Admin main page is /dashboard
+          determinedProfileLink = '/dashboard';
           determinedDashboardPath = '/dashboard';
           determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
-          avatarInitial = "A";
-          emailDomain = "admin@example.com";
+          avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "A";
           break;
         case 'instructor':
           determinedRoleDisplay = 'Instructor';
-          determinedProfileLink = '/dashboard'; // Instructor main page is /dashboard
+          determinedProfileLink = '/dashboard';
           determinedDashboardPath = '/dashboard';
           determinedSearchPlaceholder = 'Buscar en mis cursos...';
-          avatarInitial = "I";
-          emailDomain = "instructor@example.com";
+          avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "I";
           break;
         case 'estudiante':
         default:
-          // Defaults are already set
-          determinedProfileLink = "/dashboard/student/profile"; // Students have a dedicated profile page
+          determinedProfileLink = "/dashboard/student/profile";
           break;
       }
       setRoleDisplay(determinedRoleDisplay);
       setProfileLinkPath(determinedProfileLink);
       setDashboardPath(determinedDashboardPath);
       setSearchPlaceholder(determinedSearchPlaceholder);
-      setUserName(`${determinedRoleDisplay} Usuario`);
-      setUserEmail(emailDomain);
       setUserAvatar(`https://placehold.co/100x100.png?text=${avatarInitial}`);
     }
-  }, [currentSessionRole]);
+  }, [currentSessionRole, userProfile.name]); // Add userProfile.name dependency
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('sessionRole');
+      localStorage.removeItem('nexusAlpriUserProfile'); // Also clear profile on logout
     }
     router.push('/login');
   };
@@ -118,7 +113,7 @@ export function AppHeader() {
     }
   };
 
-  if (!hasMounted || isLoadingRole || !currentSessionRole) {
+  if (!hasMounted || isLoadingRole || !currentSessionRole || !userProfile.name) {
     return (
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
         {isMobile && <SidebarTrigger />}
@@ -162,17 +157,17 @@ export function AppHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
               <Avatar className="h-9 w-9">
-                <AvatarImage src={userAvatar} alt={userName} data-ai-hint="profile avatar"/>
-                <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={userAvatar} alt={userProfile.name} data-ai-hint="profile avatar"/>
+                <AvatarFallback>{userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName}</p>
+                <p className="text-sm font-medium leading-none">{userProfile.name}</p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {userEmail}
+                  {userProfile.email}
                 </p>
               </div>
             </DropdownMenuLabel>

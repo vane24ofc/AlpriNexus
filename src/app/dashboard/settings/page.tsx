@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff, Check } from 'lucide-react';
-import { useSessionRole } from '@/app/dashboard/layout';
+import { useSessionRole, type Role } from '@/app/dashboard/layout'; // Assuming Role type is exported
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -46,82 +46,31 @@ interface ThemeOption {
 }
 
 const themeOptions: ThemeOption[] = [
-  {
-    id: 'theme-light',
-    name: 'Claro Predeterminado',
-    previewColors: { bg: 'hsl(0 0% 100%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 3.9%)' }
-  },
-  {
-    id: 'dark',
-    name: 'Oscuro Predeterminado',
-    previewColors: { bg: 'hsl(0 0% 4%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 95%)' }
-  },
-  {
-    id: 'theme-oceanic',
-    name: 'Oceánico Profundo',
-    previewColors: { bg: 'hsl(200 50% 10%)', primary: 'hsl(180 70% 50%)', accent: 'hsl(170 80% 40%)', text: 'hsl(180 30% 90%)' }
-  },
-  {
-    id: 'theme-sunset',
-    name: 'Atardecer Cálido',
-    previewColors: { bg: 'hsl(25 30% 10%)', primary: 'hsl(30 90% 55%)', accent: 'hsl(0 80% 60%)', text: 'hsl(35 80% 90%)' }
-  },
-  {
-    id: 'theme-forest',
-    name: 'Bosque Profundo',
-    previewColors: { bg: 'hsl(120 20% 10%)', primary: 'hsl(100 50% 40%)', accent: 'hsl(40 60% 55%)', text: 'hsl(90 30% 90%)' }
-  },
-  {
-    id: 'theme-monochrome-midnight',
-    name: 'Medianoche Monocromático',
-    previewColors: { bg: 'hsl(240 5% 5%)', primary: 'hsl(0 0% 80%)', accent: 'hsl(0 0% 50%)', text: 'hsl(0 0% 95%)' }
-  },
-  {
-    id: 'theme-crimson-night',
-    name: 'Noche Carmesí',
-    previewColors: { bg: 'hsl(240 3% 8%)', primary: 'hsl(0 70% 45%)', accent: 'hsl(15 80% 55%)', text: 'hsl(0 0% 90%)' }
-  },
-  {
-    id: 'theme-lavender-haze',
-    name: 'Neblina Lavanda',
-    previewColors: { bg: 'hsl(250 30% 96%)', primary: 'hsl(260 60% 65%)', accent: 'hsl(300 70% 80%)', text: 'hsl(250 20% 25%)' }
-  },
-  {
-    id: 'theme-spring-meadow',
-    name: 'Pradera Primaveral',
-    previewColors: { bg: 'hsl(50 40% 97%)', primary: 'hsl(100 50% 50%)', accent: 'hsl(50 90% 60%)', text: 'hsl(80 25% 20%)' }
-  },
-  {
-    id: 'theme-steel-blue',
-    name: 'Acero Industrial (Oscuro)',
-    previewColors: { bg: 'hsl(210 20% 15%)', primary: 'hsl(210 70% 60%)', accent: 'hsl(190 60% 70%)', text: 'hsl(210 15% 85%)' }
-  },
-  {
-    id: 'theme-vintage-paper',
-    name: 'Pergamino Clásico (Claro)',
-    previewColors: { bg: 'hsl(40 30% 95%)', primary: 'hsl(30 30% 40%)', accent: 'hsl(45 50% 60%)', text: 'hsl(30 20% 25%)' }
-  },
-  {
-    id: 'theme-royal-gold',
-    name: 'Oro Real (Oscuro)',
-    previewColors: { bg: 'hsl(270 15% 10%)', primary: 'hsl(275 50% 55%)', accent: 'hsl(45 70% 60%)', text: 'hsl(45 50% 85%)' }
-  },
-  {
-    id: 'theme-sakura-blossom',
-    name: 'Flor de Cerezo (Claro)',
-    previewColors: { bg: 'hsl(340 60% 98%)', primary: 'hsl(345 80% 75%)', accent: 'hsl(0 70% 60%)', text: 'hsl(340 30% 30%)' }
-  }
+  { id: 'theme-light', name: 'Claro Predeterminado', previewColors: { bg: 'hsl(0 0% 100%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 3.9%)' } },
+  { id: 'dark', name: 'Oscuro Predeterminado', previewColors: { bg: 'hsl(0 0% 4%)', primary: 'hsl(217 91% 60%)', accent: 'hsl(160 70% 45%)', text: 'hsl(0 0% 95%)' } },
+  { id: 'theme-oceanic', name: 'Oceánico Profundo', previewColors: { bg: 'hsl(200 50% 10%)', primary: 'hsl(180 70% 50%)', accent: 'hsl(170 80% 40%)', text: 'hsl(180 30% 90%)' } },
+  { id: 'theme-sunset', name: 'Atardecer Cálido', previewColors: { bg: 'hsl(25 30% 10%)', primary: 'hsl(30 90% 55%)', accent: 'hsl(0 80% 60%)', text: 'hsl(35 80% 90%)' } },
+  { id: 'theme-forest', name: 'Bosque Profundo', previewColors: { bg: 'hsl(120 20% 10%)', primary: 'hsl(100 50% 40%)', accent: 'hsl(40 60% 55%)', text: 'hsl(90 30% 90%)' } },
+  { id: 'theme-monochrome-midnight', name: 'Medianoche Monocromático', previewColors: { bg: 'hsl(240 5% 5%)', primary: 'hsl(0 0% 80%)', accent: 'hsl(0 0% 50%)', text: 'hsl(0 0% 95%)' } },
+  { id: 'theme-crimson-night', name: 'Noche Carmesí', previewColors: { bg: 'hsl(240 3% 8%)', primary: 'hsl(0 70% 45%)', accent: 'hsl(15 80% 55%)', text: 'hsl(0 0% 90%)' } },
+  { id: 'theme-lavender-haze', name: 'Neblina Lavanda', previewColors: { bg: 'hsl(250 30% 96%)', primary: 'hsl(260 60% 65%)', accent: 'hsl(300 70% 80%)', text: 'hsl(250 20% 25%)' } },
+  { id: 'theme-spring-meadow', name: 'Pradera Primaveral', previewColors: { bg: 'hsl(50 40% 97%)', primary: 'hsl(100 50% 50%)', accent: 'hsl(50 90% 60%)', text: 'hsl(80 25% 20%)' } },
+  { id: 'theme-steel-blue', name: 'Acero Industrial (Oscuro)', previewColors: { bg: 'hsl(210 20% 15%)', primary: 'hsl(210 70% 60%)', accent: 'hsl(190 60% 70%)', text: 'hsl(210 15% 85%)' } },
+  { id: 'theme-vintage-paper', name: 'Pergamino Clásico (Claro)', previewColors: { bg: 'hsl(40 30% 95%)', primary: 'hsl(30 30% 40%)', accent: 'hsl(45 50% 60%)', text: 'hsl(30 20% 25%)' } },
+  { id: 'theme-royal-gold', name: 'Oro Real (Oscuro)', previewColors: { bg: 'hsl(270 15% 10%)', primary: 'hsl(275 50% 55%)', accent: 'hsl(45 70% 60%)', text: 'hsl(45 50% 85%)' } },
+  { id: 'theme-sakura-blossom', name: 'Flor de Cerezo (Claro)', previewColors: { bg: 'hsl(340 60% 98%)', primary: 'hsl(345 80% 75%)', accent: 'hsl(0 70% 60%)', text: 'hsl(340 30% 30%)' } }
 ];
 
+const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile';
+const THEME_STORAGE_KEY = 'nexusAlpriTheme';
 
 export default function SettingsPage() {
-  const { currentSessionRole } = useSessionRole();
+  const { userProfile, setUserProfile } = useSessionRole(); // Get userProfile and setter from context
   const { toast } = useToast();
 
-  const [userData, setUserData] = useState({
-    name: '',
-    email: '',
-  });
+  // Local state for form inputs, initialized from context
+  const [localName, setLocalName] = useState(userProfile.name);
+  const [localEmail, setLocalEmail] = useState(userProfile.email);
 
   const [notificationPrefs, setNotificationPrefs] = useState({
     emailNewCourses: true,
@@ -129,7 +78,7 @@ export default function SettingsPage() {
     appUpdates: false,
   });
 
-  const [activeTheme, setActiveTheme] = useState('dark');
+  const [activeTheme, setActiveTheme] = useState('theme-light'); // Will be updated by useEffect
   const [showThemeSelection, setShowThemeSelection] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -142,55 +91,33 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  // Sync local form state with context profile data
+  useEffect(() => {
+    setLocalName(userProfile.name);
+    setLocalEmail(userProfile.email);
+  }, [userProfile]);
 
   useEffect(() => {
-    if (currentSessionRole) {
-      setUserData({
-        name: `${currentSessionRole.charAt(0).toUpperCase() + currentSessionRole.slice(1)} Usuario`,
-        email: `${currentSessionRole}@example.com`,
-      });
-    } else {
-      setUserData({
-        name: 'Usuario Demo',
-        email: 'demo@example.com',
-      });
-    }
-
-    let initialTheme = 'dark';
-    const storedTheme = localStorage.getItem('nexusAlpriTheme');
-
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
-      initialTheme = storedTheme;
+      setActiveTheme(storedTheme);
     } else {
-      if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-         initialTheme = 'theme-light';
-      }
+      // Determine default based on system preference if no theme is stored
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const defaultTheme = prefersDark ? 'dark' : 'theme-light';
+      setActiveTheme(defaultTheme);
+      localStorage.setItem(THEME_STORAGE_KEY, defaultTheme);
     }
-    setActiveTheme(initialTheme);
-    // Apply theme on initial load if not already handled by RootLayout
-    if (typeof window !== 'undefined') {
-      const root = window.document.documentElement;
-      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-      root.classList.add(initialTheme);
-    }
-
-  }, [currentSessionRole]);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setUserData(prev => ({ ...prev, [name]: value }));
-  };
+  }, []);
 
   const handleThemeChange = (newThemeId: string) => {
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-
       root.classList.add(newThemeId);
-
-      localStorage.setItem('nexusAlpriTheme', newThemeId);
+      localStorage.setItem(THEME_STORAGE_KEY, newThemeId);
       setActiveTheme(newThemeId);
-      setShowThemeSelection(false); // Hide list after selection
+      setShowThemeSelection(false);
       toast({
         title: "Tema Aplicado",
         description: `El tema de la aplicación ha cambiado a "${themeOptions.find(t => t.id === newThemeId)?.name || newThemeId}".`,
@@ -200,7 +127,9 @@ export default function SettingsPage() {
 
   const handleSaveChanges = () => {
     setIsSaving(true);
-    console.log("Datos de usuario actualizados:", userData);
+    // Update the context, which will trigger the effect in DashboardLayout to save to localStorage
+    setUserProfile({ name: localName, email: localEmail });
+    
     console.log("Preferencias de notificación:", notificationPrefs);
     console.log("Tema de apariencia:", activeTheme);
 
@@ -261,11 +190,11 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="name">Nombre Completo</Label>
-                <Input id="name" name="name" value={userData.name} onChange={handleInputChange} />
+                <Input id="name" name="name" value={localName} onChange={(e) => setLocalName(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="email">Correo Electrónico</Label>
-                <Input id="email" name="email" type="email" value={userData.email} onChange={handleInputChange} />
+                <Input id="email" name="email" type="email" value={localEmail} onChange={(e) => setLocalEmail(e.target.value)} />
               </div>
             </CardContent>
           </Card>
@@ -286,7 +215,7 @@ export default function SettingsPage() {
                 <Switch
                   id="emailNewCourses"
                   checked={notificationPrefs.emailNewCourses}
-                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, emailNewCourses: checked}))}
+                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, emailNewCourses: Boolean(checked)}))}
                   aria-label="Notificaciones de nuevos cursos"
                 />
               </div>
@@ -300,7 +229,7 @@ export default function SettingsPage() {
                 <Switch
                   id="emailAnnouncements"
                   checked={notificationPrefs.emailAnnouncements}
-                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, emailAnnouncements: checked}))}
+                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, emailAnnouncements: Boolean(checked)}))}
                   aria-label="Notificaciones de anuncios"
                 />
               </div>
@@ -314,7 +243,7 @@ export default function SettingsPage() {
                 <Switch
                   id="appUpdates"
                   checked={notificationPrefs.appUpdates}
-                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, appUpdates: checked}))}
+                  onCheckedChange={(checked) => setNotificationPrefs(prev => ({...prev, appUpdates: Boolean(checked)}))}
                   aria-label="Notificaciones de actualizaciones de la aplicación"
                 />
               </div>
@@ -463,7 +392,7 @@ export default function SettingsPage() {
                             <div className="flex space-x-1.5">
                                 {Object.entries(theme.previewColors).slice(0, 4).map(([key, color]) => (
                                     <div
-                                        key={key}
+                                        key={`${theme.id}-${key}`}
                                         className="h-5 w-5 rounded-full border border-border/50"
                                         style={{ backgroundColor: color }}
                                         title={`${key}: ${color}`}

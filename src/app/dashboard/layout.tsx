@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
@@ -10,9 +11,16 @@ import { FullPageLoader } from '@/components/ui/loader';
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
+interface UserProfileData {
+  name: string;
+  email: string;
+}
+
 interface SessionRoleContextType {
   currentSessionRole: Role | null;
   isLoadingRole: boolean;
+  userProfile: UserProfileData;
+  setUserProfile: React.Dispatch<React.SetStateAction<UserProfileData>>;
 }
 
 const SessionRoleContext = createContext<SessionRoleContextType | undefined>(undefined);
@@ -41,6 +49,10 @@ const VALID_THEME_CLASSES = [
   'theme-sakura-blossom',
 ];
 
+const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile';
+const SESSION_ROLE_STORAGE_KEY = 'sessionRole';
+const THEME_STORAGE_KEY = 'nexusAlpriTheme';
+
 export default function DashboardLayout({
   children,
 }: {
@@ -51,6 +63,7 @@ export default function DashboardLayout({
   const [isLoadingRole, setIsLoadingRole] = useState(true);
   const [activeTheme, setActiveTheme] = useState('');
   const [hasMountedLayout, setHasMountedLayout] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfileData>({ name: '', email: '' });
 
   useEffect(() => {
     setHasMountedLayout(true);
@@ -59,46 +72,37 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!hasMountedLayout) return;
 
-    let initialDashboardTheme: string;
-    const storedTheme = localStorage.getItem('nexusAlpriTheme');
+    let initialTheme: string;
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
 
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
-      initialDashboardTheme = storedTheme;
+      initialTheme = storedTheme;
     } else {
-      initialDashboardTheme = 'theme-light'; 
-      localStorage.setItem('nexusAlpriTheme', initialDashboardTheme);
+      initialTheme = 'theme-light';
+      localStorage.setItem(THEME_STORAGE_KEY, initialTheme);
     }
-    
-    setActiveTheme(initialDashboardTheme);
-    // Apply theme here directly
-    const root = window.document.documentElement;
-    VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-    if (VALID_THEME_CLASSES.includes(initialDashboardTheme)) {
-      root.classList.add(initialDashboardTheme);
-    } else {
-      root.classList.add('theme-light');
-    }
+    setActiveTheme(initialTheme);
   }, [hasMountedLayout]);
 
   useEffect(() => {
     if (!hasMountedLayout || !activeTheme) return;
 
     if (VALID_THEME_CLASSES.includes(activeTheme)) {
-        const root = window.document.documentElement;
-        VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-        root.classList.add(activeTheme);
-        localStorage.setItem('nexusAlpriTheme', activeTheme);
+      const root = window.document.documentElement;
+      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
+      root.classList.add(activeTheme);
+      localStorage.setItem(THEME_STORAGE_KEY, activeTheme);
     }
   }, [activeTheme, hasMountedLayout]);
 
   useEffect(() => {
     if (!hasMountedLayout) {
-      setIsLoadingRole(true); 
+      setIsLoadingRole(true);
       return;
     }
-
     setIsLoadingRole(true);
-    let roleFromStorage: Role | null = localStorage.getItem('sessionRole') as Role | null;
+
+    let roleFromStorage = localStorage.getItem(SESSION_ROLE_STORAGE_KEY) as Role | null;
     let pathDefinesRole: Role | null = null;
 
     if (pathname.startsWith('/dashboard/admin')) {
@@ -114,39 +118,71 @@ export default function DashboardLayout({
     if (pathDefinesRole) {
       finalDeterminedRole = pathDefinesRole;
       if (roleFromStorage !== finalDeterminedRole) {
-        localStorage.setItem('sessionRole', finalDeterminedRole);
+        localStorage.setItem(SESSION_ROLE_STORAGE_KEY, finalDeterminedRole);
+        roleFromStorage = finalDeterminedRole; // Update roleFromStorage for profile loading
       }
     } else if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
       finalDeterminedRole = roleFromStorage;
     } else {
-      finalDeterminedRole = 'estudiante'; 
-      localStorage.setItem('sessionRole', finalDeterminedRole);
+      finalDeterminedRole = 'estudiante';
+      localStorage.setItem(SESSION_ROLE_STORAGE_KEY, finalDeterminedRole);
+      roleFromStorage = finalDeterminedRole; // Update roleFromStorage for profile loading
     }
-    
+
     if (currentSessionRole !== finalDeterminedRole) {
       setCurrentSessionRole(finalDeterminedRole);
     }
-    setIsLoadingRole(false);
 
-  }, [pathname, hasMountedLayout]); // currentSessionRole is intentionally not a dependency here to avoid loops based on its own update
+    // Load or set default user profile based on the determined role
+    const storedProfile = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
+    if (storedProfile) {
+      try {
+        setUserProfile(JSON.parse(storedProfile));
+      } catch (e) {
+        console.error("Error parsing stored user profile", e);
+        // Fallback to default if parsing fails
+        const defaultName = `${finalDeterminedRole.charAt(0).toUpperCase() + finalDeterminedRole.slice(1)} Usuario`;
+        const defaultEmail = `${finalDeterminedRole}@example.com`;
+        const defaultProfile = { name: defaultName, email: defaultEmail };
+        setUserProfile(defaultProfile);
+        localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
+      }
+    } else {
+      const defaultName = `${finalDeterminedRole.charAt(0).toUpperCase() + finalDeterminedRole.slice(1)} Usuario`;
+      const defaultEmail = `${finalDeterminedRole}@example.com`;
+      const defaultProfile = { name: defaultName, email: defaultEmail };
+      setUserProfile(defaultProfile);
+      localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
+    }
+
+    setIsLoadingRole(false);
+  }, [pathname, hasMountedLayout]); // currentSessionRole removed to simplify and rely on pathname + localStorage
+
+  // Effect to save userProfile to localStorage whenever it changes
+  useEffect(() => {
+    if (hasMountedLayout && userProfile.name && userProfile.email) { // Ensure it's not empty initial state
+      localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
+    }
+  }, [userProfile, hasMountedLayout]);
 
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
-    isLoadingRole
-  }), [currentSessionRole, isLoadingRole]);
+    isLoadingRole,
+    userProfile,
+    setUserProfile,
+  }), [currentSessionRole, isLoadingRole, userProfile, setUserProfile]);
 
   if (!hasMountedLayout || isLoadingRole || !currentSessionRole) {
     return <FullPageLoader message="Cargando panel y determinando rol..." />;
   }
-  
+
   return (
     <SessionRoleContext.Provider value={contextValue}>
-      {/* Keying SidebarProvider ensures its children remount cleanly if role changes */}
-      <SidebarProvider key={currentSessionRole || 'provider-loading'} defaultOpen={true}>
-        <AppSidebarNav key={`sidebar-nav-${currentSessionRole || 'loading'}`} />
+      <SidebarProvider key={String(currentSessionRole)} defaultOpen={true}> {/* Keying SidebarProvider */}
+        <AppSidebarNav key={`sidebar-nav-${String(currentSessionRole)}`} />
         <SidebarInset key="sidebar-inset"> {/* Static key for SidebarInset */}
-          <AppHeader key={`header-${currentSessionRole || 'loading'}`} />
+          <AppHeader key={`header-${String(currentSessionRole)}`} />
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             {children}
             <Image

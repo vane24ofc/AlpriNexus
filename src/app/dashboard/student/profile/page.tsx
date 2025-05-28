@@ -1,14 +1,11 @@
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react"; // Added useEffect
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users } from "lucide-react"; // Added Users here
+import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import {
@@ -22,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useSessionRole } from '@/app/dashboard/layout'; // Import useSessionRole
 
 interface Achievement {
   id: string;
@@ -37,18 +35,30 @@ const sampleAchievements: Achievement[] = [
   { id: "ach4", name: "Colaborador Destacado", icon: Users, description: "Participación activa en foros (próximamente)." },
 ];
 
+const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile'; // From DashboardLayout
+
 export default function StudentProfilePage() {
   const { toast } = useToast();
-  const [avatarUrl, setAvatarUrl] = useState("https://placehold.co/100x100.png?text=Perfil");
+  const { userProfile } = useSessionRole(); // Get profile data from context
+
+  const [avatarUrl, setAvatarUrl] = useState("https://placehold.co/100x100.png?text=P");
   const [studentData, setStudentData] = useState({
-    name: "Estudiante Demo",
-    email: "student@example.com",
-    joinDate: "15 de Enero, 2023",
-    coursesEnrolled: 5, 
-    coursesCompleted: 2, 
+    joinDate: "15 de Enero, 2023", // This could also come from context/localStorage if needed
+    coursesEnrolled: 5,
+    coursesCompleted: 2,
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    // Initialize avatar based on userProfile name
+    if (userProfile.name) {
+      setAvatarUrl(`https://placehold.co/100x100.png?text=${userProfile.name.charAt(0).toUpperCase()}`);
+    }
+     // Simulate fetching or calculating these stats - for now, they remain static or could be fetched
+    // setStudentData(prev => ({...prev, coursesEnrolled: ..., coursesCompleted: ...}))
+  }, [userProfile.name]);
+
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -76,6 +86,7 @@ export default function StudentProfilePage() {
           title: "Foto de Perfil Actualizada",
           description: "Tu nueva foto de perfil se está mostrando (simulado).",
         });
+        // In a real app, you'd upload this to a server and update the userProfile context/localStorage
       };
       reader.readAsDataURL(file);
     }
@@ -105,8 +116,8 @@ export default function StudentProfilePage() {
           <CardHeader className="items-center text-center">
             <div className="relative group mx-auto">
               <Avatar className="h-24 w-24 mb-2 border-2 border-primary shadow-md">
-                <AvatarImage src={avatarUrl} alt={studentData.name} data-ai-hint="profile avatar"/>
-                <AvatarFallback>{studentData.name.charAt(0).toUpperCase()}</AvatarFallback>
+                <AvatarImage src={avatarUrl} alt={userProfile.name} data-ai-hint="profile avatar"/>
+                <AvatarFallback>{userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'E'}</AvatarFallback>
               </Avatar>
               <Button
                 variant="outline"
@@ -125,16 +136,16 @@ export default function StudentProfilePage() {
                 className="hidden"
               />
             </div>
-            <CardTitle className="text-2xl">{studentData.name}</CardTitle>
+            <CardTitle className="text-2xl">{userProfile.name || 'Estudiante'}</CardTitle>
             <CardDescription className="flex items-center justify-center text-base">
               <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
-              {studentData.email}
+              {userProfile.email || 'estudiante@example.com'}
             </CardDescription>
           </CardHeader>
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground flex items-center justify-center">
               <CalendarDays className="mr-2 h-4 w-4" />
-              Miembro desde: {studentData.joinDate}
+              Miembro desde: {studentData.joinDate} {/* This could be dynamic in a real app */}
             </p>
           </CardContent>
         </Card>
@@ -234,5 +245,3 @@ export default function StudentProfilePage() {
     </div>
   );
 }
-
-    
