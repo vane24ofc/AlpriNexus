@@ -28,11 +28,6 @@ const formSchema = z.object({
   rememberMe: z.boolean().optional(),
 });
 
-// Inline SVG for Google icon
-const GoogleIcon = () => (
-  <svg className="mr-2 h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512"><path fill="currentColor" d="M488 261.8C488 403.3 381.7 512 244 512 110.3 512 0 401.7 0 265.2 0 128.5 110.3 18.5 244 18.5c71.4 0 126.9 27.8 175 74.8l-66.5 64.2c-28.4-26.8-64.8-44.8-108.5-44.8-82.9 0-150.7 67.4-150.7 150.9s67.8 150.9 150.7 150.9c87.4 0 125.8-39.1 133.6-90.9H244v-74.6h236.6c2.5 12.4 4.6 25.5 4.6 40.2z"></path></svg>
-);
-
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
@@ -150,6 +145,7 @@ export default function LoginPage() {
             </form>
           </Form>
 
+          {/* La siguiente sección ha sido eliminada:
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t border-border" />
@@ -162,9 +158,10 @@ export default function LoginPage() {
           </div>
 
           <Button variant="outline" className="w-full text-base">
-            <GoogleIcon />
+            <GoogleIcon /> 
             Continuar con Google
           </Button>
+          */}
 
           <p className="mt-8 text-center text-sm text-muted-foreground">
             ¿No tienes una cuenta?{' '}
