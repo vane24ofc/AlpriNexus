@@ -20,13 +20,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Logo } from '@/components/common/logo';
 import { Eye, EyeOff } from 'lucide-react';
 import type { Role } from '@/app/dashboard/layout';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
   rememberMe: z.boolean().optional(),
 });
+
+const REMEMBER_ME_EMAIL_KEY = 'nexusAlpriRememberedEmail';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -41,9 +43,27 @@ export default function LoginPage() {
     },
   });
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const rememberedEmail = localStorage.getItem(REMEMBER_ME_EMAIL_KEY);
+      if (rememberedEmail) {
+        form.setValue('email', rememberedEmail);
+        form.setValue('rememberMe', true);
+      }
+    }
+  }, [form]);
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
     
+    if (typeof window !== 'undefined') {
+      if (values.rememberMe && values.email) {
+        localStorage.setItem(REMEMBER_ME_EMAIL_KEY, values.email);
+      } else {
+        localStorage.removeItem(REMEMBER_ME_EMAIL_KEY);
+      }
+    }
+
     let roleToStore: Role = 'estudiante'; 
 
     if (values.email === 'admin@example.com') {
@@ -145,24 +165,6 @@ export default function LoginPage() {
             </form>
           </Form>
 
-          {/* La siguiente sección ha sido eliminada:
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                O inicia sesión con
-              </span>
-            </div>
-          </div>
-
-          <Button variant="outline" className="w-full text-base">
-            <GoogleIcon /> 
-            Continuar con Google
-          </Button>
-          */}
-
           <p className="mt-8 text-center text-sm text-muted-foreground">
             ¿No tienes una cuenta?{' '}
             <Link href="/register" className="font-semibold text-primary hover:underline">
@@ -175,7 +177,7 @@ export default function LoginPage() {
       {/* Columna Decorativa */}
       <div className="hidden bg-muted md:block md:w-1/2 relative">
         <Image 
-          src="https://placehold.co/800x1000.png" 
+          src="/login-decorative.png" 
           alt="Diseño abstracto decorativo para inicio de sesión" 
           fill
           style={{objectFit: 'cover'}}
