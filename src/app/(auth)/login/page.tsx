@@ -20,15 +20,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Logo } from '@/components/common/logo';
 import { Eye, EyeOff } from 'lucide-react';
 import type { Role } from '@/app/dashboard/layout';
-import React, { useState, useEffect } from 'react'; // Added useEffect
+import React, { useState } from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
   rememberMe: z.boolean().optional(),
 });
-
-const REMEMBER_ME_EMAIL_KEY = 'nexusAlpriRememberedEmail';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -43,26 +41,11 @@ export default function LoginPage() {
     },
   });
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const rememberedEmail = localStorage.getItem(REMEMBER_ME_EMAIL_KEY);
-      if (rememberedEmail) {
-        form.setValue('email', rememberedEmail);
-        form.setValue('rememberMe', true);
-      }
-    }
-  }, [form]);
-
   function onSubmit(values: z.infer<typeof formSchema>) {
     console.log(values);
-    
-    if (typeof window !== 'undefined') {
-      if (values.rememberMe && values.email) {
-        localStorage.setItem(REMEMBER_ME_EMAIL_KEY, values.email);
-      } else {
-        localStorage.removeItem(REMEMBER_ME_EMAIL_KEY);
-      }
-    }
+    // "Remember Me" logic that interacted with localStorage has been removed.
+    // The values.rememberMe is still available if you want to implement
+    // a server-side "remember me" token in the future.
 
     let roleToStore: Role = 'estudiante'; 
 
