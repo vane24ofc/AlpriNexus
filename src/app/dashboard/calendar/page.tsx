@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ interface StoredCalendarEvent {
 
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 
+// Sample initial data - will be replaced by localStorage if available
 const initialSampleEvents: StoredCalendarEvent[] = [
   { id: 'sample1', date: startOfDay(new Date()).toISOString(), title: 'Reunión de Planificación Semanal', description: 'Discutir tareas y objetivos.', time: '10:00' },
   { id: 'sample2', date: startOfDay(new Date(new Date().setDate(new Date().getDate() + 1))).toISOString(), title: 'Entrega Proyecto Alfa', description: 'Fecha límite para el proyecto Alfa.', time: '17:00' },
@@ -70,31 +71,47 @@ export default function CalendarPage() {
         loadedEvents = storedEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
-          time: event.time || undefined,
-        }));
+          time: event.time || undefined, // Ensure time is undefined if not present
+        })).sort((a, b) => { // Sort by date then by time
+            const dateComparison = a.date.getTime() - b.date.getTime();
+            if (dateComparison !== 0) return dateComparison;
+            if (a.time && b.time) return a.time.localeCompare(b.time);
+            if (a.time) return -1;
+            if (b.time) return 1;
+            return 0;
+          });
       } catch (error) {
         console.error("Error al cargar eventos del calendario desde localStorage:", error);
+        // Fallback to sorted initial samples if parsing fails
         loadedEvents = initialSampleEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
-        }));
+        })).sort((a, b) => {
+            const dateComparison = a.date.getTime() - b.date.getTime();
+            if (dateComparison !== 0) return dateComparison;
+            if (a.time && b.time) return a.time.localeCompare(b.time);
+            if (a.time) return -1;
+            if (b.time) return 1;
+            return 0;
+          });
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
       }
     } else {
+        // Fallback to sorted initial samples if no data in localStorage
         loadedEvents = initialSampleEvents.map(event => ({
           ...event,
           date: startOfDay(parseISO(event.date)),
-        }));
+        })).sort((a, b) => {
+            const dateComparison = a.date.getTime() - b.date.getTime();
+            if (dateComparison !== 0) return dateComparison;
+            if (a.time && b.time) return a.time.localeCompare(b.time);
+            if (a.time) return -1;
+            if (b.time) return 1;
+            return 0;
+          });
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
     }
-    setEvents(loadedEvents.sort((a, b) => {
-        const dateComparison = a.date.getTime() - b.date.getTime();
-        if (dateComparison !== 0) return dateComparison;
-        if (a.time && b.time) return a.time.localeCompare(b.time);
-        if (a.time) return -1; // Events with time first
-        if (b.time) return 1;
-        return 0;
-    }));
+    setEvents(loadedEvents);
     setIsLoading(false);
   }, []);
 
@@ -103,7 +120,7 @@ export default function CalendarPage() {
     if (!isLoading) {
         const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
         ...event,
-        date: event.date.toISOString(),
+        date: event.date.toISOString(), // Store date as ISO string
         time: event.time || undefined,
         }));
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
@@ -114,6 +131,7 @@ export default function CalendarPage() {
     setEventTitle('');
     setEventDescription('');
     setEventTime('');
+    // Ensure date is start of day for consistency
     setEventDateForDialog(startOfDay(selectedDate || new Date()));
   };
 
@@ -129,7 +147,7 @@ export default function CalendarPage() {
     setEventTitle(event.title);
     setEventDescription(event.description || '');
     setEventTime(event.time || '');
-    setEventDateForDialog(event.date);
+    setEventDateForDialog(event.date); // Already startOfDay from loading
     setIsDialogOpen(true);
   };
 
@@ -139,6 +157,8 @@ export default function CalendarPage() {
       return;
     }
 
+    const processedDate = startOfDay(eventDateForDialog); // Ensure it's start of day
+
     const updatedEventsList = editingEvent
       ? events.map(ev =>
           ev.id === editingEvent.id
@@ -146,8 +166,8 @@ export default function CalendarPage() {
                 ...ev,
                 title: eventTitle.trim(),
                 description: eventDescription.trim(),
-                date: startOfDay(eventDateForDialog),
-                time: eventTime || undefined,
+                date: processedDate,
+                time: eventTime || undefined, // Store empty string as undefined
               }
             : ev
         )
@@ -155,13 +175,14 @@ export default function CalendarPage() {
           ...events,
           {
             id: crypto.randomUUID(),
-            date: startOfDay(eventDateForDialog),
+            date: processedDate,
             title: eventTitle.trim(),
             description: eventDescription.trim(),
-            time: eventTime || undefined,
+            time: eventTime || undefined, // Store empty string as undefined
           },
         ];
 
+    // Sort again after add/edit
     setEvents(updatedEventsList.sort((a, b) => {
         const dateComparison = a.date.getTime() - b.date.getTime();
         if (dateComparison !== 0) return dateComparison;
@@ -197,10 +218,12 @@ export default function CalendarPage() {
   const formatTimeDisplay = (timeString?: string) => {
     if (!timeString) return '';
     try {
+        // Assuming timeString is "HH:mm"
         const dateWithTime = parse(timeString, 'HH:mm', new Date());
-        return format(dateWithTime, 'p', { locale: es });
+        return format(dateWithTime, 'p', { locale: es }); // 'p' for localized time, e.g., "10:00 AM"
     } catch (error) {
-        return timeString;
+        // If parsing fails, return the original string or a placeholder
+        return timeString; // Or handle error appropriately
     }
   };
 
@@ -224,7 +247,7 @@ export default function CalendarPage() {
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
               setIsDialogOpen(isOpen);
               if (!isOpen) {
-                setEditingEvent(null);
+                setEditingEvent(null); // Reset editing state when dialog closes
                 resetFormFields();
               }
           }}>
@@ -273,8 +296,8 @@ export default function CalendarPage() {
                   <Input
                     id="event-date"
                     type="date"
-                    value={format(eventDateForDialog, 'yyyy-MM-dd')}
-                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))}
+                    value={format(eventDateForDialog, 'yyyy-MM-dd')} // Format date for input
+                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))} // Parse and set as start of day
                     className="col-span-3"
                   />
                 </div>
@@ -374,12 +397,20 @@ export default function CalendarPage() {
                 </div>
               ))
             ) : selectedDate ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No hay eventos para este día.
-              </p>
+              <div className="text-center py-4">
+                 <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
+                 <p className="text-sm text-muted-foreground">
+                    No hay eventos programados para este día.
+                 </p>
+                 {canManageEvents && (
+                    <Button variant="outline" size="sm" className="mt-3" onClick={handleOpenDialogForAdd}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Añadir Evento
+                    </Button>
+                 )}
+              </div>
             ) : (
                  <div className="text-center py-4">
-                    <Info className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                    <Info className="mx-auto h-10 w-10 text-muted-foreground mb-3" />
                     <p className="text-sm text-muted-foreground">
                         Selecciona un día en el calendario para ver los eventos programados.
                     </p>
