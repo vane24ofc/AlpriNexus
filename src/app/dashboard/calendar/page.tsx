@@ -62,64 +62,76 @@ export default function CalendarPage() {
   const [eventDateForDialog, setEventDateForDialog] = useState<Date>(new Date());
 
   useEffect(() => {
-    setIsLoading(true);
-    const storedEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
-    let loadedEvents: CalendarEvent[] = [];
-    if (storedEventsString) {
-      try {
-        const storedEvents: StoredCalendarEvent[] = JSON.parse(storedEventsString);
-        loadedEvents = storedEvents.map(event => ({
-          ...event,
-          date: startOfDay(parseISO(event.date)),
-          time: event.time || undefined, 
-        })).sort((a, b) => { 
-            const dateComparison = a.date.getTime() - b.date.getTime();
-            if (dateComparison !== 0) return dateComparison;
-            if (a.time && b.time) return a.time.localeCompare(b.time);
-            if (a.time) return -1;
-            if (b.time) return 1;
-            return 0;
-          });
-      } catch (error) {
-        console.error("Error al cargar eventos del calendario desde localStorage:", error);
-        loadedEvents = initialSampleEvents.map(event => ({
-          ...event,
-          date: startOfDay(parseISO(event.date)),
-        })).sort((a, b) => {
-            const dateComparison = a.date.getTime() - b.date.getTime();
-            if (dateComparison !== 0) return dateComparison;
-            if (a.time && b.time) return a.time.localeCompare(b.time);
-            if (a.time) return -1;
-            if (b.time) return 1;
-            return 0;
-          });
-        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
+    const loadEvents = async () => {
+      setIsLoading(true);
+      let loadedEvents: CalendarEvent[] = [];
+      // TODO: API Call - GET /api/calendar-events
+      // Example:
+      // try {
+      //   const response = await fetch('/api/calendar-events'); // Replace with your API endpoint
+      //   if (!response.ok) throw new Error('Failed to fetch calendar events');
+      //   const apiEvents: StoredCalendarEvent[] = await response.json();
+      //   loadedEvents = apiEvents.map(event => ({
+      //     ...event,
+      //     date: startOfDay(parseISO(event.date)),
+      //     time: event.time || undefined,
+      //   })).sort((a, b) => { /* sort logic */ });
+      // } catch (error) {
+      //   console.error("Error loading calendar events from API:", error);
+      //   // Fallback to localStorage or initial samples if API fails
+      // }
+
+      // Fallback to localStorage if API call isn't implemented or fails
+      if (loadedEvents.length === 0) {
+        const storedEventsString = localStorage.getItem(CALENDAR_EVENTS_STORAGE_KEY);
+        if (storedEventsString) {
+          try {
+            const storedEvents: StoredCalendarEvent[] = JSON.parse(storedEventsString);
+            loadedEvents = storedEvents.map(event => ({
+              ...event,
+              date: startOfDay(parseISO(event.date)),
+              time: event.time || undefined,
+            })).sort((a, b) => {
+                const dateComparison = a.date.getTime() - b.date.getTime();
+                if (dateComparison !== 0) return dateComparison;
+                if (a.time && b.time) return a.time.localeCompare(b.time);
+                if (a.time) return -1;
+                if (b.time) return 1;
+                return 0;
+              });
+          } catch (error) {
+            console.error("Error al cargar eventos del calendario desde localStorage:", error);
+            loadedEvents = initialSampleEvents.map(event => ({
+              ...event,
+              date: startOfDay(parseISO(event.date)),
+            })).sort((a, b) => { /* sort logic */ });
+            localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
+          }
+        } else {
+            loadedEvents = initialSampleEvents.map(event => ({
+              ...event,
+              date: startOfDay(parseISO(event.date)),
+            })).sort((a, b) => { /* sort logic */ });
+            localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
+        }
       }
-    } else {
-        loadedEvents = initialSampleEvents.map(event => ({
-          ...event,
-          date: startOfDay(parseISO(event.date)),
-        })).sort((a, b) => {
-            const dateComparison = a.date.getTime() - b.date.getTime();
-            if (dateComparison !== 0) return dateComparison;
-            if (a.time && b.time) return a.time.localeCompare(b.time);
-            if (a.time) return -1;
-            if (b.time) return 1;
-            return 0;
-          });
-        localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(initialSampleEvents));
-    }
-    setEvents(loadedEvents);
-    setIsLoading(false);
+      setEvents(loadedEvents);
+      setIsLoading(false);
+    };
+    loadEvents();
   }, []);
 
   useEffect(() => {
+    // This useEffect is for localStorage persistence, which would be removed
+    // or modified when a real backend is in place.
+    // For now, it ensures the prototype saves to localStorage.
     if (!isLoading && events.length >= 0) {
         const eventsToStore: StoredCalendarEvent[] = events.map(event => ({
         ...event,
-        date: event.date.toISOString(), 
+        date: event.date.toISOString(),
         time: event.time || undefined,
         }));
+        // TODO: Remove this localStorage interaction when API is implemented
         localStorage.setItem(CALENDAR_EVENTS_STORAGE_KEY, JSON.stringify(eventsToStore));
     }
   }, [events, isLoading]);
@@ -143,56 +155,89 @@ export default function CalendarPage() {
     setEventTitle(event.title);
     setEventDescription(event.description || '');
     setEventTime(event.time || '');
-    setEventDateForDialog(event.date); 
+    setEventDateForDialog(event.date);
     setIsDialogOpen(true);
   };
 
-  const handleSaveEvent = () => {
+  const handleSaveEvent = async () => {
     if (!eventTitle.trim()) {
       alert("El título del evento es obligatorio.");
       return;
     }
 
-    const processedDate = startOfDay(eventDateForDialog); 
+    const processedDate = startOfDay(eventDateForDialog);
+    const eventPayload = {
+      title: eventTitle.trim(),
+      description: eventDescription.trim(),
+      date: processedDate.toISOString(), // Send ISO string to backend
+      time: eventTime || undefined,
+    };
 
-    const updatedEventsList = editingEvent
-      ? events.map(ev =>
-          ev.id === editingEvent.id
-            ? {
-                ...ev,
-                title: eventTitle.trim(),
-                description: eventDescription.trim(),
-                date: processedDate,
-                time: eventTime || undefined, 
-              }
-            : ev
-        )
-      : [
-          ...events,
-          {
-            id: crypto.randomUUID(),
-            date: processedDate,
-            title: eventTitle.trim(),
-            description: eventDescription.trim(),
-            time: eventTime || undefined, 
-          },
-        ];
+    let updatedEvent: CalendarEvent;
 
-    setEvents(updatedEventsList.sort((a, b) => {
-        const dateComparison = a.date.getTime() - b.date.getTime();
-        if (dateComparison !== 0) return dateComparison;
-        if (a.time && b.time) return a.time.localeCompare(b.time);
-        if (a.time) return -1;
-        if (b.time) return 1;
-        return 0;
-    }));
+    if (editingEvent) {
+      // TODO: API Call - PUT /api/calendar-events/:eventId
+      // Example:
+      // try {
+      //   const response = await fetch(`/api/calendar-events/${editingEvent.id}`, {
+      //     method: 'PUT',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify(eventPayload),
+      //   });
+      //   if (!response.ok) throw new Error('Failed to update event');
+      //   updatedEvent = { ...editingEvent, ...eventPayload, date: processedDate }; // Assuming API returns updated event or we use payload
+      // } catch (error) {
+      //   console.error("Error updating event via API:", error);
+      //   alert("Error al actualizar el evento.");
+      //   return;
+      // }
+      // Fallback to local update for prototype
+      updatedEvent = { ...editingEvent, ...eventPayload, date: processedDate };
+      setEvents(prevEvents => prevEvents.map(ev => (ev.id === editingEvent.id ? updatedEvent : ev)).sort((a,b) => { /* sort */ }));
+    } else {
+      // TODO: API Call - POST /api/calendar-events
+      // Example:
+      // try {
+      //   const response = await fetch('/api/calendar-events', {
+      //     method: 'POST',
+      //     headers: { 'Content-Type': 'application/json' },
+      //     body: JSON.stringify(eventPayload),
+      //   });
+      //   if (!response.ok) throw new Error('Failed to create event');
+      //   const createdApiEvent: StoredCalendarEvent = await response.json(); // API should return the created event with an ID
+      //   updatedEvent = { ...createdApiEvent, date: startOfDay(parseISO(createdApiEvent.date)) };
+      // } catch (error) {
+      //   console.error("Error creating event via API:", error);
+      //   alert("Error al crear el evento.");
+      //   return;
+      // }
+      // Fallback to local update for prototype
+      updatedEvent = { id: crypto.randomUUID(), ...eventPayload, date: processedDate };
+      setEvents(prevEvents => [...prevEvents, updatedEvent].sort((a,b) => { /* sort */ }));
+    }
+
+    // The useEffect for `events` will handle saving to localStorage for the prototype.
+    // In a real app, the API calls above would be the source of truth.
 
     setIsDialogOpen(false);
     setEditingEvent(null);
   };
 
-  const handleDeleteEvent = (eventId: string) => {
+  const handleDeleteEvent = async (eventId: string) => {
+    // TODO: API Call - DELETE /api/calendar-events/:eventId
+    // Example:
+    // try {
+    //   const response = await fetch(`/api/calendar-events/${eventId}`, { method: 'DELETE' });
+    //   if (!response.ok) throw new Error('Failed to delete event');
+    // } catch (error) {
+    //   console.error("Error deleting event via API:", error);
+    //   alert("Error al eliminar el evento.");
+    //   return;
+    // }
+
+    // Fallback to local update for prototype
     setEvents(prevEvents => prevEvents.filter(event => event.id !== eventId));
+    // The useEffect for `events` will handle saving to localStorage for the prototype.
   };
 
   const eventsForSelectedDay = useMemo(() => {
@@ -213,9 +258,9 @@ export default function CalendarPage() {
     if (!timeString) return '';
     try {
         const dateWithTime = parse(timeString, 'HH:mm', new Date());
-        return format(dateWithTime, 'p', { locale: es }); 
+        return format(dateWithTime, 'p', { locale: es });
     } catch (error) {
-        return timeString; 
+        return timeString;
     }
   };
 
@@ -239,7 +284,7 @@ export default function CalendarPage() {
           <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
               setIsDialogOpen(isOpen);
               if (!isOpen) {
-                setEditingEvent(null); 
+                setEditingEvent(null);
                 resetFormFields();
               }
           }}>
@@ -288,8 +333,8 @@ export default function CalendarPage() {
                   <Input
                     id="event-date"
                     type="date"
-                    value={format(eventDateForDialog, 'yyyy-MM-dd')} 
-                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))} 
+                    value={format(eventDateForDialog, 'yyyy-MM-dd')}
+                    onChange={(e) => setEventDateForDialog(startOfDay(parseISO(e.target.value)))}
                     className="col-span-3"
                   />
                 </div>
@@ -319,8 +364,7 @@ export default function CalendarPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         <Card className="lg:col-span-4 xl:col-span-5 shadow-lg">
-          <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start bg-card"> {/* Changed bg-black to bg-card */}
-            {/* Removed scaling div and dark theme div wrapper */}
+          <CardContent className="p-1 sm:p-2 md:p-4 flex justify-center items-start bg-card">
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -328,7 +372,7 @@ export default function CalendarPage() {
               className="rounded-md"
               locale={es}
               ISOWeek
-              weekStartsOn={1} 
+              weekStartsOn={1}
               modifiers={{ eventDay: eventDayModifier }}
               modifiersClassNames={{
                 eventDay: 'day-with-event-dot',
@@ -415,4 +459,3 @@ export default function CalendarPage() {
     </div>
   );
 }
-
