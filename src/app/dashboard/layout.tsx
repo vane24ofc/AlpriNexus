@@ -8,6 +8,7 @@ import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { FullPageLoader } from '@/components/ui/loader';
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
@@ -72,34 +73,6 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!hasMountedLayout) return;
 
-    let initialTheme: string;
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-
-    if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
-      initialTheme = storedTheme;
-    } else {
-      initialTheme = 'theme-light';
-      localStorage.setItem(THEME_STORAGE_KEY, initialTheme);
-    }
-    setActiveTheme(initialTheme);
-  }, [hasMountedLayout]);
-
-  useEffect(() => {
-    if (!hasMountedLayout || !activeTheme) return;
-
-    if (VALID_THEME_CLASSES.includes(activeTheme)) {
-      const root = window.document.documentElement;
-      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-      root.classList.add(activeTheme);
-      localStorage.setItem(THEME_STORAGE_KEY, activeTheme);
-    }
-  }, [activeTheme, hasMountedLayout]);
-
-  useEffect(() => {
-    if (!hasMountedLayout) {
-      setIsLoadingRole(true);
-      return;
-    }
     setIsLoadingRole(true);
 
     let roleFromStorage = localStorage.getItem(SESSION_ROLE_STORAGE_KEY) as Role | null;
@@ -119,59 +92,79 @@ export default function DashboardLayout({
       finalDeterminedRole = pathDefinesRole;
       if (roleFromStorage !== finalDeterminedRole) {
         localStorage.setItem(SESSION_ROLE_STORAGE_KEY, finalDeterminedRole);
-        roleFromStorage = finalDeterminedRole; // Update roleFromStorage for profile loading
       }
     } else if (roleFromStorage && ['administrador', 'instructor', 'estudiante'].includes(roleFromStorage)) {
       finalDeterminedRole = roleFromStorage;
     } else {
-      finalDeterminedRole = 'estudiante';
+      finalDeterminedRole = 'estudiante'; // Default if no specific path and nothing in storage
       localStorage.setItem(SESSION_ROLE_STORAGE_KEY, finalDeterminedRole);
-      roleFromStorage = finalDeterminedRole; // Update roleFromStorage for profile loading
     }
-
-    if (currentSessionRole !== finalDeterminedRole) {
-      setCurrentSessionRole(finalDeterminedRole);
-    }
-
-    // Load or set default user profile based on the determined role
+    
+    setCurrentSessionRole(prevRole => {
+      if (prevRole !== finalDeterminedRole) return finalDeterminedRole;
+      return prevRole;
+    });
+    
+    // User Profile Handling
     const storedProfile = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
     if (storedProfile) {
       try {
         setUserProfile(JSON.parse(storedProfile));
       } catch (e) {
         console.error("Error parsing stored user profile", e);
-        // Fallback to default if parsing fails
         const defaultName = `${finalDeterminedRole.charAt(0).toUpperCase() + finalDeterminedRole.slice(1)} Usuario`;
         const defaultEmail = `${finalDeterminedRole}@example.com`;
-        const defaultProfile = { name: defaultName, email: defaultEmail };
-        setUserProfile(defaultProfile);
-        localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
+        setUserProfile({ name: defaultName, email: defaultEmail });
       }
     } else {
       const defaultName = `${finalDeterminedRole.charAt(0).toUpperCase() + finalDeterminedRole.slice(1)} Usuario`;
       const defaultEmail = `${finalDeterminedRole}@example.com`;
-      const defaultProfile = { name: defaultName, email: defaultEmail };
-      setUserProfile(defaultProfile);
-      localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(defaultProfile));
+      setUserProfile({ name: defaultName, email: defaultEmail });
     }
 
     setIsLoadingRole(false);
-  }, [pathname, hasMountedLayout]); // currentSessionRole removed to simplify and rely on pathname + localStorage
 
-  // Effect to save userProfile to localStorage whenever it changes
+  }, [pathname, hasMountedLayout]);
+
+
   useEffect(() => {
-    if (hasMountedLayout && userProfile.name && userProfile.email) { // Ensure it's not empty initial state
+    if (!hasMountedLayout) return;
+
+    let initialTheme: string;
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+
+    if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
+      initialTheme = storedTheme;
+    } else {
+      initialTheme = 'theme-light'; // Default theme for dashboard
+      localStorage.setItem(THEME_STORAGE_KEY, initialTheme);
+    }
+    setActiveTheme(initialTheme);
+  }, [hasMountedLayout]);
+
+  useEffect(() => {
+    if (!hasMountedLayout || !activeTheme) return;
+
+    if (VALID_THEME_CLASSES.includes(activeTheme)) {
+      const root = window.document.documentElement;
+      VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
+      root.classList.add(activeTheme);
+      localStorage.setItem(THEME_STORAGE_KEY, activeTheme);
+    }
+  }, [activeTheme, hasMountedLayout]);
+  
+  useEffect(() => {
+    if (hasMountedLayout && userProfile.name && userProfile.email) {
       localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
     }
   }, [userProfile, hasMountedLayout]);
-
 
   const contextValue = useMemo(() => ({
     currentSessionRole,
     isLoadingRole,
     userProfile,
     setUserProfile,
-  }), [currentSessionRole, isLoadingRole, userProfile, setUserProfile]);
+  }), [currentSessionRole, isLoadingRole, userProfile]);
 
   if (!hasMountedLayout || isLoadingRole || !currentSessionRole) {
     return <FullPageLoader message="Cargando panel y determinando rol..." />;
@@ -179,23 +172,25 @@ export default function DashboardLayout({
 
   return (
     <SessionRoleContext.Provider value={contextValue}>
-      <SidebarProvider key={String(currentSessionRole)} defaultOpen={true}> {/* Keying SidebarProvider */}
-        <AppSidebarNav key={`sidebar-nav-${String(currentSessionRole)}`} />
-        <SidebarInset key="sidebar-inset"> {/* Static key for SidebarInset */}
-          <AppHeader key={`header-${String(currentSessionRole)}`} />
-          <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-            {children}
-            <Image
-              src="/Logo-Manchas-SAS (2).png"
-              alt="Alprigrama S.A.S"
-              width={800}
-              height={742}
-              className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
-              data-ai-hint="brand watermark logo"
-            />
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
+      <TooltipProvider delayDuration={0}>
+        <SidebarProvider key={`sp-${String(currentSessionRole)}`} defaultOpen={true}>
+          <AppSidebarNav key={`asn-${String(currentSessionRole)}`} />
+          <SidebarInset key={`si-${String(currentSessionRole)}`}>
+            <AppHeader key={`ah-${String(currentSessionRole)}`} />
+            <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+              {children}
+              <Image
+                src="/Logo-Manchas-SAS (2).png"
+                alt="Alprigrama S.A.S"
+                width={800}
+                height={742}
+                className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
+                data-ai-hint="brand watermark logo"
+              />
+            </main>
+          </SidebarInset>
+        </SidebarProvider>
+      </TooltipProvider>
     </SessionRoleContext.Provider>
   );
 }
