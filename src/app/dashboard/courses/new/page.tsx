@@ -7,25 +7,37 @@ import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
 export default function CreateCoursePage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { currentSessionRole } = useSessionRole();
+  const { currentSessionRole, userProfile } = useSessionRole(); // Obtener userProfile
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (data: any, thumbnailUrl?: string) => {
     setIsSubmitting(true);
     
+    // Determinar el nombre del instructor basado en el rol y el perfil del usuario
+    let instructorNameToSet = "Instructor Desconocido";
+    if (currentSessionRole === 'instructor' && userProfile.name) {
+      instructorNameToSet = userProfile.name;
+    } else if (currentSessionRole === 'administrador' && userProfile.name) {
+      // Los administradores también pueden crear cursos figurando como instructores
+      instructorNameToSet = userProfile.name; 
+    } else if (currentSessionRole === 'administrador') {
+      instructorNameToSet = "Administración AlpriNexus"; // Fallback si el admin no tiene nombre de perfil
+    }
+
+
     const newCourseData: Course = {
       id: crypto.randomUUID(), // Generate a unique ID
       title: data.title,
       description: data.description,
       thumbnailUrl: thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
-      instructorName: currentSessionRole === 'instructor' ? "Usuario Actual (Instructor)" : "Administrador", // Placeholder
+      instructorName: instructorNameToSet,
       status: currentSessionRole === 'instructor' ? 'pending' : 'approved',
       lessons: data.lessons.map((lesson: any) => ({
         id: lesson.id || crypto.randomUUID(),
@@ -34,8 +46,8 @@ export default function CreateCoursePage() {
         content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
         quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
-        quizOptions: lesson.quizOptions || [],
-        correctQuizOptionIndex: lesson.correctQuizOptionIndex,
+        quizOptions: lesson.contentType === 'quiz' ? (lesson.quizOptions || []).filter((opt: string) => opt && opt.trim() !== '') : undefined,
+        correctQuizOptionIndex: lesson.contentType === 'quiz' ? lesson.correctQuizOptionIndex : undefined,
       })),
       interactiveContent: data.interactiveContent,
       dataAiHint: data.title.substring(0,20) // Simple data-ai-hint from title
@@ -74,7 +86,7 @@ export default function CreateCoursePage() {
 
       if (currentSessionRole === 'administrador') {
         router.push('/dashboard/admin/courses');
-      } else {
+      } else { // Instructor
         router.push('/dashboard/instructor/my-courses');
       }
     } catch (error) {
