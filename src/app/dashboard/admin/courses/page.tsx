@@ -122,50 +122,43 @@ export default function AdminCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const initialSearchTerm = searchParams.get('search') || '';
   
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
-  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
 
   useEffect(() => {
-    const fetchCourses = async () => {
-      setIsLoading(true);
-      try {
-        // TODO: Reemplazar con llamada a API GET /api/courses
-        // const response = await fetch('/api/courses'); // Ejemplo
-        // if (!response.ok) throw new Error('Fallo al obtener los cursos');
-        // const fetchedCourses: Course[] = await response.json();
-        // setAllCourses(fetchedCourses);
-
-        // Fallback a localStorage mientras la API no está lista
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        if (storedCourses) {
-          setAllCourses(JSON.parse(storedCourses));
-        } else {
-          setAllCourses(initialSeedCourses);
-          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
-        }
-      } catch (error) {
-        console.error("Error cargando cursos:", error);
-        setAllCourses(initialSeedCourses); 
+    setIsLoading(true);
+    // TODO: Reemplazar con llamada a API GET /api/courses
+    try {
+      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+      if (storedCourses) {
+        setAllCourses(JSON.parse(storedCourses));
+      } else {
+        setAllCourses(initialSeedCourses);
         localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
-      } finally {
-        setIsLoading(false);
       }
-    };
-    fetchCourses();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    } catch (error) {
+      console.error("Error cargando cursos desde localStorage:", error);
+      setAllCourses(initialSeedCourses); 
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+      }
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    const urlSearchTerm = searchParams.get('search') || '';
-    if (urlSearchTerm !== searchTerm) {
-      setSearchTerm(urlSearchTerm);
-    }
+    const initialUrlSearchTerm = searchParams.get('search') || '';
+    setSearchTerm(initialUrlSearchTerm);
+  }, [searchParams]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (searchTerm) {
       params.set('search', searchTerm);
@@ -174,14 +167,10 @@ export default function AdminCoursesPage() {
     }
     router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]); // Only depend on searchTerm for URL updates
+  }, [searchTerm]); 
 
-  // Este useEffect guarda en localStorage. Con un backend, esta responsabilidad se movería.
   useEffect(() => {
-    // TODO: Esta lógica de guardado persistente se moverá al backend
-    // o se manejará mediante refetching/mutations después de llamadas a la API.
-    // Por ahora, se mantiene para la simulación con localStorage.
-    if (!isLoading && allCourses.length >= 0) { 
+    if (!isLoading && allCourses.length >= 0 && typeof window !== 'undefined') { 
         try {
             localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(allCourses));
         } catch (error) {
@@ -201,28 +190,6 @@ export default function AdminCoursesPage() {
     if (!course) return;
 
     // TODO: Reemplazar con llamada a API PUT /api/courses/:courseId/status { status: newStatus }
-    // try {
-    //   const response = await fetch(`/api/courses/${courseId}/status`, {
-    //     method: 'PUT',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ status: newStatus }),
-    //   });
-    //   if (!response.ok) throw new Error('Fallo al actualizar el estado del curso');
-    //   const updatedCourse = await response.json();
-    //   setAllCourses(prevCourses => prevCourses.map(c => c.id === courseId ? updatedCourse : c));
-    //   toast({
-    //     title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
-    //     description: `El curso "${course.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
-    //   });
-    // } catch (error) {
-    //   console.error("Error actualizando estado del curso:", error);
-    //   toast({ variant: "destructive", title: "Error de Actualización", description: "No se pudo actualizar el estado del curso." });
-    // } finally {
-    //   setCourseToModify(null);
-    //   setActionType(null);
-    // }
-
-    // Simulación con estado local y localStorage (mantenido por el useEffect de allCourses)
     setAllCourses(prevCourses => prevCourses.map(c => c.id === courseId ? { ...c, status: newStatus } : c));
     toast({
       title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
@@ -237,24 +204,6 @@ export default function AdminCoursesPage() {
     if (!courseTitle) return;
 
     // TODO: Reemplazar con llamada a API DELETE /api/courses/:courseId
-    // try {
-    //   const response = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
-    //   if (!response.ok) throw new Error('Fallo al eliminar el curso');
-    //   setAllCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
-    //   toast({
-    //     title: "Curso Eliminado",
-    //     description: `El curso "${courseTitle}" ha sido eliminado.`,
-    //     variant: "destructive"
-    //   });
-    // } catch (error) {
-    //   console.error("Error eliminando curso:", error);
-    //   toast({ variant: "destructive", title: "Error de Eliminación", description: "No se pudo eliminar el curso." });
-    // } finally {
-    //   setCourseToModify(null);
-    //   setActionType(null);
-    // }
-
-    // Simulación con estado local y localStorage (mantenido por el useEffect de allCourses)
     setAllCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
     toast({
       title: "Curso Eliminado",
@@ -283,7 +232,7 @@ export default function AdminCoursesPage() {
   }, [allCourses, searchTerm]);
 
   const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
-    if (isLoading) {
+    if (isLoading && courseList.length === 0 && !searchTerm) { // Show loader only if loading initial full list
         return (
             <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -330,6 +279,7 @@ export default function AdminCoursesPage() {
        <Card className="shadow-md">
         <CardHeader className="pb-4">
             <CardTitle className="text-base">Buscar Cursos</CardTitle>
+            <CardDescription>El filtro se aplica a todas las pestañas (Pendientes, Publicados, Rechazados).</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
             <div className="relative">
@@ -340,7 +290,7 @@ export default function AdminCoursesPage() {
                 className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading && allCourses.length === 0}
               />
             </div>
         </CardContent>
@@ -348,14 +298,14 @@ export default function AdminCoursesPage() {
 
       <Tabs defaultValue="pending">
         <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="pending" disabled={isLoading}>
-            Pendientes ({isLoading ? '...' : pendingCourses.length})
+          <TabsTrigger value="pending" disabled={isLoading && allCourses.length === 0}>
+            Pendientes ({isLoading && allCourses.length === 0 ? '...' : pendingCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="published" disabled={isLoading}>
-            Publicados ({isLoading ? '...' : publishedCourses.length})
+          <TabsTrigger value="published" disabled={isLoading && allCourses.length === 0}>
+            Publicados ({isLoading && allCourses.length === 0 ? '...' : publishedCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex items-center justify-center" disabled={isLoading}>
-            Rechazados ({isLoading ? '...' : rejectedCourses.length})
+          <TabsTrigger value="rejected" className="flex items-center justify-center" disabled={isLoading && allCourses.length === 0}>
+            Rechazados ({isLoading && allCourses.length === 0 ? '...' : rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
 
@@ -429,4 +379,6 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
+    
+
     
