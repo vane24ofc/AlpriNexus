@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
-import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search, Loader2 } from 'lucide-react';
+import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search, Loader2, EyeOff, Eye as EyeIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Role } from '@/app/dashboard/layout';
@@ -55,12 +55,15 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
 
 interface UserRowProps {
     user: User;
-    onOpenDialog: (user: User, type: 'delete' | 'changeRole', newRole?: Role) => void;
+    onOpenDialog: (user: User, type: 'delete' | 'changeRole' | 'toggleStatus', newRole?: Role) => void;
 }
 
 const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: UserRowProps) {
     const roleInfo = roleDisplayInfo[user.role];
     const RoleIcon = roleInfo.icon;
+    const newStatus = user.status === 'active' ? 'inactive' : 'active';
+    const ToggleStatusIcon = user.status === 'active' ? EyeOff : EyeIcon;
+
     return (
         <TableRow>
             <TableCell className="hidden md:table-cell">
@@ -100,6 +103,10 @@ const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: User
                     <Link href={`/dashboard/admin/users/${user.id}/edit`}>
                     <Edit className="mr-2 h-4 w-4" /> Editar Usuario
                     </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenDialog(user, 'toggleStatus')}>
+                    <ToggleStatusIcon className="mr-2 h-4 w-4" /> 
+                    {user.status === 'active' ? 'Desactivar Usuario' : 'Activar Usuario'}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
@@ -141,37 +148,43 @@ export default function AdminUsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   
   const [userToModify, setUserToModify] = useState<User | null>(null);
-  const [actionType, setActionType] = useState<'delete' | 'changeRole' | null>(null);
+  const [actionType, setActionType] = useState<'delete' | 'changeRole' | 'toggleStatus' | null>(null);
   const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
+
+  const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
+    // TODO: Reemplazar con llamada a API: const fetchedUsers = await api.getUsers();
+    // setUsers(fetchedUsers);
+    try {
+      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+      if (storedUsers) {
+        setUsers(JSON.parse(storedUsers));
+      } else {
+        setUsers(initialSampleUsers);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+      }
+    } catch (error) {
+      console.error("Error cargando usuarios desde localStorage:", error);
+      toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudieron cargar los usuarios. Usando datos de ejemplo." });
+      setUsers(initialSampleUsers);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     const initialSearch = searchParams.get('search') || '';
     setSearchTerm(initialSearch);
-
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        // TODO: Reemplazar con llamada a API: const fetchedUsers = await api.getUsers();
-        // setUsers(fetchedUsers);
-        
-        // Fallback a localStorage mientras la API no está lista
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        if (storedUsers) {
-          setUsers(JSON.parse(storedUsers));
-        } else {
-          setUsers(initialSampleUsers);
-          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
-        }
-      } catch (error) {
-        console.error("Error cargando usuarios:", error);
-        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudieron cargar los usuarios." });
-        setUsers(initialSampleUsers); // Fallback a datos de ejemplo en caso de error
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchUsers();
-  }, [searchParams, toast]);
+  }, [searchParams, fetchUsers]);
+
+  useEffect(() => {
+    // Guardar en localStorage cuando `users` cambie y no estemos cargando
+    if (!isLoading) {
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    }
+  }, [users, isLoading]);
+
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm.trim()) {
@@ -184,7 +197,7 @@ export default function AdminUsersPage() {
     );
   }, [users, searchTerm]);
 
-  const openDialog = useCallback((user: User, type: 'delete' | 'changeRole', newRole?: Role) => {
+  const openDialog = useCallback((user: User, type: 'delete' | 'changeRole' | 'toggleStatus', newRole?: Role) => {
     setUserToModify(user);
     setActionType(type);
     if (type === 'changeRole' && newRole) {
@@ -201,12 +214,9 @@ export default function AdminUsersPage() {
   const handleDeleteUser = async () => {
     if (!userToModify) return;
     const userName = userToModify.name;
-
     // TODO: Reemplazar con llamada a API: await api.deleteUser(userToModify.id);
-    const updatedUsers = users.filter(user => user.id !== userToModify.id);
-    setUsers(updatedUsers);
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Actualiza localStorage
-
+    setUsers(prevUsers => prevUsers.filter(user => user.id !== userToModify!.id));
+    // localStorage update will be handled by the useEffect watching `users`
     toast({
       title: "Usuario Eliminado",
       description: `El usuario "${userName}" ha sido eliminado.`,
@@ -219,14 +229,12 @@ export default function AdminUsersPage() {
     if (!userToModify || !newRoleForChange) return;
     const userName = userToModify.name;
     const newRoleLabel = roleDisplayInfo[newRoleForChange].label;
-
     // TODO: Reemplazar con llamada a API: await api.updateUserRole(userToModify.id, newRoleForChange);
-    const updatedUsers = users.map(user => 
-        user.id === userToModify.id ? { ...user, role: newRoleForChange! } : user
+    setUsers(prevUsers => 
+        prevUsers.map(user => 
+            user.id === userToModify!.id ? { ...user, role: newRoleForChange! } : user
+        )
     );
-    setUsers(updatedUsers);
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Actualiza localStorage
-
     toast({
       title: "Rol de Usuario Actualizado",
       description: `El rol de "${userName}" ha sido cambiado a ${newRoleLabel}.`,
@@ -234,21 +242,39 @@ export default function AdminUsersPage() {
     closeDialog();
   };
 
+  const handleToggleUserStatus = async () => {
+    if (!userToModify) return;
+    const newStatus = userToModify.status === 'active' ? 'inactive' : 'active';
+    const userName = userToModify.name;
+    const statusMessage = newStatus === 'active' ? 'activado' : 'desactivado';
+
+    // TODO: Reemplazar con llamada a API: await api.updateUserStatus(userToModify.id, newStatus);
+    setUsers(prevUsers =>
+      prevUsers.map(user =>
+        user.id === userToModify!.id ? { ...user, status: newStatus } : user
+      )
+    );
+    toast({
+      title: `Usuario ${statusMessage}`,
+      description: `El usuario "${userName}" ha sido ${statusMessage}.`,
+    });
+    closeDialog();
+  };
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value);
-    // Actualizar URL sin recargar para que el término de búsqueda sea "bookmarkable"
+    const newSearchTerm = event.target.value;
+    setSearchTerm(newSearchTerm);
     const params = new URLSearchParams(searchParams.toString());
-    if (event.target.value) {
-      params.set('search', event.target.value);
+    if (newSearchTerm) {
+      params.set('search', newSearchTerm);
     } else {
       params.delete('search');
     }
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    // Asegúrate de que pathname está definido. Si se ejecuta en el cliente, window.location.pathname está disponible.
+    const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    router.replace(`${currentPathname}?${params.toString()}`, { scroll: false });
   };
-  //pathname no esta definido, lo defino asi:
-  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-
-
+  
   if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
@@ -330,6 +356,7 @@ export default function AdminUsersPage() {
               <AlertDialogDescription>
                 {actionType === 'delete' && `¿Estás seguro de que quieres eliminar permanentemente al usuario "${userToModify.name}"? Esta acción no se puede deshacer.`}
                 {actionType === 'changeRole' && `¿Estás seguro de que quieres cambiar el rol de "${userToModify.name}" a ${newRoleForChange ? roleDisplayInfo[newRoleForChange].label : ''}?`}
+                {actionType === 'toggleStatus' && `¿Estás seguro de que quieres ${userToModify.status === 'active' ? 'desactivar' : 'activar'} al usuario "${userToModify.name}"?`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -338,11 +365,13 @@ export default function AdminUsersPage() {
                 onClick={() => {
                   if (actionType === 'delete') handleDeleteUser();
                   if (actionType === 'changeRole') handleChangeRole();
+                  if (actionType === 'toggleStatus') handleToggleUserStatus();
                 }}
-                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : ''}
+                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'toggleStatus' && userToModify.status === 'active' ? 'bg-orange-500 hover:bg-orange-600 text-white' : (actionType === 'toggleStatus' && userToModify.status === 'inactive' ? 'bg-green-500 hover:bg-green-600 text-white': ''))}
               >
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
                 {actionType === 'changeRole' && 'Confirmar Cambio de Rol'}
+                {actionType === 'toggleStatus' && (userToModify.status === 'active' ? 'Desactivar Usuario' : 'Activar Usuario')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -352,3 +381,4 @@ export default function AdminUsersPage() {
   );
 }
     
+
