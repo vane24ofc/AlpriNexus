@@ -15,24 +15,35 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon } from 'lucide-react';
+import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon, Check } from 'lucide-react'; // Added Check for AlertDialog
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function AppHeader() {
   const router = useRouter();
   const { isMobile } = useSidebar();
-  const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole(); // Get userProfile from context
+  const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchPlaceholder, setSearchPlaceholder] = useState('Buscar...');
   const [roleDisplay, setRoleDisplay] = useState("Usuario");
   const [profileLinkPath, setProfileLinkPath] = useState("/dashboard");
   const [dashboardPath, setDashboardPath] = useState("/dashboard");
   const [userAvatar, setUserAvatar] = useState("https://placehold.co/100x100.png");
-  // userName and userEmail will now come from userProfile context
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -41,53 +52,53 @@ export function AppHeader() {
   }, []);
 
   useEffect(() => {
-    if (currentSessionRole) {
-      let determinedRoleDisplay = "Estudiante";
-      let determinedProfileLink = "/dashboard/student/profile";
-      let determinedDashboardPath = "/dashboard";
-      let determinedSearchPlaceholder = "Buscar cursos...";
-      let avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "E";
+    if (!hasMounted || isLoadingRole || !currentSessionRole) return;
 
+    let determinedRoleDisplay = "Estudiante";
+    let determinedProfileLink = "/dashboard/student/profile";
+    let determinedDashboardPath = "/dashboard";
+    let determinedSearchPlaceholder = "Buscar cursos...";
+    let avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "E";
 
-      switch (currentSessionRole) {
-        case 'administrador':
-          determinedRoleDisplay = 'Administrador';
-          determinedProfileLink = '/dashboard';
-          determinedDashboardPath = '/dashboard';
-          determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
-          avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "A";
-          break;
-        case 'instructor':
-          determinedRoleDisplay = 'Instructor';
-          determinedProfileLink = '/dashboard';
-          determinedDashboardPath = '/dashboard';
-          determinedSearchPlaceholder = 'Buscar en mis cursos...';
-          avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "I";
-          break;
-        case 'estudiante':
-        default:
-          determinedProfileLink = "/dashboard/student/profile";
-          break;
-      }
-      setRoleDisplay(determinedRoleDisplay);
-      setProfileLinkPath(determinedProfileLink);
-      setDashboardPath(determinedDashboardPath);
-      setSearchPlaceholder(determinedSearchPlaceholder);
-      setUserAvatar(`https://placehold.co/100x100.png?text=${avatarInitial}`);
+    switch (currentSessionRole) {
+      case 'administrador':
+        determinedRoleDisplay = 'Administrador';
+        determinedProfileLink = '/dashboard';
+        determinedDashboardPath = '/dashboard';
+        determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
+        avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "A";
+        break;
+      case 'instructor':
+        determinedRoleDisplay = 'Instructor';
+        determinedProfileLink = '/dashboard';
+        determinedDashboardPath = '/dashboard';
+        determinedSearchPlaceholder = 'Buscar en mis cursos...';
+        avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "I";
+        break;
+      case 'estudiante':
+      default:
+        determinedProfileLink = "/dashboard/student/profile"; // Keep specific profile link for student
+        break;
     }
-  }, [currentSessionRole, userProfile.name]); // Add userProfile.name dependency
+    setRoleDisplay(determinedRoleDisplay);
+    setProfileLinkPath(determinedProfileLink);
+    setDashboardPath(determinedDashboardPath);
+    setSearchPlaceholder(determinedSearchPlaceholder);
+    setUserAvatar(`https://placehold.co/100x100.png?text=${avatarInitial}`);
+  }, [currentSessionRole, userProfile.name, hasMounted, isLoadingRole]);
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('sessionRole');
-      localStorage.removeItem('nexusAlpriUserProfile'); // Also clear profile on logout
+      localStorage.removeItem('nexusAlpriUserProfile');
     }
     router.push('/login');
+    setIsLogoutConfirmOpen(false);
   };
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!searchTerm.trim()) return;
+    if (!searchTerm.trim() || !currentSessionRole) return;
 
     const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
 
@@ -113,15 +124,11 @@ export function AppHeader() {
     }
   };
 
-  if (!hasMounted || isLoadingRole || !currentSessionRole || !userProfile.name) {
+  if (!hasMounted || isLoadingRole || !currentSessionRole) {
     return (
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
         {isMobile && <SidebarTrigger />}
-        {!isMobile && (
-          <div className="hidden items-center gap-2 md:flex">
-             <Logo className="h-8 w-auto" href={null} key="header-logo-skeleton"/>
-          </div>
-        )}
+        {/* No logo skeleton if logo is removed */}
         <div className="ml-auto flex items-center gap-2">
           <Skeleton className="h-8 w-[200px] lg:w-[300px]" />
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -134,11 +141,7 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       {isMobile && <SidebarTrigger />}
-      {!isMobile && (
-         <Link href={dashboardPath} className="hidden items-center gap-2 md:flex" passHref>
-            <Logo className="h-8 w-auto" href={null} key="header-logo-loaded" />
-         </Link>
-      )}
+      {/* Logo removed from here */}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial" onSubmit={handleSearchSubmit}>
           <div className="relative">
@@ -183,13 +186,32 @@ export function AppHeader() {
               <span>Configuración</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-red-500 hover:!text-red-500 hover:!bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" onSelect={handleLogout}>
+            <DropdownMenuItem 
+              className="cursor-pointer text-red-500 hover:!text-red-500 hover:!bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" 
+              onSelect={() => setIsLogoutConfirmOpen(true)}
+            >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Cerrar Sesión</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <AlertDialog open={isLogoutConfirmOpen} onOpenChange={setIsLogoutConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Estás seguro de que quieres cerrar sesión?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se cerrará tu sesión actual en AlpriNexus.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsLogoutConfirmOpen(false)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive hover:bg-destructive/90">
+              Sí, Cerrar Sesión
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }
