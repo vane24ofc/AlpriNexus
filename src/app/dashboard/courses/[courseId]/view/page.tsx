@@ -47,7 +47,7 @@ interface QuizAttemptState {
   started: boolean;
   answered: boolean;
   selectedOptionIndex: number | null;
-  isCorrect: boolean | null; // Still store this, but don't show immediate UI feedback based on it
+  isCorrect: boolean | null;
 }
 
 export default function StudentCourseViewPage() {
@@ -73,11 +73,13 @@ export default function StudentCourseViewPage() {
         let foundCourse: Course | undefined;
 
         // TODO: API Call - GET /api/courses/:courseId
+        console.log("Fetching course details for ID:", courseId);
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
         if (storedCourses) {
           try {
             const allCourses: Course[] = JSON.parse(storedCourses);
             foundCourse = allCourses.find(c => c.id === courseId);
+            console.log("Found course from localStorage:", foundCourse);
           } catch (error) {
             console.error("Error parsing courses from localStorage:", error);
           }
@@ -105,11 +107,10 @@ export default function StudentCourseViewPage() {
               }
               initialQuizStateFromStorage[lesson.id] = parsedState;
               
-              // A quiz is ready for completion if it has been answered.
-              if (parsedState.answered) {
+              if (parsedState.answered) { // If answered (regardless of correctness for readiness)
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
-            } else if (isLessonCompleted) { // For text/video, if completed, it's ready for completion
+            } else if (isLessonCompleted) { 
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
@@ -156,7 +157,7 @@ export default function StudentCourseViewPage() {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]);
+  }, [courseId]); // Removed toast from dependencies
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -193,7 +194,7 @@ export default function StudentCourseViewPage() {
       return newSet;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [course, courseId]); // Removed toast from dependencies
+  }, [course, courseId]);
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
@@ -228,9 +229,8 @@ export default function StudentCourseViewPage() {
   const handleAnswerQuiz = (lessonId: string, selectedOptionIndex: number) => {
     const lesson = course?.lessons.find(l => l.id === lessonId);
     if (!lesson || !lesson.quizOptions) return;
-    if (quizState[lessonId]?.answered) return; 
+    if (quizState[lessonId]?.answered && !completedLessons.has(lessonId)) return; // Don't allow re-answer if answered but not yet completed
 
-    // Determine correctness but don't show it directly
     const isCorrect = lesson.correctQuizOptionIndex !== undefined && selectedOptionIndex === lesson.correctQuizOptionIndex;
     
     const newStateForQuiz = { started: true, answered: true, selectedOptionIndex, isCorrect };
@@ -238,8 +238,8 @@ export default function StudentCourseViewPage() {
     
     setQuizState(newGlobalQuizState);
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
-
-    // The quiz is now answered, so it's ready for completion
+    
+    // Lesson is ready for completion once answered, regardless of correctness for now
     setLessonsReadyForCompletion(prev => {
         const newSet = new Set(prev);
         newSet.add(lessonId);
@@ -248,7 +248,7 @@ export default function StudentCourseViewPage() {
     
     toast({
         title: "Respuesta Registrada",
-        description: "Tu respuesta ha sido guardada.",
+        description: "Tu respuesta ha sido guardada. Marca la lección como completada para ver la revisión.",
     });
   };
 
@@ -288,6 +288,7 @@ export default function StudentCourseViewPage() {
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
+    const isLessonMarkedCompleted = completedLessons.has(lesson.id);
     
     const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '').length > 0) 
         ? lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '')
@@ -329,7 +330,7 @@ export default function StudentCourseViewPage() {
             </div>
             <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
             
-            {!currentQuizData.started && (
+            {!currentQuizData.started && !isLessonMarkedCompleted && (
               <Button
                 variant="outline"
                 onClick={() => handleStartQuiz(lesson.id)}
@@ -339,39 +340,62 @@ export default function StudentCourseViewPage() {
               </Button>
             )}
 
-            {currentQuizData.started && (
+            {(currentQuizData.started || isLessonMarkedCompleted) && (
               <div className="space-y-3">
                 <div className="flex flex-col gap-2">
                   {quizOptionsToDisplay.map((option, index) => {
                     const isSelected = currentQuizData.selectedOptionIndex === index;
-                    let buttonVariant: "default" | "outline" | "destructive" | "secondary" = "outline";
-
-                    if (currentQuizData.answered && isSelected) {
-                        buttonVariant = "secondary"; // Mark as selected, but no color for correct/incorrect
-                    } else if (isSelected) {
-                        buttonVariant = "secondary";
+                    let buttonStyleClasses = "w-full justify-start text-left h-auto py-2.5 px-3 ";
+                    
+                    if (isLessonMarkedCompleted && currentQuizData.answered) {
+                       // Feedback shown after lesson is marked complete
+                       if (isSelected) {
+                           buttonStyleClasses += currentQuizData.isCorrect 
+                               ? "bg-green-500 text-white hover:bg-green-600 border-green-500" 
+                               : "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive";
+                       } else if (lesson.correctQuizOptionIndex === index) {
+                           buttonStyleClasses += "bg-green-500/20 border-2 border-green-500 text-green-700 dark:text-green-300"; // Highlight correct answer if user was wrong
+                       } else {
+                           buttonStyleClasses += "bg-card hover:bg-card/90 opacity-70";
+                       }
+                    } else if (currentQuizData.answered && isSelected) {
+                        // Answered, but lesson not yet marked complete - neutral selected style
+                        buttonStyleClasses += "bg-primary/20 border-primary";
+                    } else if (currentQuizData.started && isSelected) {
+                        // Started and selected, but not yet "answered" (if there was a submit step, not our case)
+                         buttonStyleClasses += "bg-primary/20 border-primary";
+                    }
+                     else {
+                        // Default button style if not answered or not selected
+                        buttonStyleClasses += "bg-card hover:bg-card/90";
                     }
                     
                     return (
                         <Button
                             key={`${lesson.id}-option-${index}`}
-                            variant={buttonVariant}
+                            variant="outline"
                             onClick={() => !currentQuizData.answered && handleAnswerQuiz(lesson.id, index)}
-                            disabled={currentQuizData.answered && !isSelected} // Disable other options once answered
-                            className={`w-full justify-start text-left h-auto py-2.5 px-3
-                                ${buttonVariant === "outline" ? 'bg-card hover:bg-card/90' : ''}
-                                ${buttonVariant === "secondary" ? 'bg-primary/20 border-primary' : ''}
-                            `}
+                            disabled={currentQuizData.answered || (isLessonMarkedCompleted && currentQuizData.answered)} 
+                            className={buttonStyleClasses}
                         >
                         {option}
                         </Button>
                     );
                    })}
                 </div>
-                {currentQuizData.answered && (
+                {currentQuizData.answered && !isLessonMarkedCompleted && (
                     <p className="text-xs mt-2 font-medium text-muted-foreground">
-                        Tu respuesta ha sido registrada.
+                        Tu respuesta ha sido registrada. Marca la lección como completada para ver la revisión.
                     </p>
+                )}
+                 {isLessonMarkedCompleted && currentQuizData.answered && (
+                    <div className="mt-3 p-3 border rounded-md text-sm font-medium">
+                        {currentQuizData.isCorrect ? (
+                            <p className="text-green-600">¡Correcto! Has seleccionado la respuesta acertada.</p>
+                        ) : (
+                            <p className="text-destructive">Incorrecto. La respuesta seleccionada no fue la correcta.</p>
+                        )}
+                    </div>
                 )}
               </div>
             )}
@@ -534,19 +558,19 @@ export default function StudentCourseViewPage() {
             <CardHeader style={{ padding: '16px 20px 8px' }}>
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-6 pb-5 px-5">
-                <div className="relative w-32 h-32 mx-auto -mt-4"> 
+            <CardContent className="text-center pt-4 pb-5 px-5"> {/* Adjusted pt-4 from pt-6 */}
+                <div className="relative w-32 h-32 mx-auto -mt-2">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
-                        className="text-muted/30" 
-                        strokeWidth="4" 
+                        className="text-muted/30"
+                        strokeWidth="4"
                         fill="none"
                         stroke="currentColor"
                         d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                         />
                         <path
-                        className={allLessonsCompleted ? "text-accent" : "text-primary"} 
-                        strokeWidth="4" 
+                        className={allLessonsCompleted ? "text-accent" : "text-primary"}
+                        strokeWidth="4"
                         fill="none"
                         strokeLinecap="round"
                         stroke="currentColor"
@@ -555,20 +579,20 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
-                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}> 
+                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}> 
+                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
 
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} />
-                <Button 
+                <Button
                     className="w-full text-base py-2.5"
                     onClick={handleCourseAction}
-                    variant={allLessonsCompleted ? "default" : "default"} 
+                    variant={allLessonsCompleted ? "default" : "default"}
                     style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
                 >
                     {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
@@ -597,3 +621,4 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
