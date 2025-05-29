@@ -10,7 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal, Users as UsersIcon } from 'lucide-react';
+import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Added Dialog for enrolled students
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,21 +37,21 @@ import { Input } from '@/components/ui/input';
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
-// Datos de ejemplo si localStorage está vacío
-const initialSeedCourses: Course[] = [
-  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
-  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
-  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
-  { id: 'seedCourse4', title: 'Marketing Digital Estratégico (Seed)', description: 'Llega a tu audiencia.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "digital marketing", instructorName: 'Admin User Seed', status: 'approved', lessons: [{id: 'l1-s4', title: 'Intro Seed Marketing'}]},
-  { id: 'seedCourse5', title: 'Cocina Internacional Fácil (Seed)', description: 'Recetas del mundo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "international cuisine", instructorName: 'Instructor D', status: 'rejected', lessons: [{id: 'l1-s5', title: 'Intro Seed Cocina'}]},
+// Sample users for the enrolled students dialog (can be shared or fetched in a real app)
+const sampleEnrolledStudents = [
+  { id: 'student1', name: 'Carlos Santana' },
+  { id: 'student2', name: 'Elena Rodriguez' },
+  { id: 'student3', name: 'Juan Pérez' },
+  { id: 'student4', name: 'Laura Gómez' },
 ];
 
 interface CourseRowProps {
   course: Course;
   onOpenDialog: (course: Course, type: 'approve' | 'reject' | 'delete') => void;
+  onOpenEnrolledStudentsModal: (course: Course) => void;
 }
 
-const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }: CourseRowProps) {
+const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, onOpenEnrolledStudentsModal }: CourseRowProps) {
   return (
     <TableRow>
       <TableCell className="hidden md:table-cell">
@@ -83,7 +85,7 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuLabel>Acciones del Curso</DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link href={`/dashboard/courses/${course.id}/view`}>
                 <Eye className="mr-2 h-4 w-4" /> Ver Curso
@@ -93,6 +95,9 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog }
               <Link href={`/dashboard/courses/${course.id}/edit`}>
                 <Edit3 className="mr-2 h-4 w-4" /> Editar Curso
               </Link>
+            </DropdownMenuItem>
+             <DropdownMenuItem onClick={() => onOpenEnrolledStudentsModal(course)}>
+              <UsersIcon className="mr-2 h-4 w-4" /> Ver Inscritos
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {(course.status === 'pending' || course.status === 'rejected') && (
@@ -129,6 +134,9 @@ export default function AdminCoursesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
+  const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
+  const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
+
 
   useEffect(() => {
     setIsLoading(true);
@@ -138,14 +146,23 @@ export default function AdminCoursesPage() {
       if (storedCourses) {
         setAllCourses(JSON.parse(storedCourses));
       } else {
+        // Define initial seed courses if localStorage is empty
+        const initialSeedCourses: Course[] = [
+          { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
+          { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
+          { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
+        ];
         setAllCourses(initialSeedCourses);
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+        }
       }
     } catch (error) {
       console.error("Error cargando cursos desde localStorage:", error);
-      setAllCourses(initialSeedCourses); 
+       const fallbackCourses: Course[] = [ { id: 'fallbackCourse', title: 'Curso de Fallback por Error de Carga', description: 'Error al cargar datos.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "error placeholder", instructorName: 'Sistema', status: 'pending', lessons: [{id: 'l1-fb', title: 'Lección Fallback'}] } ];
+      setAllCourses(fallbackCourses); 
       if (typeof window !== 'undefined') {
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
+        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(fallbackCourses));
       }
       toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
     } finally {
@@ -154,23 +171,29 @@ export default function AdminCoursesPage() {
   }, [toast]);
 
   useEffect(() => {
-    const initialUrlSearchTerm = searchParams.get('search') || '';
-    setSearchTerm(initialUrlSearchTerm);
+    if (typeof window !== 'undefined') {
+        const initialUrlSearchTerm = searchParams.get('search') || '';
+        setSearchTerm(initialUrlSearchTerm);
+    }
   }, [searchParams]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (searchTerm) {
+        params.set('search', searchTerm);
+        } else {
+        params.delete('search');
+        }
+        router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     }
-    router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]); 
+  }, [searchTerm, router]); 
 
   useEffect(() => {
-    if (!isLoading && allCourses.length >= 0 && typeof window !== 'undefined') { 
+    // TODO: Este useEffect se eliminará cuando haya un backend.
+    // Es responsable de guardar cambios en localStorage.
+    if (!isLoading && typeof window !== 'undefined') { 
         try {
             localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(allCourses));
         } catch (error) {
@@ -219,6 +242,17 @@ export default function AdminCoursesPage() {
     setActionType(type);
   }, []);
 
+  const handleOpenEnrolledStudentsModal = useCallback((course: Course) => {
+    setSelectedCourseForEnrolledView(course);
+    setIsEnrolledStudentsDialogOpen(true);
+  }, []);
+
+  const handleCloseEnrolledStudentsModal = () => {
+    setSelectedCourseForEnrolledView(null);
+    setIsEnrolledStudentsDialogOpen(false);
+  };
+
+
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
       return allCourses;
@@ -232,7 +266,7 @@ export default function AdminCoursesPage() {
   }, [allCourses, searchTerm]);
 
   const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
-    if (isLoading && courseList.length === 0 && !searchTerm) { // Show loader only if loading initial full list
+    if (isLoading && courseList.length === 0 && !searchTerm) { 
         return (
             <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -256,7 +290,7 @@ export default function AdminCoursesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {courseList.map(course => <MemoizedCourseRow key={course.id} course={course} onOpenDialog={openDialog} />)}
+            {courseList.map(course => <MemoizedCourseRow key={course.id} course={course} onOpenDialog={openDialog} onOpenEnrolledStudentsModal={handleOpenEnrolledStudentsModal} />)}
           </TableBody>
         </Table>
       </div>
@@ -375,6 +409,37 @@ export default function AdminCoursesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {selectedCourseForEnrolledView && (
+        <Dialog open={isEnrolledStudentsDialogOpen} onOpenChange={handleCloseEnrolledStudentsModal}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-xl">Estudiantes Inscritos en: {selectedCourseForEnrolledView.title}</DialogTitle>
+                    <DialogDescription>
+                        Lista de estudiantes actualmente inscritos en este curso (simulado).
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[300px] my-4">
+                     {sampleEnrolledStudents.length > 0 ? (
+                        <ul className="space-y-2 pr-3">
+                            {sampleEnrolledStudents.map((student) => (
+                                <li key={student.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                                    <span className="text-sm font-medium">{student.name}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No hay estudiantes inscritos en este curso (simulación).</p>
+                    )}
+                </ScrollArea>
+                <DialogFooter>
+                     <DialogClose asChild>
+                        <Button type="button" variant="outline">Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       )}
     </div>
   );

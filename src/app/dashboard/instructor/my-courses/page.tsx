@@ -4,23 +4,25 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams, useRouter } from 'next/navigation'; // Added useRouter
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users, Activity, Loader2, MoreHorizontal } from 'lucide-react';
+import { Eye, Edit3, BarChart2, PlusCircle, AlertTriangle, CheckCircle, XCircle, BookOpen, Search, Star, Users as UsersIcon, Activity, Loader2, MoreHorizontal } from 'lucide-react';
 import type { Course } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Added Dialog for enrolled students
 import { Input } from '@/components/ui/input';
 import {
   ChartContainer,
@@ -64,18 +66,22 @@ const studentProgressChartConfig = {
   },
 } satisfies ChartConfig;
 
-const initialSeedCoursesForInstructor: Course[] = [
-  { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Ejemplo)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: 'Instructor de Ejemplo', status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
-  { id: 'instrSeed2', title: 'Diseño UX Avanzado (Ejemplo)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: 'Instructor de Ejemplo', status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
+// Sample users for the enrolled students dialog
+const sampleEnrolledStudents = [
+  { id: 'student1', name: 'Ana García' },
+  { id: 'student2', name: 'Luis Fernández' },
+  { id: 'student3', name: 'Sofía Martínez' },
 ];
+
 
 interface InstructorCourseRowProps {
   course: Course;
   statusInfo: StatusInfo;
   onOpenStatsModal: (course: Course) => void;
+  onOpenEnrolledStudentsModal: (course: Course) => void;
 }
 
-const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ course, statusInfo, onOpenStatsModal }: InstructorCourseRowProps) {
+const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ course, statusInfo, onOpenStatsModal, onOpenEnrolledStudentsModal }: InstructorCourseRowProps) {
   const StatusIcon = statusInfo.icon;
   return (
     <TableRow>
@@ -111,7 +117,7 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuLabel>Acciones del Curso</DropdownMenuLabel>
             <DropdownMenuItem asChild>
               <Link href={`/dashboard/courses/${course.id}/view`}>
                 <Eye className="mr-2 h-4 w-4" /> Ver Curso
@@ -124,6 +130,9 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onOpenStatsModal(course)}>
               <BarChart2 className="mr-2 h-4 w-4" /> Ver Estadísticas
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onOpenEnrolledStudentsModal(course)}>
+              <UsersIcon className="mr-2 h-4 w-4" /> Ver Inscritos
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -145,6 +154,10 @@ export default function MyCoursesPage() {
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
   const [simulatedStats, setSimulatedStats] = useState<CourseStats | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
+  const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
+
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -164,6 +177,10 @@ export default function MyCoursesPage() {
         if (storedCourses) {
           platformCourses = JSON.parse(storedCourses);
         } else {
+          const initialSeedCoursesForInstructor: Course[] = [
+            { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Ejemplo)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: userProfile.name || 'Instructor de Ejemplo', status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
+            { id: 'instrSeed2', title: 'Diseño UX Avanzado (Ejemplo)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: userProfile.name || 'Instructor de Ejemplo', status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
+          ];
           platformCourses = initialSeedCoursesForInstructor; 
           localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
         }
@@ -183,15 +200,17 @@ export default function MyCoursesPage() {
   }, [toast, userProfile.name, currentSessionRole]);
 
    useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (searchTerm) {
+        params.set('search', searchTerm);
+      } else {
+        params.delete('search');
+      }
+      router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     }
-    router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
+  }, [searchTerm, router]); // Added router to dependency array
 
   const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
@@ -236,6 +255,16 @@ export default function MyCoursesPage() {
   const handleCloseStatsModal = () => {
     setSelectedCourseForStats(null);
     setSimulatedStats(null);
+  };
+
+  const handleOpenEnrolledStudentsModal = useCallback((course: Course) => {
+    setSelectedCourseForEnrolledView(course);
+    setIsEnrolledStudentsDialogOpen(true);
+  }, []);
+
+  const handleCloseEnrolledStudentsModal = () => {
+    setSelectedCourseForEnrolledView(null);
+    setIsEnrolledStudentsDialogOpen(false);
   };
 
   const filteredCourses = useMemo(() => {
@@ -285,6 +314,7 @@ export default function MyCoursesPage() {
                   course={course}
                   statusInfo={getStatusInfo(course.status)}
                   onOpenStatsModal={handleOpenStatsModal}
+                  onOpenEnrolledStudentsModal={handleOpenEnrolledStudentsModal}
               />
             ))}
           </TableBody>
@@ -293,7 +323,7 @@ export default function MyCoursesPage() {
     );
   };
 
-  if (isLoading && !allInstructorCourses.length) { // Show full page loader only on initial load
+  if (isLoading && !allInstructorCourses.length) { 
     return (
         <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -381,7 +411,6 @@ export default function MyCoursesPage() {
         </TabsContent>
       </Tabs>
 
-
       {selectedCourseForStats && simulatedStats && (
         <AlertDialog open={!!selectedCourseForStats} onOpenChange={handleCloseStatsModal}>
           <AlertDialogContent className="sm:max-w-lg md:max-w-xl">
@@ -396,7 +425,7 @@ export default function MyCoursesPage() {
                 <Card className="bg-muted/50">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Estudiantes Inscritos</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <UsersIcon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold">{simulatedStats.enrolledStudents}</div>
@@ -450,6 +479,38 @@ export default function MyCoursesPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+
+      {selectedCourseForEnrolledView && (
+        <Dialog open={isEnrolledStudentsDialogOpen} onOpenChange={handleCloseEnrolledStudentsModal}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle className="text-xl">Estudiantes Inscritos en: {selectedCourseForEnrolledView.title}</DialogTitle>
+                    <DialogDescription>
+                        Lista de estudiantes actualmente inscritos en este curso (simulado).
+                    </DialogDescription>
+                </DialogHeader>
+                <ScrollArea className="max-h-[300px] my-4">
+                    {sampleEnrolledStudents.length > 0 ? (
+                        <ul className="space-y-2 pr-3">
+                            {sampleEnrolledStudents.map((student) => (
+                                <li key={student.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
+                                    <span className="text-sm font-medium">{student.name}</span>
+                                    {/* Podríamos añadir más info como correo si la tuviéramos */}
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">No hay estudiantes inscritos en este curso (simulación).</p>
+                    )}
+                </ScrollArea>
+                <DialogFooter>
+                    <DialogClose asChild>
+                        <Button type="button" variant="outline">Cerrar</Button>
+                    </DialogClose>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       )}
     </div>
   );
