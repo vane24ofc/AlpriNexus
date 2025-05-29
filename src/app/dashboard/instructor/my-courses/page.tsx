@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation'; // Added useRouter
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,10 +37,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useSessionRole } from '@/app/dashboard/layout'; // Import useSessionRole
+import { useSessionRole } from '@/app/dashboard/layout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-// CURRENT_INSTRUCTOR_SIMULATED_NAME is no longer needed, will use userProfile.name
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -65,8 +65,6 @@ const studentProgressChartConfig = {
 } satisfies ChartConfig;
 
 const initialSeedCoursesForInstructor: Course[] = [
-  // This seed data will only be used if localStorage is completely empty for COURSES_STORAGE_KEY.
-  // Otherwise, courses are filtered from all courses.
   { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Ejemplo)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: 'Instructor de Ejemplo', status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
   { id: 'instrSeed2', title: 'Diseño UX Avanzado (Ejemplo)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: 'Instructor de Ejemplo', status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
 ];
@@ -139,9 +137,10 @@ MemoizedInstructorCourseRow.displayName = 'MemoizedInstructorCourseRow';
 export default function MyCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const { userProfile, currentSessionRole } = useSessionRole(); // Get userProfile and role
+  const router = useRouter();
+  const { userProfile, currentSessionRole } = useSessionRole();
 
-  const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
+  const [allInstructorCourses, setAllInstructorCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
   const [simulatedStats, setSimulatedStats] = useState<CourseStats | null>(null);
@@ -149,57 +148,55 @@ export default function MyCoursesPage() {
 
   useEffect(() => {
     const fetchCourses = async () => {
-      if (!userProfile.name || currentSessionRole !== 'instructor') {
+      if (currentSessionRole !== 'instructor' || !userProfile.name) {
         setIsLoading(false);
-        return; // Don't load if profile name is not available or role is not instructor
+        setAllInstructorCourses([]);
+        return;
       }
       setIsLoading(true);
       const initialSearch = searchParams.get('search') || '';
       setSearchTerm(initialSearch);
 
-      // TODO: API Call - GET /api/courses?instructorName=${userProfile.name} (or similar)
-      // Simulating by reading all courses from localStorage and then filtering
+      // TODO: API Call - GET /api/courses?instructorName=${userProfile.name}
       try {
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        let allPlatformCourses: Course[] = [];
+        let platformCourses: Course[] = [];
         if (storedCourses) {
-          allPlatformCourses = JSON.parse(storedCourses);
+          platformCourses = JSON.parse(storedCourses);
         } else {
-          // This fallback is less likely to be hit if COURSES_STORAGE_KEY is populated elsewhere
-          allPlatformCourses = initialSeedCoursesForInstructor; 
+          platformCourses = initialSeedCoursesForInstructor; 
           localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
         }
         
-        const filteredForInstructor = allPlatformCourses.filter(course => course.instructorName === userProfile.name);
-        setInstructorCourses(filteredForInstructor);
+        const filteredForInstructor = platformCourses.filter(course => course.instructorName === userProfile.name);
+        setAllInstructorCourses(filteredForInstructor);
 
       } catch (error) {
         console.error("Error cargando cursos:", error);
         toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "No se pudieron cargar tus cursos." });
-        setInstructorCourses([]); // Fallback to empty if error
+        setAllInstructorCourses([]);
       } finally {
         setIsLoading(false);
       }
     };
     fetchCourses();
-  }, [searchParams, toast, userProfile.name, currentSessionRole]);
+  }, [toast, userProfile.name, currentSessionRole]);
 
-
-  const filteredDisplayCourses = useMemo(() => {
-    if (!searchTerm.trim()) {
-      return instructorCourses;
+   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
     }
-    const lowercasedSearchTerm = searchTerm.toLowerCase();
-    return instructorCourses.filter(course =>
-      course.title.toLowerCase().includes(lowercasedSearchTerm) ||
-      (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
-    );
-  }, [instructorCourses, searchTerm]);
+    router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
   const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
       case 'approved':
-        return { text: 'Aprobado', icon: CheckCircle, variant: 'default', className: 'bg-accent text-accent-foreground hover:bg-accent/90' };
+        return { text: 'Publicado', icon: CheckCircle, variant: 'default', className: 'bg-accent text-accent-foreground hover:bg-accent/90' };
       case 'pending':
         return { text: 'Pendiente', icon: AlertTriangle, variant: 'default', className: 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' };
       case 'rejected':
@@ -241,12 +238,78 @@ export default function MyCoursesPage() {
     setSimulatedStats(null);
   };
 
-  if (isLoading) {
+  const filteredCourses = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return allInstructorCourses;
+    }
+    const lowercasedSearchTerm = searchTerm.toLowerCase();
+    return allInstructorCourses.filter(course =>
+      course.title.toLowerCase().includes(lowercasedSearchTerm) ||
+      (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
+    );
+  }, [allInstructorCourses, searchTerm]);
+
+  const publishedCourses = useMemo(() => {
+    return filteredCourses.filter(course => course.status === 'approved');
+  }, [filteredCourses]);
+
+
+  const renderCourseTable = (coursesToRender: Course[], emptyMessage: string) => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-3 text-muted-foreground">Cargando cursos...</p>
+        </div>
+      );
+    }
+    if (coursesToRender.length === 0) {
+      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
+    }
+    return (
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
+              <TableHead>Título</TableHead>
+              <TableHead className="hidden sm:table-cell">Estado</TableHead>
+              <TableHead className="hidden lg:table-cell">Estudiantes</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {coursesToRender.map((course) => (
+              <MemoizedInstructorCourseRow
+                  key={course.id}
+                  course={course}
+                  statusInfo={getStatusInfo(course.status)}
+                  onOpenStatsModal={handleOpenStatsModal}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
+  if (isLoading && !allInstructorCourses.length) { // Show full page loader only on initial load
     return (
         <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg text-muted-foreground">Cargando tus cursos...</p>
         </div>
+    );
+  }
+  
+  if (currentSessionRole !== 'instructor') {
+    return (
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+        <AlertTriangle className="h-12 w-12 text-destructive" />
+        <p className="text-lg text-destructive">Acceso denegado.</p>
+        <p className="text-muted-foreground">Esta sección es solo para instructores.</p>
+        <Button onClick={() => router.push('/dashboard')}>Volver al Panel Principal</Button>
+      </div>
     );
   }
 
@@ -264,56 +327,60 @@ export default function MyCoursesPage() {
         </Button>
       </div>
 
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle>Listado de Mis Cursos</CardTitle>
-          <CardDescription>Gestiona los cursos que has creado y enviado para revisión.</CardDescription>
+       <Card className="shadow-md">
+        <CardHeader className="pb-4">
+            <CardTitle className="text-base">Buscar en Mis Cursos</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="mb-6">
+        <CardContent className="pt-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input
                 type="search"
                 placeholder="Buscar por título o descripción..."
-                className="pl-10 w-full md:w-1/2 lg:w-1/3"
+                className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                disabled={isLoading}
               />
             </div>
-          </div>
-
-          {filteredDisplayCourses.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : (currentSessionRole === 'instructor' && userProfile.name ? "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!" : "No se pueden mostrar cursos.")}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
-                    <TableHead>Título</TableHead>
-                    <TableHead className="hidden sm:table-cell">Estado</TableHead>
-                    <TableHead className="hidden lg:table-cell">Estudiantes</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredDisplayCourses.map((course) => (
-                    <MemoizedInstructorCourseRow
-                        key={course.id}
-                        course={course}
-                        statusInfo={getStatusInfo(course.status)}
-                        onOpenStatsModal={handleOpenStatsModal}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      <Tabs defaultValue="all">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="all" disabled={isLoading}>
+            Todos Mis Cursos ({isLoading ? '...' : filteredCourses.length})
+          </TabsTrigger>
+          <TabsTrigger value="published" disabled={isLoading}>
+            Publicados ({isLoading ? '...' : publishedCourses.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Todos Mis Cursos</CardTitle>
+              <CardDescription>Cursos que has creado, incluyendo pendientes, publicados y rechazados.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderCourseTable(filteredCourses, "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="published">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Mis Cursos Publicados</CardTitle>
+              <CardDescription>Cursos que han sido aprobados y están disponibles en la plataforma.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderCourseTable(publishedCourses, "No tienes cursos publicados actualmente.")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
 
       {selectedCourseForStats && simulatedStats && (
         <AlertDialog open={!!selectedCourseForStats} onOpenChange={handleCloseStatsModal}>
