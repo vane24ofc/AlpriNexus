@@ -43,7 +43,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger as ActualAlertDialogTrigger, // Renamed to avoid conflict
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -94,10 +94,9 @@ interface AdminDashboardContentProps {
   allUsers: User[];
   allCourses: Course[];
   onOpenAnnouncementDialog: () => void; 
-  onOpenDataResetDialog: () => void;
 }
 
-const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses, onOpenAnnouncementDialog, onOpenDataResetDialog }) => {
+const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses, onOpenAnnouncementDialog }) => {
   const userCount = allUsers.length;
   const activeCourseCount = allCourses.filter(c => c.status === 'approved').length;
 
@@ -187,14 +186,12 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
                     <span className="font-medium">Configuración</span>
                 </Link>
             </Button>
-            <Button 
-                variant="destructive" 
-                className="p-4 h-auto flex flex-col items-center text-center col-span-2"
-                onClick={onOpenDataResetDialog}
-            >
-                <Trash2 className="h-8 w-8 mb-2"/>
-                <span className="font-medium">Restablecer Datos de Plataforma</span>
-            </Button>
+            <AlertDialogTrigger asChild>
+                 <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
+                    <Trash2 className="h-8 w-8 mb-2"/>
+                    <span className="font-medium">Restablecer Datos de Plataforma</span>
+                </Button>
+            </AlertDialogTrigger>
           </CardContent>
         </Card>
       </div>
@@ -452,7 +449,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
               )}
               <Button asChild className="mt-4">
                 <Link href="/dashboard/courses/explore">
-                  <Library className="mr-2 h-4 w-4" /> Explorar Catálogo de Cursos
+                  <Library className="mr-2 h-4 w-4" /> Ver Catálogo de Cursos
                 </Link>
               </Button>
             </div>
@@ -464,7 +461,7 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
         <h2 className="text-2xl font-semibold">Mis Cursos Inscritos</h2>
         <Button variant="outline" asChild>
             <Link href="/dashboard/courses/explore">
-                <Library className="mr-2 h-4 w-4" /> Explorar Más Cursos
+                <Library className="mr-2 h-4 w-4" /> Ver Catálogo de Cursos
             </Link>
         </Button>
       </div>
@@ -535,12 +532,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
 };
 
 
-interface AdminDashboardWrapperWithDataProps {
+interface AdminDashboardWrapperProps {
   allUsers: User[];
   allCourses: Course[];
 }
 
-const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps> = ({ allUsers, allCourses }) => {
+const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers, allCourses }) => {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
@@ -571,7 +568,6 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
   };
   
   const openAnnouncementDialog = () => setIsAnnouncementDialogOpen(true);
-  const openDataResetDialog = () => setIsDataResetDialogOpen(true);
 
   const handleResetPlatformData = () => {
     try {
@@ -610,12 +606,11 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
 
 
   return (
-    <>
+    <AlertDialog open={isDataResetDialogOpen} onOpenChange={setIsDataResetDialogOpen}>
       <AdminDashboardContent 
         allUsers={allUsers} 
         allCourses={allCourses}
         onOpenAnnouncementDialog={openAnnouncementDialog} 
-        onOpenDataResetDialog={openDataResetDialog}
       /> 
       <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
         <DialogContent className="sm:max-w-[520px]">
@@ -673,7 +668,6 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <AlertDialog open={isDataResetDialogOpen} onOpenChange={setIsDataResetDialogOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
@@ -691,8 +685,7 @@ const AdminDashboardWrapperWithData: React.FC<AdminDashboardWrapperWithDataProps
             </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
-    </>
+    </AlertDialog>
   );
 }
 
@@ -751,8 +744,8 @@ export default function DashboardHomePage() {
         setAllUsers(initialSampleUsers);
         setEnrolledCourseIds(new Set());
         setCompletedCourseIds(new Set());
-        if (initialSampleCourses.length > 0) localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
-        if (initialSampleUsers.length > 0) localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+        if (initialSampleCourses.length > 0 && typeof window !== 'undefined') localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
+        if (initialSampleUsers.length > 0 && typeof window !== 'undefined') localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
       }
       setIsLoadingDashboardData(false);
     };
@@ -769,7 +762,7 @@ export default function DashboardHomePage() {
 
   if (isLoadingRole || isLoadingDashboardData) { 
     return (
-      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4 bg-background">
+      <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center space-y-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="text-lg text-muted-foreground">Cargando panel...</p>
       </div>
@@ -782,7 +775,7 @@ export default function DashboardHomePage() {
             <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
             <Button onClick={() => {
                 if (typeof window !== 'undefined') localStorage.removeItem('sessionRole');
-                window.location.href = '/login';
+                if (typeof window !== 'undefined') window.location.href = '/login';
             }}>Ir a Inicio de Sesión</Button>
         </div>
      );
@@ -790,7 +783,7 @@ export default function DashboardHomePage() {
 
   switch (currentSessionRole) {
     case 'administrador':
-      return <AdminDashboardWrapperWithData allUsers={allUsers} allCourses={allCourses} />;
+      return <AdminDashboardWrapper allUsers={allUsers} allCourses={allCourses} />;
     case 'instructor':
       return <InstructorDashboardContent allCourses={allCourses} />;
     case 'estudiante':
