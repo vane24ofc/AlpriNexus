@@ -20,14 +20,14 @@ export async function GET(request: NextRequest) {
 
     // Execute a simple query to test the connection
     const [rows, fields] = await connection.execute('SELECT NOW() as currentTime;');
-    
+
     // If you have a table, you could try selecting from it:
     // const [users] = await connection.execute('SELECT * FROM usuarios LIMIT 1;');
 
     // Close the connection
     await connection.end();
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Successfully connected to MySQL database!',
       // @ts-ignore
       currentTimeFromServer: rows[0]?.currentTime,
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
         console.error('Error closing MySQL connection:', closeError);
       }
     }
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Failed to connect to MySQL database or execute query.',
       error: error.message,
       details: error.stack // Be cautious about exposing stack traces in production
