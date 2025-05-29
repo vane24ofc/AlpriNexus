@@ -47,7 +47,7 @@ interface QuizAttemptState {
   started: boolean;
   answered: boolean;
   selectedOptionIndex: number | null;
-  isCorrect: boolean | null;
+  isCorrect: boolean | null; // Still store this, but don't show immediate UI feedback based on it
 }
 
 export default function StudentCourseViewPage() {
@@ -73,29 +73,13 @@ export default function StudentCourseViewPage() {
         let foundCourse: Course | undefined;
 
         // TODO: API Call - GET /api/courses/:courseId
-        // Example:
-        // try {
-        //   const response = await fetch(`/api/courses/${courseId}`);
-        //   if (!response.ok) throw new Error('Curso no encontrado o fallo al obtenerlo');
-        //   foundCourse = await response.json();
-        // } catch (error) {
-        //   console.error("Error cargando curso vía API:", error);
-        //   toast({
-        //     variant: "destructive",
-        //     title: "Error al Cargar Curso",
-        //     description: "No se pudo obtener la información del curso desde el servidor.",
-        //   });
-        // }
-
-        if (!foundCourse) {
-          const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-          if (storedCourses) {
-            try {
-              const allCourses: Course[] = JSON.parse(storedCourses);
-              foundCourse = allCourses.find(c => c.id === courseId);
-            } catch (error) {
-              console.error("Error parsing courses from localStorage:", error);
-            }
+        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+        if (storedCourses) {
+          try {
+            const allCourses: Course[] = JSON.parse(storedCourses);
+            foundCourse = allCourses.find(c => c.id === courseId);
+          } catch (error) {
+            console.error("Error parsing courses from localStorage:", error);
           }
         }
 
@@ -121,18 +105,11 @@ export default function StudentCourseViewPage() {
               }
               initialQuizStateFromStorage[lesson.id] = parsedState;
               
-              if (isLessonCompleted) {
+              // A quiz is ready for completion if it has been answered.
+              if (parsedState.answered) {
                 initialReadyForCompletionFromStorage.add(lesson.id);
-              } else if (parsedState.answered) {
-                if (lesson.correctQuizOptionIndex !== undefined) { // Graded quiz
-                  if (parsedState.isCorrect) {
-                    initialReadyForCompletionFromStorage.add(lesson.id);
-                  }
-                } else { // Ungraded quiz (survey-like)
-                  initialReadyForCompletionFromStorage.add(lesson.id);
-                }
               }
-            } else if (isLessonCompleted) {
+            } else if (isLessonCompleted) { // For text/video, if completed, it's ready for completion
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
@@ -179,7 +156,7 @@ export default function StudentCourseViewPage() {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]); // toast should not be a dependency
+  }, [courseId]);
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -253,44 +230,26 @@ export default function StudentCourseViewPage() {
     if (!lesson || !lesson.quizOptions) return;
     if (quizState[lessonId]?.answered) return; 
 
+    // Determine correctness but don't show it directly
     const isCorrect = lesson.correctQuizOptionIndex !== undefined && selectedOptionIndex === lesson.correctQuizOptionIndex;
+    
     const newStateForQuiz = { started: true, answered: true, selectedOptionIndex, isCorrect };
     const newGlobalQuizState = { ...quizState, [lessonId]: newStateForQuiz };
     
     setQuizState(newGlobalQuizState);
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
 
-    if (lesson.correctQuizOptionIndex !== undefined) { // Graded quiz
-        if (isCorrect) {
-            setLessonsReadyForCompletion(prev => {
-                const newSet = new Set(prev);
-                newSet.add(lessonId);
-                return newSet;
-            });
-            toast({
-                title: "¡Respuesta Correcta!",
-                description: "Has seleccionado la opción correcta. ¡Buen trabajo!",
-                variant: "default",
-                className: "bg-green-500 border-green-600 text-white",
-            });
-        } else {
-            toast({
-                title: "Respuesta Incorrecta",
-                description: `La respuesta correcta era: "${lesson.quizOptions?.[lesson.correctQuizOptionIndex ?? -1]}"`,
-                variant: "destructive",
-            });
-        }
-    } else { // Ungraded quiz (survey-like)
-        setLessonsReadyForCompletion(prev => {
-            const newSet = new Set(prev);
-            newSet.add(lessonId);
-            return newSet;
-        });
-         toast({
-            title: "Respuesta Registrada",
-            description: "Tu respuesta ha sido registrada. No se especificó una respuesta correcta para este quiz.",
-        });
-    }
+    // The quiz is now answered, so it's ready for completion
+    setLessonsReadyForCompletion(prev => {
+        const newSet = new Set(prev);
+        newSet.add(lessonId);
+        return newSet;
+    });
+    
+    toast({
+        title: "Respuesta Registrada",
+        description: "Tu respuesta ha sido guardada.",
+    });
   };
 
 
@@ -385,21 +344,12 @@ export default function StudentCourseViewPage() {
                 <div className="flex flex-col gap-2">
                   {quizOptionsToDisplay.map((option, index) => {
                     const isSelected = currentQuizData.selectedOptionIndex === index;
-                    const isActuallyCorrectAnswer = lesson.correctQuizOptionIndex !== undefined && index === lesson.correctQuizOptionIndex;
                     let buttonVariant: "default" | "outline" | "destructive" | "secondary" = "outline";
-                    let icon = null;
 
-                    if (currentQuizData.answered) {
-                        if (isSelected) {
-                            buttonVariant = currentQuizData.isCorrect ? "default" : "destructive";
-                            icon = currentQuizData.isCorrect ? <CheckCircle className="mr-2 h-4 w-4" /> : <AlertTriangle className="mr-2 h-4 w-4" />;
-                        } else if (isActuallyCorrectAnswer && lesson.correctQuizOptionIndex !== undefined) {
-                            // Show correct answer if a different one was picked and it was wrong (and a correct answer is defined)
-                            buttonVariant = "default"; 
-                            icon = <CheckCircle className="mr-2 h-4 w-4" />;
-                        }
-                    } else if (isSelected) { // Quiz started, option selected but not yet "answered" (if we had a submit button, this would be useful)
-                        buttonVariant = "secondary"; 
+                    if (currentQuizData.answered && isSelected) {
+                        buttonVariant = "secondary"; // Mark as selected, but no color for correct/incorrect
+                    } else if (isSelected) {
+                        buttonVariant = "secondary";
                     }
                     
                     return (
@@ -407,26 +357,18 @@ export default function StudentCourseViewPage() {
                             key={`${lesson.id}-option-${index}`}
                             variant={buttonVariant}
                             onClick={() => !currentQuizData.answered && handleAnswerQuiz(lesson.id, index)}
-                            disabled={currentQuizData.answered}
+                            disabled={currentQuizData.answered && !isSelected} // Disable other options once answered
                             className={`w-full justify-start text-left h-auto py-2.5 px-3
-                                ${currentQuizData.answered && isSelected && currentQuizData.isCorrect ? 'bg-green-500 hover:bg-green-600 text-white border-green-700' : ''}
-                                ${currentQuizData.answered && isActuallyCorrectAnswer && lesson.correctQuizOptionIndex !== undefined && (!isSelected || (isSelected && !currentQuizData.isCorrect)) ? 'bg-green-500 hover:bg-green-600 text-white opacity-70 border-2 border-green-700' : ''}
-                                ${currentQuizData.answered && isSelected && !currentQuizData.isCorrect ? 'bg-red-500 hover:bg-red-600 text-white border-red-700' : ''}
                                 ${buttonVariant === "outline" ? 'bg-card hover:bg-card/90' : ''}
+                                ${buttonVariant === "secondary" ? 'bg-primary/20 border-primary' : ''}
                             `}
                         >
-                        {icon}
                         {option}
                         </Button>
                     );
                    })}
                 </div>
-                {currentQuizData.answered && lesson.correctQuizOptionIndex !== undefined && currentQuizData.isCorrect !== null && (
-                    <p className={`text-xs mt-2 font-medium ${currentQuizData.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {currentQuizData.isCorrect ? "¡Correcto!" : `Incorrecto. La respuesta correcta era: "${quizOptionsToDisplay[lesson.correctQuizOptionIndex]}"`}
-                    </p>
-                )}
-                {currentQuizData.answered && lesson.correctQuizOptionIndex === undefined && ( // For survey-like quizzes without a correct answer
+                {currentQuizData.answered && (
                     <p className="text-xs mt-2 font-medium text-muted-foreground">
                         Tu respuesta ha sido registrada.
                     </p>
@@ -515,21 +457,7 @@ export default function StudentCourseViewPage() {
                 >
                   {course.lessons.map((lesson, index) => {
                     const isCompleted = completedLessons.has(lesson.id);
-                    const isQuiz = lesson.contentType === 'quiz';
-                    const isGradedQuiz = isQuiz && lesson.correctQuizOptionIndex !== undefined;
-                    const quizAttemptData = quizState[lesson.id];
-                    
-                    let isReadyForCompletion;
-                    if (isCompleted) {
-                        isReadyForCompletion = true;
-                    } else if (isGradedQuiz) {
-                        isReadyForCompletion = quizAttemptData?.answered && quizAttemptData?.isCorrect === true;
-                    } else if (isQuiz) { // Ungraded quiz
-                        isReadyForCompletion = quizAttemptData?.answered === true;
-                    } else { // Text or Video
-                        isReadyForCompletion = lessonsReadyForCompletion.has(lesson.id);
-                    }
-
+                    const isReadyForCompletion = lessonsReadyForCompletion.has(lesson.id);
                     const buttonDisabled = isCompleted || !isReadyForCompletion;
 
                     let LessonIcon = FileText;
@@ -608,7 +536,7 @@ export default function StudentCourseViewPage() {
             </CardHeader>
             <CardContent className="text-center pt-6 pb-5 px-5">
                 <div className="relative w-32 h-32 mx-auto -mt-4"> 
-                    <svg className="w-full h-full" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                    <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30" 
                         strokeWidth="4" 
@@ -669,5 +597,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-
-
