@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff, Check } from 'lucide-react';
-import { useSessionRole, type Role } from '@/app/dashboard/layout'; // Assuming Role type is exported
+import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -61,14 +61,12 @@ const themeOptions: ThemeOption[] = [
   { id: 'theme-sakura-blossom', name: 'Flor de Cerezo (Claro)', previewColors: { bg: 'hsl(340 60% 98%)', primary: 'hsl(345 80% 75%)', accent: 'hsl(0 70% 60%)', text: 'hsl(340 30% 30%)' } }
 ];
 
-const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile';
 const THEME_STORAGE_KEY = 'nexusAlpriTheme';
 
 export default function SettingsPage() {
-  const { userProfile, setUserProfile } = useSessionRole(); // Get userProfile and setter from context
+  const { userProfile, setUserProfile } = useSessionRole();
   const { toast } = useToast();
 
-  // Local state for form inputs, initialized from context
   const [localName, setLocalName] = useState(userProfile.name);
   const [localEmail, setLocalEmail] = useState(userProfile.email);
 
@@ -78,7 +76,7 @@ export default function SettingsPage() {
     appUpdates: false,
   });
 
-  const [activeTheme, setActiveTheme] = useState('theme-light'); // Will be updated by useEffect
+  const [activeTheme, setActiveTheme] = useState('theme-light');
   const [showThemeSelection, setShowThemeSelection] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -91,7 +89,6 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Sync local form state with context profile data
   useEffect(() => {
     setLocalName(userProfile.name);
     setLocalEmail(userProfile.email);
@@ -102,11 +99,13 @@ export default function SettingsPage() {
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       setActiveTheme(storedTheme);
     } else {
-      // Determine default based on system preference if no theme is stored
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const defaultTheme = prefersDark ? 'dark' : 'theme-light';
-      setActiveTheme(defaultTheme);
-      localStorage.setItem(THEME_STORAGE_KEY, defaultTheme);
+      // This logic has been moved to DashboardLayout
+      // Here we just sync with the theme from localStorage if present
+      // or default to what DashboardLayout might have set initially.
+      // If DashboardLayout defaults to 'theme-light', this will reflect it.
+      const root = window.document.documentElement;
+      const currentAppliedTheme = VALID_THEME_CLASSES.find(cls => root.classList.contains(cls));
+      setActiveTheme(currentAppliedTheme || 'theme-light');
     }
   }, []);
 
@@ -114,7 +113,9 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-      root.classList.add(newThemeId);
+      if (newThemeId !== 'theme-light' || !VALID_THEME_CLASSES.includes('theme-light')) { // theme-light is base, no class needed unless explicitly defined
+        root.classList.add(newThemeId);
+      }
       localStorage.setItem(THEME_STORAGE_KEY, newThemeId);
       setActiveTheme(newThemeId);
       setShowThemeSelection(false);
@@ -125,24 +126,43 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveChanges = () => {
+  const handleSaveChanges = async () => {
     setIsSaving(true);
-    // Update the context, which will trigger the effect in DashboardLayout to save to localStorage
-    setUserProfile({ name: localName, email: localEmail });
     
-    console.log("Preferencias de notificación:", notificationPrefs);
-    console.log("Tema de apariencia:", activeTheme);
+    // TODO: API Call - PUT /api/me/profile with { name: localName, email: localEmail }
+    // Example:
+    // try {
+    //   const response = await fetch('/api/me/profile', {
+    //     method: 'PUT',
+    //     headers: { 'Content-Type': 'application/json', /* Add Authorization header if needed */ },
+    //     body: JSON.stringify({ name: localName, email: localEmail }),
+    //   });
+    //   if (!response.ok) throw new Error('Failed to update profile');
+    //   const updatedProfile = await response.json();
+    //   setUserProfile({ name: updatedProfile.name, email: updatedProfile.email });
+    //   toast({ title: "Perfil Actualizado", description: "Tu información ha sido actualizada." });
+    // } catch (error) {
+    //   console.error("Error updating profile:", error);
+    //   toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar tu perfil." });
+    // } finally {
+    //   setIsSaving(false);
+    // }
 
-    setTimeout(() => {
-      toast({
-        title: "Configuración Guardada",
-        description: "Tus preferencias han sido actualizadas (simulado).",
-      });
-      setIsSaving(false);
-    }, 1000);
+    // Simulación (se mantiene para el prototipo)
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    setUserProfile({ name: localName, email: localEmail });
+    // Notification preferences would also be saved to backend here
+    console.log("Preferencias de notificación (simulado):", notificationPrefs);
+    console.log("Tema de apariencia guardado:", activeTheme);
+
+    toast({
+      title: "Configuración Guardada (Simulado)",
+      description: "Tus preferencias han sido actualizadas.",
+    });
+    setIsSaving(false);
   };
 
-  const handlePasswordChangeSubmit = () => {
+  const handlePasswordChangeSubmit = async () => {
     setPasswordError('');
     if (!currentPassword || !newPassword || !confirmNewPassword) {
       setPasswordError('Todos los campos de contraseña son obligatorios.');
@@ -156,17 +176,38 @@ export default function SettingsPage() {
       setPasswordError('La nueva contraseña y la confirmación no coinciden.');
       return;
     }
+
+    // TODO: API Call - POST /api/me/change-password 
+    // { currentPassword, newPassword }
+    // Example:
+    // try {
+    //   const response = await fetch('/api/me/change-password', {
+    //     method: 'POST',
+    //     headers: { 'Content-Type': 'application/json', /* Auth header */ },
+    //     body: JSON.stringify({ currentPassword, newPassword }),
+    //   });
+    //   if (!response.ok) {
+    //     const errorData = await response.json();
+    //     throw new Error(errorData.message || 'Error al cambiar contraseña');
+    //   }
+    //   toast({ title: "Contraseña Actualizada", description: "Tu contraseña ha sido actualizada exitosamente." });
+    //   setIsPasswordDialogOpen(false);
+    //   setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword('');
+    // } catch (error: any) {
+    //   setPasswordError(error.message || 'Error al procesar la solicitud.');
+    // }
+
+    // Simulación
     console.log("Simulando cambio de contraseña...");
-    setTimeout(() => {
-      toast({
-        title: "Contraseña Actualizada (Simulado)",
-        description: "Tu contraseña ha sido actualizada exitosamente.",
-      });
-      setIsPasswordDialogOpen(false);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmNewPassword('');
-    }, 1000);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast({
+      title: "Contraseña Actualizada (Simulado)",
+      description: "Tu contraseña ha sido actualizada exitosamente.",
+    });
+    setIsPasswordDialogOpen(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
   };
 
   const currentThemeDetails = themeOptions.find(t => t.id === activeTheme) || themeOptions[0];
@@ -181,7 +222,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-3 space-y-6">
+        <div className="lg:col-span-3 space-y-6"> {/* Changed from lg:col-span-2 to lg:col-span-3 for full width */}
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Información de la Cuenta</CardTitle>
@@ -355,18 +396,20 @@ export default function SettingsPage() {
               <CardDescription>Personaliza la apariencia visual de la plataforma.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Label>Tema Actual:</Label>
-              <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-                <span className="text-sm font-medium">{currentThemeDetails.name}</span>
-                <div className="flex space-x-1.5">
-                  {Object.entries(currentThemeDetails.previewColors).slice(0, 4).map(([key, color]) => (
-                      <div
-                          key={key}
-                          className="h-5 w-5 rounded-full border border-border/50"
-                          style={{ backgroundColor: color }}
-                          title={`${key}: ${color}`}
-                      />
-                  ))}
+               <div>
+                <Label>Tema Actual:</Label>
+                <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50 mt-1">
+                    <span className="text-sm font-medium">{currentThemeDetails.name}</span>
+                    <div className="flex space-x-1.5">
+                    {Object.entries(currentThemeDetails.previewColors).slice(0, 4).map(([key, color]) => (
+                        <div
+                            key={key}
+                            className="h-5 w-5 rounded-full border border-border/50"
+                            style={{ backgroundColor: color }}
+                            title={`${key}: ${color}`}
+                        />
+                    ))}
+                    </div>
                 </div>
               </div>
 
@@ -382,7 +425,7 @@ export default function SettingsPage() {
                         key={theme.id}
                         variant="outline"
                         className={cn(
-                            "w-full justify-start py-4 transition-all text-left h-auto",
+                            "w-full justify-start py-4 transition-all text-left h-auto relative", // Added relative for absolute positioning of check
                             activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                         )}
                         onClick={() => handleThemeChange(theme.id)}
