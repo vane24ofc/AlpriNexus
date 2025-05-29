@@ -3,7 +3,7 @@
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare, FileText, Download, Loader2 } from "lucide-react";
+import { BarChart3, Users, BookOpen, Award, UserPlus, TrendingUp, PieChart as PieChartIcon, Activity, CheckSquare, FileText, Download, Loader2, Star } from "lucide-react";
 import {
   ChartContainer,
   ChartTooltip,
@@ -112,6 +112,10 @@ export default function AdminMetricsPage() {
       setReportText({
         executiveSummary:
           'A la fecha actual, la plataforma AlpriNexus cuenta con [Número de Usuarios Totales] usuarios registrados, lo que demuestra un interés continuo. Durante el último mes, se ha observado un incremento de [Número de Nuevos Estudiantes] estudiantes, indicando una adopción saludable. La tasa de finalización promedio de los cursos se sitúa en [Tasa de Finalización], un área que presenta oportunidades de mejora continua.',
+        keyHighlights: [
+          'Incremento significativo en la base de usuarios.',
+          'Amplia oferta de cursos activos disponibles.',
+        ],
         conclusions: [
           'El crecimiento en el número de nuevos estudiantes sugiere que las estrategias de captación están siendo efectivas.',
           'La tasa de finalización general, aunque estable, podría beneficiarse de un análisis detallado por curso para identificar aquellos con menor rendimiento.',
@@ -149,6 +153,11 @@ export default function AdminMetricsPage() {
         `Durante el último mes, se ha observado un incremento de ${stats.find(s => s.key === 'newStudentsMonthly')?.value || '[Número de Nuevos Estudiantes]'} estudiantes, indicando una adopción saludable. ` +
         `La tasa de finalización promedio de los cursos se sitúa en ${stats.find(s => s.key === 'completionRate')?.value || '[Tasa de Finalización]'}, un área que presenta oportunidades de mejora continua. ` +
         `Con ${stats.find(s => s.key === 'activeCourses')?.value || '[Número de Cursos Activos]'} cursos activos, la plataforma ofrece una base sólida para el desarrollo profesional.`,
+    keyHighlights: [
+        `Crecimiento notable en la base de usuarios con ${stats.find(s => s.key === 'newStudentsMonthly')?.value || 'N/A'} nuevas incorporaciones este mes.`,
+        `Mantenimiento de una sólida oferta formativa con ${stats.find(s => s.key === 'activeCourses')?.value || 'N/A'} cursos activos.`,
+        `Una tasa de finalización promedio del ${stats.find(s => s.key === 'completionRate')?.value || 'N/A'} que indica un buen nivel de engagement general.`
+    ],
     conclusions: [
         `El crecimiento constante de ${stats.find(s => s.key === 'newStudentsMonthly')?.value || 'nuevos estudiantes'} al mes sugiere que las iniciativas de promoción y la utilidad percibida de AlpriNexus son efectivas.`,
         `Una tasa de finalización promedio del ${stats.find(s => s.key === 'completionRate')?.value || 'N/A'} es un indicador aceptable, pero un análisis más profundo por curso podría revelar variaciones significativas y oportunidades de mejora específicas.`,
@@ -394,7 +403,20 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-8">
-              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">2. Métricas Clave de Usuarios</h3>
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">2. Puntos Clave Destacados</h3>
+              {isAiLoadingReportText && !reportText?.keyHighlights ? (
+                 <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+              ) : (
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
+                  {(reportText?.keyHighlights || defaultReportText.keyHighlights).map((highlight, index) => (
+                    <li key={`highlight-${index}`}>{highlight}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="mb-8">
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">3. Métricas Clave de Usuarios</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
                 <li>Usuarios Totales: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'totalUsers')?.value}</span> ({stats.find(s => s.key === 'totalUsers')?.trend})</li>
                 <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{stats.find(s => s.key === 'newStudentsMonthly')?.value}</span> ({stats.find(s => s.key === 'newStudentsMonthly')?.trend})</li>
@@ -408,7 +430,7 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-8">
-              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">3. Actividad de Cursos</h3>
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
                 <li>Cursos Activos: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'activeCourses')?.value}</span> ({stats.find(s => s.key === 'activeCourses')?.trend})</li>
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{stats.find(s => s.key === 'completionRate')?.value}</span> ({stats.find(s => s.key === 'completionRate')?.trend})</li>
@@ -422,7 +444,7 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-8">
-              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Conclusiones</h3>
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">5. Conclusiones</h3>
               {isAiLoadingReportText && !reportText?.conclusions ? (
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (
@@ -435,7 +457,7 @@ export default function AdminMetricsPage() {
             </section>
 
             <section className="mb-8">
-                <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">5. Recomendaciones</h3>
+                <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">6. Recomendaciones</h3>
                 {isAiLoadingReportText && !reportText?.recommendations ? (
                     <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
                 ) : (
