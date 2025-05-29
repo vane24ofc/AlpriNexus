@@ -25,7 +25,7 @@ const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
-const ENGAGEMENT_DURATION = 3000; // 3 segundos
+const ENGAGEMENT_DURATION = 3000;
 
 const fallbackSampleCourse: Course = {
     id: 'fallback-course',
@@ -55,7 +55,7 @@ export default function StudentCourseViewPage() {
   const params = useParams();
   const { toast } = useToast();
   const courseId = params.courseId as string;
-  
+
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
@@ -73,20 +73,34 @@ export default function StudentCourseViewPage() {
         let foundCourse: Course | undefined;
 
         // TODO: API Call - GET /api/courses/:courseId
-        console.log("Fetching course details for ID:", courseId);
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        if (storedCourses) {
-          try {
-            const allCourses: Course[] = JSON.parse(storedCourses);
-            foundCourse = allCourses.find(c => c.id === courseId);
-            console.log("Found course from localStorage:", foundCourse);
-          } catch (error) {
-            console.error("Error parsing courses from localStorage:", error);
+        // This should fetch course details including lessons.
+        // Example:
+        // try {
+        //   const response = await fetch(`/api/courses/${courseId}`);
+        //   if (!response.ok) throw new Error('Curso no encontrado');
+        //   foundCourse = await response.json();
+        // } catch (apiError) {
+        //   console.error("API error fetching course:", apiError);
+        // }
+
+        // Fallback to localStorage
+        if (!foundCourse) {
+          const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
+          if (storedCourses) {
+            try {
+              const allCourses: Course[] = JSON.parse(storedCourses);
+              foundCourse = allCourses.find(c => c.id === courseId);
+            } catch (error) {
+              console.error("Error parsing courses from localStorage:", error);
+            }
           }
         }
 
         if (foundCourse) {
           setCourse(foundCourse);
+          // TODO: API Call - GET /api/me/courses/:courseId/progress
+          // This should fetch the student's progress for this course (completed lessons, quiz states).
+          // For now, simulate with localStorage:
           const storedCompletedKey = `${COMPLETED_LESSONS_PREFIX}${courseId}`;
           const storedCompletedLessons = localStorage.getItem(storedCompletedKey);
           const initialCompleted = storedCompletedLessons ? new Set<string>(JSON.parse(storedCompletedLessons)) : new Set<string>();
@@ -106,11 +120,11 @@ export default function StudentCourseViewPage() {
                 } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
               }
               initialQuizStateFromStorage[lesson.id] = parsedState;
-              
-              if (parsedState.answered) { // If answered (regardless of correctness for readiness)
+
+              if (parsedState.answered) {
                 initialReadyForCompletionFromStorage.add(lesson.id);
               }
-            } else if (isLessonCompleted) { 
+            } else if (isLessonCompleted) {
                  initialReadyForCompletionFromStorage.add(lesson.id);
             }
           });
@@ -156,8 +170,7 @@ export default function StudentCourseViewPage() {
      return () => {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId]); // Removed toast from dependencies
+  }, [courseId, toast]); // Removed toast from dependencies to avoid potential loops if toast itself causes re-renders
 
   const courseProgress = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
@@ -169,12 +182,16 @@ export default function StudentCourseViewPage() {
     return completedLessons.size === course.lessons.length;
   }, [course, completedLessons]);
 
-  const handleToggleLessonComplete = useCallback((lessonId: string) => {
+  const handleToggleLessonComplete = useCallback(async (lessonId: string) => {
+    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/complete
+    // The API should handle setting the lesson as complete for the user.
+    // For now, simulate with localStorage:
+    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+
     setCompletedLessons(prev => {
       const newSet = new Set(prev);
       if (newSet.has(lessonId)) {
-        // To un-complete: newSet.delete(lessonId);
-        // For now, once completed, stays completed.
+        // To un-complete: newSet.delete(lessonId); (Currently not supported, stays completed)
       } else {
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
@@ -184,6 +201,7 @@ export default function StudentCourseViewPage() {
 
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground border-accent" });
+            // TODO: API Call - POST /api/courses/:courseId/complete (to mark course as complete for user)
             const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_STORAGE_KEY) || '[]');
             if (!globalCompleted.includes(courseId)) {
                 globalCompleted.push(courseId);
@@ -193,8 +211,7 @@ export default function StudentCourseViewPage() {
       }
       return newSet;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [course, courseId]);
+  }, [course, courseId, toast]);
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
@@ -217,43 +234,47 @@ export default function StudentCourseViewPage() {
     }
   };
 
-  const handleStartQuiz = (lessonId: string) => {
+  const handleStartQuiz = useCallback((lessonId: string) => {
     const currentQuiz = quizState[lessonId] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
     if (currentQuiz.answered && completedLessons.has(lessonId)) return;
 
-    const newState = { ...quizState, [lessonId]: { ...currentQuiz, started: true, answered: false, selectedOptionIndex: null, isCorrect: null } };
-    setQuizState(newState);
-    localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newState[lessonId]));
-  };
+    const newStateForQuiz = { ...currentQuiz, started: true, answered: false, selectedOptionIndex: null, isCorrect: null };
+    setQuizState(prev => ({ ...prev, [lessonId]: newStateForQuiz }));
+    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/quiz-start (optional, if you want to track starts)
+    localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
+    toast({ title: "Quiz Iniciado", description: "¡Mucha suerte!" });
+  }, [quizState, completedLessons]);
 
-  const handleAnswerQuiz = (lessonId: string, selectedOptionIndex: number) => {
+  const handleAnswerQuiz = useCallback(async (lessonId: string, selectedOptionIndex: number) => {
     const lesson = course?.lessons.find(l => l.id === lessonId);
     if (!lesson || !lesson.quizOptions) return;
-    if (quizState[lessonId]?.answered && !completedLessons.has(lessonId)) return; // Don't allow re-answer if answered but not yet completed
+    if (quizState[lessonId]?.answered && !completedLessons.has(lessonId)) return;
 
     const isCorrect = lesson.correctQuizOptionIndex !== undefined && selectedOptionIndex === lesson.correctQuizOptionIndex;
-    
-    const newStateForQuiz = { started: true, answered: true, selectedOptionIndex, isCorrect };
-    const newGlobalQuizState = { ...quizState, [lessonId]: newStateForQuiz };
-    
-    setQuizState(newGlobalQuizState);
+
+    const newStateForQuiz: QuizAttemptState = { started: true, answered: true, selectedOptionIndex, isCorrect };
+    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/quiz-attempt
+    // Body: { selectedOptionIndex, isCorrect }
+    // API would record the attempt.
+    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+
+    setQuizState(prev => ({ ...prev, [lessonId]: newStateForQuiz }));
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
-    
-    // Lesson is ready for completion once answered, regardless of correctness for now
+
     setLessonsReadyForCompletion(prev => {
         const newSet = new Set(prev);
         newSet.add(lessonId);
         return newSet;
     });
-    
+
     toast({
         title: "Respuesta Registrada",
         description: "Tu respuesta ha sido guardada. Marca la lección como completada para ver la revisión.",
     });
-  };
+  }, [course, quizState, completedLessons, toast]);
 
 
-  const handleAccordionChange = (value: string | undefined) => {
+  const handleAccordionChange = useCallback((value: string | undefined) => {
     const prevActiveLessonIdKey = activeAccordionItem?.replace('lesson-', '');
     const currentActiveLessonIdKey = value?.replace('lesson-', '');
 
@@ -276,21 +297,21 @@ export default function StudentCourseViewPage() {
                 newSet.add(lesson.id);
                 return newSet;
             });
-            if (engagementTimersRef.current[lesson.id]) { 
+            if (engagementTimersRef.current[lesson.id]) {
                 delete engagementTimersRef.current[lesson.id];
             }
           }, ENGAGEMENT_DURATION);
         }
       }
     }
-  };
+  }, [activeAccordionItem, lessonsReadyForCompletion, completedLessons, course]);
 
   const renderLessonContent = (lesson: Lesson) => {
     const contentType = lesson.contentType || 'text';
     const currentQuizData = quizState[lesson.id] || { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
     const isLessonMarkedCompleted = completedLessons.has(lesson.id);
-    
-    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '').length > 0) 
+
+    const quizOptionsToDisplay = (lesson.quizOptions && lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '').length > 0)
         ? lesson.quizOptions.filter(opt => typeof opt === 'string' && opt.trim() !== '')
         : ['Opción Ejemplo A', 'Opción Ejemplo B', 'Opción Ejemplo C'];
 
@@ -329,7 +350,7 @@ export default function StudentCourseViewPage() {
               <h5 className="font-semibold text-lg">Quiz Interactivo</h5>
             </div>
             <p className="text-sm font-semibold text-foreground">{lesson.quizPlaceholder || "Pon a prueba tus conocimientos."}</p>
-            
+
             {!currentQuizData.started && !isLessonMarkedCompleted && (
               <Button
                 variant="outline"
@@ -346,15 +367,16 @@ export default function StudentCourseViewPage() {
                   {quizOptionsToDisplay.map((option, index) => {
                     const isSelected = currentQuizData.selectedOptionIndex === index;
                     let buttonStyleClasses = "w-full justify-start text-left h-auto py-2.5 px-3 ";
-                    
+
                     if (isLessonMarkedCompleted && currentQuizData.answered) {
                        // Feedback shown after lesson is marked complete
-                       if (isSelected) {
-                           buttonStyleClasses += currentQuizData.isCorrect 
-                               ? "bg-green-500 text-white hover:bg-green-600 border-green-500" 
+                       if (isSelected) { // The option user selected
+                           buttonStyleClasses += currentQuizData.isCorrect
+                               ? "bg-green-500 text-white hover:bg-green-600 border-green-500"
                                : "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive";
-                       } else if (lesson.correctQuizOptionIndex === index) {
-                           buttonStyleClasses += "bg-green-500/20 border-2 border-green-500 text-green-700 dark:text-green-300"; // Highlight correct answer if user was wrong
+                       } else if (lesson.correctQuizOptionIndex === index && !currentQuizData.isCorrect) {
+                           // If user was wrong, highlight the actual correct answer
+                           buttonStyleClasses += "bg-green-500/20 border-2 border-green-500 text-green-700 dark:text-green-300";
                        } else {
                            buttonStyleClasses += "bg-card hover:bg-card/90 opacity-70";
                        }
@@ -364,18 +386,17 @@ export default function StudentCourseViewPage() {
                     } else if (currentQuizData.started && isSelected) {
                         // Started and selected, but not yet "answered" (if there was a submit step, not our case)
                          buttonStyleClasses += "bg-primary/20 border-primary";
-                    }
-                     else {
+                    } else {
                         // Default button style if not answered or not selected
                         buttonStyleClasses += "bg-card hover:bg-card/90";
                     }
-                    
+
                     return (
                         <Button
                             key={`${lesson.id}-option-${index}`}
                             variant="outline"
                             onClick={() => !currentQuizData.answered && handleAnswerQuiz(lesson.id, index)}
-                            disabled={currentQuizData.answered || (isLessonMarkedCompleted && currentQuizData.answered)} 
+                            disabled={currentQuizData.answered || (isLessonMarkedCompleted && currentQuizData.answered)}
                             className={buttonStyleClasses}
                         >
                         {option}
@@ -420,7 +441,7 @@ export default function StudentCourseViewPage() {
     );
   }
 
-  if (!course) { 
+  if (!course) {
     return (
       <div className="text-center py-10">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -491,7 +512,7 @@ export default function StudentCourseViewPage() {
                         LessonIcon = CheckCircle;
                         iconClassName = "text-green-500";
                     } else if (isReadyForCompletion) {
-                        LessonIcon = ClipboardCheck; 
+                        LessonIcon = ClipboardCheck;
                         iconClassName = "text-blue-500";
                     }
 
@@ -558,8 +579,8 @@ export default function StudentCourseViewPage() {
             <CardHeader style={{ padding: '16px 20px 8px' }}>
                 <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-4 pb-5 px-5"> {/* Adjusted pt-4 from pt-6 */}
-                <div className="relative w-32 h-32 mx-auto -mt-2">
+            <CardContent className="text-center pt-4 pb-5 px-5">
+                <div className="relative w-32 h-32 mx-auto -mt-4">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
@@ -621,4 +642,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Bell, CheckCircle, AlertTriangle, MessageCircle, BookOpen } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, MessageCircle, BookOpen, Loader2 } from 'lucide-react'; // Added Loader2
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -30,9 +30,6 @@ const initialSeedNotifications: Notification[] = [
   { id: 'seed1', type: 'course', title: '¡Nuevo Curso Disponible!', description: 'Se ha añadido el curso de JavaScript Avanzado.', timestamp: 'hace 2m', read: false, link: '#' },
   { id: 'seed2', type: 'message', title: 'Mensaje del Instructor', description: 'Tu tarea ha sido calificada.', timestamp: 'hace 1h', read: false, link: '#' },
   { id: 'seed3', type: 'alert', title: 'Mantenimiento Programado', description: 'Mantenimiento del sistema el domingo a las 2 AM.', timestamp: 'hace 3h', read: true, link: '#' },
-  { id: 'seed4', type: 'update', title: 'Perfil Actualizado', description: 'La información de tu perfil se actualizó correctamente.', timestamp: 'hace 1d', read: true, link: '/dashboard/student/profile' },
-  { id: 'seed5', type: 'course', title: 'Confirmación de Inscripción', description: 'Ahora estás inscrito en "Introducción a Python".', timestamp: 'hace 2d', read: true, link: '#' },
-  { id: 'seed6', type: 'message', title: 'Nuevo Anuncio General', description: 'Consulta los últimos anuncios de la plataforma.', timestamp: 'hace 5m', read: false, link: '#' },
 ];
 
 function NotificationItem({ notification, onToggleRead }: { notification: Notification, onToggleRead: (id: string) => void }) {
@@ -44,7 +41,7 @@ function NotificationItem({ notification, onToggleRead }: { notification: Notifi
   }[notification.type];
 
   return (
-    <div 
+    <div
       className="flex items-start space-x-3 p-3 hover:bg-muted/50 rounded-md cursor-pointer"
       onClick={() => onToggleRead(notification.id)}
       role="button"
@@ -55,7 +52,7 @@ function NotificationItem({ notification, onToggleRead }: { notification: Notifi
         <Badge variant="default" className="h-2 w-2 p-0 shrink-0 mt-1.5 bg-primary" />
       )}
       {notification.read && (
-         <div className="h-2 w-2 shrink-0 mt-1.5" /> 
+         <div className="h-2 w-2 shrink-0 mt-1.5" />
       )}
       <Icon className={`h-5 w-5 shrink-0 mt-1 ${notification.read ? 'text-muted-foreground' : 'text-primary'}`} />
       <div className="flex-1 space-y-1">
@@ -72,52 +69,58 @@ function NotificationItem({ notification, onToggleRead }: { notification: Notifi
 
 export function NotificationIcon() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    try {
-      const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-      if (storedNotifications) {
-        setNotifications(JSON.parse(storedNotifications));
-      } else {
-        setNotifications(initialSeedNotifications);
-        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(initialSeedNotifications));
-      }
-    } catch (error) {
-      console.error("Error loading notifications from localStorage:", error);
-      setNotifications(initialSeedNotifications);
-    }
-    setIsLoading(false);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading) { // Only save to localStorage if not in initial loading phase
+    const loadNotifications = async () => {
+      setIsLoading(true);
+      // TODO: API Call - GET /api/me/notifications
+      // const response = await fetch('/api/me/notifications');
+      // const data = await response.json();
+      // setNotifications(data);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
       try {
-        localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
-        setUnreadCount(notifications.filter(n => !n.read).length);
+        const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+        if (storedNotifications) {
+          setNotifications(JSON.parse(storedNotifications));
+        } else {
+          setNotifications(initialSeedNotifications);
+          localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(initialSeedNotifications));
+        }
       } catch (error) {
-        console.error("Error saving notifications to localStorage:", error);
+        console.error("Error loading notifications from localStorage:", error);
+        setNotifications(initialSeedNotifications);
       }
-    }
-  }, [notifications, isLoading]);
-
-  const handleMarkAllAsRead = useCallback(() => {
-    setNotifications(prevNotifications =>
-      prevNotifications.map(n => ({ ...n, read: true }))
-    );
+      setIsLoading(false);
+    };
+    loadNotifications();
   }, []);
 
-  const handleToggleRead = useCallback((id: string) => {
-    setNotifications(prevNotifications =>
-      prevNotifications.map(n =>
-        n.id === id ? { ...n, read: !n.read } : n
-      )
-    );
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+
+  const persistNotifications = useCallback((updatedNotifications: Notification[]) => {
+    // TODO: This local persistence would be removed if API handles saving read status.
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
   }, []);
 
-  const unreadNotifications = notifications.filter(n => !n.read);
+  const handleMarkAllAsRead = useCallback(async () => {
+    // TODO: API Call - POST /api/me/notifications/mark-all-read
+    // After successful API call, update local state:
+    const updated = notifications.map(n => ({ ...n, read: true }));
+    setNotifications(updated);
+    persistNotifications(updated);
+  }, [notifications, persistNotifications]);
+
+  const handleToggleRead = useCallback(async (id: string) => {
+    // TODO: API Call - PUT /api/me/notifications/:id/read { read: newReadState }
+    // After successful API call, update local state:
+    const updated = notifications.map(n =>
+      n.id === id ? { ...n, read: !n.read } : n
+    );
+    setNotifications(updated);
+    persistNotifications(updated);
+  }, [notifications, persistNotifications]);
+
 
   return (
     <Popover>
@@ -139,32 +142,36 @@ export function NotificationIcon() {
         <Separator />
         <Tabs defaultValue="all" className="w-full">
           <TabsList className="grid w-full grid-cols-2 m-2">
-            <TabsTrigger value="all">Todas ({isLoading ? '...' : notifications.length})</TabsTrigger>
-            <TabsTrigger value="unread">No Leídas ({isLoading ? '...' : unreadCount})</TabsTrigger>
+            <TabsTrigger value="all" disabled={isLoading}>Todas ({isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : notifications.length})</TabsTrigger>
+            <TabsTrigger value="unread" disabled={isLoading}>No Leídas ({isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : unreadCount})</TabsTrigger>
           </TabsList>
           <ScrollArea className="h-[300px] md:h-[400px]">
-            <TabsContent value="all" className="mt-0">
-              {isLoading ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">Cargando notificaciones...</p>
-              ) : notifications.length === 0 ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">Aún no hay notificaciones.</p>
-              ) : (
-                notifications.map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
-                ))
-              )}
-            </TabsContent>
-            <TabsContent value="unread" className="mt-0">
-              {isLoading ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">Cargando notificaciones...</p>
-              ) : unreadNotifications.length === 0 ? (
-                <p className="p-4 text-center text-sm text-muted-foreground">No hay notificaciones no leídas.</p>
-              ) : (
-                unreadNotifications.map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
-                ))
-              )}
-            </TabsContent>
+            {isLoading ? (
+               <div className="flex justify-center items-center h-full">
+                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+               </div>
+            ) : (
+              <>
+                <TabsContent value="all" className="mt-0">
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-center text-sm text-muted-foreground">Aún no hay notificaciones.</p>
+                  ) : (
+                    notifications.map((notification) => (
+                      <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
+                    ))
+                  )}
+                </TabsContent>
+                <TabsContent value="unread" className="mt-0">
+                  {notifications.filter(n => !n.read).length === 0 ? (
+                    <p className="p-4 text-center text-sm text-muted-foreground">No hay notificaciones no leídas.</p>
+                  ) : (
+                    notifications.filter(n => !n.read).map((notification) => (
+                      <NotificationItem key={notification.id} notification={notification} onToggleRead={handleToggleRead} />
+                    ))
+                  )}
+                </TabsContent>
+              </>
+            )}
           </ScrollArea>
         </Tabs>
         <Separator />

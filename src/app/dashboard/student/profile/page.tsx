@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useRef, useEffect } from "react"; // Added useEffect
+import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users } from "lucide-react";
+import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users as UsersIcon, Loader2 } from "lucide-react"; // Added Loader2
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import {
@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useSessionRole } from '@/app/dashboard/layout'; // Import useSessionRole
+import { useSessionRole } from '@/app/dashboard/layout';
 
 interface Achievement {
   id: string;
@@ -32,31 +32,65 @@ const sampleAchievements: Achievement[] = [
   { id: "ach1", name: "Pionero de AlpriNexus", icon: Award, description: "Por ser uno de los primeros en unirse." },
   { id: "ach2", name: "Maratón de Aprendizaje", icon: BookOpen, description: "Completó 3 cursos en una semana." },
   { id: "ach3", name: "Experto en JavaScript", icon: CheckCircle, description: "Dominio demostrado en cursos de JS." },
-  { id: "ach4", name: "Colaborador Destacado", icon: Users, description: "Participación activa en foros (próximamente)." },
+  { id: "ach4", name: "Colaborador Destacado", icon: UsersIcon, description: "Participación activa en foros (próximamente)." },
 ];
 
 const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile'; // From DashboardLayout
+const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
+const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
 
 export default function StudentProfilePage() {
   const { toast } = useToast();
-  const { userProfile } = useSessionRole(); // Get profile data from context
+  const { userProfile } = useSessionRole();
 
   const [avatarUrl, setAvatarUrl] = useState("https://placehold.co/100x100.png?text=P");
-  const [studentData, setStudentData] = useState({
-    joinDate: "15 de Enero, 2023", // This could also come from context/localStorage if needed
-    coursesEnrolled: 5,
-    coursesCompleted: 2,
+  const [studentStats, setStudentStats] = useState({
+    joinDate: "Consultando...",
+    coursesEnrolled: 0,
+    coursesCompleted: 0,
   });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Initialize avatar based on userProfile name
     if (userProfile.name) {
       setAvatarUrl(`https://placehold.co/100x100.png?text=${userProfile.name.charAt(0).toUpperCase()}`);
     }
-     // Simulate fetching or calculating these stats - for now, they remain static or could be fetched
-    // setStudentData(prev => ({...prev, coursesEnrolled: ..., coursesCompleted: ...}))
+
+    const fetchStudentStats = async () => {
+      setIsLoadingStats(true);
+      // TODO: API Call - GET /api/me/profile-stats (or similar)
+      // This API would return joinDate, coursesEnrolled count, coursesCompleted count.
+      // For now, we simulate it using localStorage for enrolled/completed and a static join date.
+      await new Promise(resolve => setTimeout(resolve, 700)); // Simulate API delay
+
+      let enrolledCount = 0;
+      let completedCount = 0;
+      const joinDateSimulated = "15 de Enero, 2023"; // Could also come from userProfile if set during registration
+
+      try {
+        const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
+        if (storedEnrolled) {
+          enrolledCount = (JSON.parse(storedEnrolled) as string[]).length;
+        }
+        const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
+        if (storedCompleted) {
+          completedCount = (JSON.parse(storedCompleted) as string[]).length;
+        }
+      } catch (e) {
+        console.error("Error reading student stats from localStorage", e);
+      }
+
+      setStudentStats({
+        joinDate: joinDateSimulated,
+        coursesEnrolled: enrolledCount,
+        coursesCompleted: completedCount,
+      });
+      setIsLoadingStats(false);
+    };
+
+    fetchStudentStats();
   }, [userProfile.name]);
 
 
@@ -80,13 +114,17 @@ export default function StudentProfilePage() {
         return;
       }
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarUrl(reader.result as string);
+      reader.onloadend = async () => {
+        const newAvatarDataUrl = reader.result as string;
+        // TODO: API Call - POST /api/me/avatar to upload and save the new avatar.
+        // The API should return the new URL of the avatar.
+        // For now, just update client-side.
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+        setAvatarUrl(newAvatarDataUrl);
         toast({
-          title: "Foto de Perfil Actualizada",
-          description: "Tu nueva foto de perfil se está mostrando (simulado).",
+          title: "Foto de Perfil Actualizada (Simulado)",
+          description: "Tu nueva foto de perfil se está mostrando.",
         });
-        // In a real app, you'd upload this to a server and update the userProfile context/localStorage
       };
       reader.readAsDataURL(file);
     }
@@ -145,7 +183,7 @@ export default function StudentProfilePage() {
           <CardContent className="text-center">
             <p className="text-sm text-muted-foreground flex items-center justify-center">
               <CalendarDays className="mr-2 h-4 w-4" />
-              Miembro desde: {studentData.joinDate} {/* This could be dynamic in a real app */}
+              Miembro desde: {isLoadingStats ? <Loader2 className="h-4 w-4 animate-spin ml-1" /> : studentStats.joinDate}
             </p>
           </CardContent>
         </Card>
@@ -157,6 +195,11 @@ export default function StudentProfilePage() {
                     <CardDescription>Tu progreso en la plataforma AlpriNexus.</CardDescription>
                 </CardHeader>
                 <CardContent>
+                    {isLoadingStats ? (
+                        <div className="flex justify-center items-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <Card className="bg-muted/30">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -164,7 +207,7 @@ export default function StudentProfilePage() {
                             <BookOpen className="h-5 w-5 text-primary" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{studentData.coursesEnrolled}</div>
+                            <div className="text-2xl font-bold">{studentStats.coursesEnrolled}</div>
                             <p className="text-xs text-muted-foreground">Tu viaje de aprendizaje activo.</p>
                         </CardContent>
                         </Card>
@@ -174,11 +217,12 @@ export default function StudentProfilePage() {
                             <Award className="h-5 w-5 text-accent" />
                         </CardHeader>
                         <CardContent>
-                            <div className="text-2xl font-bold">{studentData.coursesCompleted}</div>
+                            <div className="text-2xl font-bold">{studentStats.coursesCompleted}</div>
                             <p className="text-xs text-muted-foreground">¡Felicidades por tus logros!</p>
                         </CardContent>
                         </Card>
                     </div>
+                    )}
                 </CardContent>
             </Card>
 
@@ -188,7 +232,11 @@ export default function StudentProfilePage() {
                     <CardDescription>Reconocimientos obtenidos por tu dedicación y aprendizaje.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {sampleAchievements.length > 0 ? (
+                    {isLoadingStats ? (
+                        <div className="flex justify-center items-center py-8">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                    ) : sampleAchievements.length > 0 ? (
                         <ul className="space-y-3">
                             {sampleAchievements.map(ach => (
                                 <li key={ach.id} className="flex items-center p-3 border rounded-md bg-card hover:bg-muted/50 transition-colors">
@@ -228,7 +276,12 @@ export default function StudentProfilePage() {
                             <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction
-                                onClick={() => toast({ title: "Solicitud de Eliminación (Simulada)", description: "Tu solicitud para eliminar la cuenta ha sido recibida.", variant: "destructive" })}
+                                onClick={async () => {
+                                    // TODO: API Call - DELETE /api/me/account
+                                    await new Promise(resolve => setTimeout(resolve, 1000));
+                                    toast({ title: "Solicitud de Eliminación (Simulada)", description: "Tu solicitud para eliminar la cuenta ha sido recibida. Serás redirigido.", variant: "destructive" });
+                                    // TODO: Redirect to login or a "account deleted" page after API call
+                                }}
                             >
                                 Sí, Eliminar mi Cuenta
                             </AlertDialogAction>
