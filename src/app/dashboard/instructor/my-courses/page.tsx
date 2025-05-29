@@ -37,9 +37,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSessionRole } from '@/app/dashboard/layout'; // Import useSessionRole
 
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const CURRENT_INSTRUCTOR_SIMULATED_NAME = "Usuario Actual (Instructor)"; // Assuming this is how instructor's courses are identified
+// CURRENT_INSTRUCTOR_SIMULATED_NAME is no longer needed, will use userProfile.name
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -64,8 +65,10 @@ const studentProgressChartConfig = {
 } satisfies ChartConfig;
 
 const initialSeedCoursesForInstructor: Course[] = [
-  { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Seed)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
-  { id: 'instrSeed2', title: 'Diseño UX Avanzado (Seed)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: CURRENT_INSTRUCTOR_SIMULATED_NAME, status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
+  // This seed data will only be used if localStorage is completely empty for COURSES_STORAGE_KEY.
+  // Otherwise, courses are filtered from all courses.
+  { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Ejemplo)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: 'Instructor de Ejemplo', status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
+  { id: 'instrSeed2', title: 'Diseño UX Avanzado (Ejemplo)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: 'Instructor de Ejemplo', status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
 ];
 
 interface InstructorCourseRowProps {
@@ -136,8 +139,8 @@ MemoizedInstructorCourseRow.displayName = 'MemoizedInstructorCourseRow';
 export default function MyCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const { userProfile, currentSessionRole } = useSessionRole(); // Get userProfile and role
 
-  const [allLocalCourses, setAllLocalCourses] = useState<Course[]>([]);
   const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCourseForStats, setSelectedCourseForStats] = useState<Course | null>(null);
@@ -146,42 +149,40 @@ export default function MyCoursesPage() {
 
   useEffect(() => {
     const fetchCourses = async () => {
+      if (!userProfile.name || currentSessionRole !== 'instructor') {
+        setIsLoading(false);
+        return; // Don't load if profile name is not available or role is not instructor
+      }
       setIsLoading(true);
       const initialSearch = searchParams.get('search') || '';
       setSearchTerm(initialSearch);
 
-      // TODO: Reemplazar con llamada a API GET /api/courses (o /api/courses?instructorId=currentUser)
-      // Por ahora, se simula leyendo todos los cursos de localStorage y luego filtrando
+      // TODO: API Call - GET /api/courses?instructorName=${userProfile.name} (or similar)
+      // Simulating by reading all courses from localStorage and then filtering
       try {
         const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        let coursesFromStorage: Course[] = [];
+        let allPlatformCourses: Course[] = [];
         if (storedCourses) {
-          coursesFromStorage = JSON.parse(storedCourses);
+          allPlatformCourses = JSON.parse(storedCourses);
         } else {
-          // Fallback to initial seed if nothing in localStorage for the entire platform
-          coursesFromStorage = initialSeedCoursesForInstructor; 
+          // This fallback is less likely to be hit if COURSES_STORAGE_KEY is populated elsewhere
+          allPlatformCourses = initialSeedCoursesForInstructor; 
           localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
         }
-        setAllLocalCourses(coursesFromStorage);
         
-        const filteredForInstructor = coursesFromStorage.filter(course => course.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
+        const filteredForInstructor = allPlatformCourses.filter(course => course.instructorName === userProfile.name);
         setInstructorCourses(filteredForInstructor);
 
       } catch (error) {
         console.error("Error cargando cursos:", error);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
-        // Fallback a datos de ejemplo específicos del instructor si todo falla
-        const coursesToSeed = initialSeedCoursesForInstructor.filter(c => c.instructorName === CURRENT_INSTRUCTOR_SIMULATED_NAME);
-        setInstructorCourses(coursesToSeed);
-        if (!localStorage.getItem(COURSES_STORAGE_KEY)) {
-            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
-        }
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "No se pudieron cargar tus cursos." });
+        setInstructorCourses([]); // Fallback to empty if error
       } finally {
         setIsLoading(false);
       }
     };
     fetchCourses();
-  }, [searchParams, toast]);
+  }, [searchParams, toast, userProfile.name, currentSessionRole]);
 
 
   const filteredDisplayCourses = useMemo(() => {
@@ -284,7 +285,7 @@ export default function MyCoursesPage() {
 
           {filteredDisplayCourses.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!"}
+              {searchTerm ? `No se encontraron cursos para "${searchTerm}".` : (currentSessionRole === 'instructor' && userProfile.name ? "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!" : "No se pueden mostrar cursos.")}
             </p>
           ) : (
             <div className="overflow-x-auto">
