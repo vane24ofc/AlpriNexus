@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal, Users as UsersIcon } from 'lucide-react';
-import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Added Dialog for enrolled students
+import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -34,8 +34,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
-
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
 // Sample users for the enrolled students dialog (can be shared or fetched in a real app)
 const sampleEnrolledStudents = [
@@ -137,38 +135,28 @@ export default function AdminCoursesPage() {
   const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
   const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
 
-
-  useEffect(() => {
+  const fetchCourses = useCallback(async () => {
     setIsLoading(true);
-    // TODO: Reemplazar con llamada a API GET /api/courses
     try {
-      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-      if (storedCourses) {
-        setAllCourses(JSON.parse(storedCourses));
-      } else {
-        // Define initial seed courses if localStorage is empty
-        const initialSeedCourses: Course[] = [
-          { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
-          { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
-          { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
-        ];
-        setAllCourses(initialSeedCourses);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCourses));
-        }
+      const response = await fetch('/api/courses');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+        throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
       }
-    } catch (error) {
-      console.error("Error cargando cursos desde localStorage:", error);
-       const fallbackCourses: Course[] = [ { id: 'fallbackCourse', title: 'Curso de Fallback por Error de Carga', description: 'Error al cargar datos.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: "error placeholder", instructorName: 'Sistema', status: 'pending', lessons: [{id: 'l1-fb', title: 'Lección Fallback'}] } ];
-      setAllCourses(fallbackCourses); 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(fallbackCourses));
-      }
-      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
+      const coursesFromApi: Course[] = await response.json();
+      setAllCourses(coursesFromApi);
+    } catch (error: any) {
+      console.error("Error cargando cursos desde API:", error);
+      setAllCourses([]); // Clear courses on API error
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
     } finally {
       setIsLoading(false);
     }
   }, [toast]);
+
+  useEffect(() => {
+    fetchCourses();
+  }, [fetchCourses]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -190,34 +178,33 @@ export default function AdminCoursesPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, router]); 
 
-  useEffect(() => {
-    // TODO: Este useEffect se eliminará cuando haya un backend.
-    // Es responsable de guardar cambios en localStorage.
-    if (!isLoading && typeof window !== 'undefined') { 
-        try {
-            localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(allCourses));
-        } catch (error) {
-            console.error("Error guardando cursos en localStorage:", error);
-            toast({
-                variant: "destructive",
-                title: "Error de Guardado Local",
-                description: "No se pudieron guardar los cambios de los cursos localmente."
-            })
-        }
-    }
-  }, [allCourses, isLoading, toast]);
-
-
   const handleCourseAction = async (courseId: string, newStatus: 'approved' | 'rejected') => {
     const course = allCourses.find(c => c.id === courseId);
     if (!course) return;
 
-    // TODO: Reemplazar con llamada a API PUT /api/courses/:courseId/status { status: newStatus }
-    setAllCourses(prevCourses => prevCourses.map(c => c.id === courseId ? { ...c, status: newStatus } : c));
-    toast({
-      title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
-      description: `El curso "${course.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
-    });
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/courses/${courseId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error al actualizar estado del curso.`);
+      }
+      
+      toast({
+        title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
+        description: `El curso "${course.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
+      });
+      fetchCourses(); // Refetch to update list
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error de Actualización", description: error.message });
+      setIsLoading(false); // Ensure loading is false on error
+    }
+    // setIsLoading will be set to false by fetchCourses
     setCourseToModify(null);
     setActionType(null);
   };
@@ -225,14 +212,24 @@ export default function AdminCoursesPage() {
   const handleDeleteCourse = async (courseId: string) => {
     const courseTitle = allCourses.find(c => c.id === courseId)?.title;
     if (!courseTitle) return;
-
-    // TODO: Reemplazar con llamada a API DELETE /api/courses/:courseId
-    setAllCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
-    toast({
-      title: "Curso Eliminado",
-      description: `El curso "${courseTitle}" ha sido eliminado.`,
-      variant: "destructive"
-    });
+    setIsLoading(true);
+    try {
+      const response = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al eliminar el curso.');
+      }
+      toast({
+        title: "Curso Eliminado",
+        description: `El curso "${courseTitle}" ha sido eliminado.`,
+        variant: "destructive"
+      });
+      fetchCourses(); // Refetch to update list
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
+      setIsLoading(false); // Ensure loading is false on error
+    }
+    // setIsLoading will be set to false by fetchCourses
     setCourseToModify(null);
     setActionType(null);
   }
@@ -252,7 +249,6 @@ export default function AdminCoursesPage() {
     setIsEnrolledStudentsDialogOpen(false);
   };
 
-
   const filteredCourses = useMemo(() => {
     if (!searchTerm.trim()) {
       return allCourses;
@@ -266,7 +262,8 @@ export default function AdminCoursesPage() {
   }, [allCourses, searchTerm]);
 
   const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
-    if (isLoading && courseList.length === 0 && !searchTerm) { 
+    // Show loader if isLoading is true AND there are no courses yet (avoid flicker if courses exist)
+    if (isLoading && allCourses.length === 0 && !searchTerm) { 
         return (
             <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -308,6 +305,11 @@ export default function AdminCoursesPage() {
           <BookOpen className="mr-3 h-8 w-8 text-primary" />
           Gestión de Cursos
         </h1>
+         <Button asChild className="bg-primary hover:bg-primary/90">
+          <Link href="/dashboard/courses/new">
+            <PlusCircle className="mr-2 h-5 w-5" /> Añadir Nuevo Curso
+          </Link>
+        </Button>
       </div>
 
        <Card className="shadow-md">
@@ -333,13 +335,13 @@ export default function AdminCoursesPage() {
       <Tabs defaultValue="pending">
         <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="pending" disabled={isLoading && allCourses.length === 0}>
-            Pendientes ({isLoading && allCourses.length === 0 ? '...' : pendingCourses.length})
+            Pendientes ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : pendingCourses.length})
           </TabsTrigger>
           <TabsTrigger value="published" disabled={isLoading && allCourses.length === 0}>
-            Publicados ({isLoading && allCourses.length === 0 ? '...' : publishedCourses.length})
+            Publicados ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : publishedCourses.length})
           </TabsTrigger>
           <TabsTrigger value="rejected" className="flex items-center justify-center" disabled={isLoading && allCourses.length === 0}>
-            Rechazados ({isLoading && allCourses.length === 0 ? '...' : rejectedCourses.length})
+            Rechazados ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
 
@@ -444,6 +446,4 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
-    
-
     
