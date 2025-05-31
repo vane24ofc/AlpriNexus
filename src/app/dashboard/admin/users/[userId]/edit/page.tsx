@@ -1,24 +1,23 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import UserForm from '@/app/dashboard/admin/users/user-form';
 import type { Role } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Edit } from 'lucide-react';
 
-interface User {
+interface ApiUser {
   id: string;
-  name: string;
+  fullName: string;
   email: string;
   role: Role;
-  joinDate: string; 
-  avatarUrl?: string;
   status: 'active' | 'inactive';
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
 }
-
-const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 
 export default function EditUserPage() {
   const { toast } = useToast();
@@ -28,89 +27,78 @@ export default function EditUserPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [initialUserData, setInitialUserData] = useState<any | undefined>(undefined);
+  const [initialUserData, setInitialUserData] = useState<any | undefined>(undefined); // UserForm expects fullName, etc.
 
-  useEffect(() => {
-    if (userId) {
-      setIsLoadingUser(true);
-      try {
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        if (storedUsers) {
-          const users: User[] = JSON.parse(storedUsers);
-          const userToEdit = users.find(u => u.id === userId);
-          if (userToEdit) {
-            setInitialUserData({
-              fullName: userToEdit.name,
-              email: userToEdit.email,
-              role: userToEdit.role,
-              status: userToEdit.status,
-              password: '', 
-              confirmPassword: '',
-            });
-          } else {
-            toast({
-              variant: "destructive",
-              title: "Usuario no encontrado",
-              description: "No se pudo encontrar el usuario para editar.",
-            });
-            router.push('/dashboard/admin/users');
-          }
-        } else {
-            toast({
-                variant: "destructive",
-                title: "Datos no encontrados",
-                description: "No hay usuarios guardados localmente para editar.",
-            });
-            router.push('/dashboard/admin/users');
-        }
-      } catch (error) {
-        console.error("Error loading user for editing from localStorage:", error);
-        toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudo cargar el usuario para editar." });
-      } finally {
-        setIsLoadingUser(false);
+  const fetchUser = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingUser(true);
+    try {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Usuario no encontrado o error al cargar.');
       }
+      const userFromApi: ApiUser = await response.json();
+      setInitialUserData({
+        fullName: userFromApi.fullName,
+        email: userFromApi.email,
+        role: userFromApi.role,
+        status: userFromApi.status,
+        avatarUrl: userFromApi.avatarUrl || '', // Ensure avatarUrl is always a string for the form
+        // Passwords are not fetched or pre-filled for editing security
+        password: '', 
+        confirmPassword: '',
+      });
+    } catch (error: any) {
+      console.error("Error cargando usuario para editar:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Usuario", description: error.message });
+      router.push('/dashboard/admin/users');
+    } finally {
+      setIsLoadingUser(false);
     }
   }, [userId, router, toast]);
 
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
-    console.log("Datos del usuario a actualizar:", data);
     
+    const submissionData = { ...data };
+    // If password fields are empty (or only one is filled, zod would catch), don't send them.
+    // The API will only update password if it's present in the body.
+    if (!submissionData.password || submissionData.password.trim() === '') {
+      delete submissionData.password;
+      delete submissionData.confirmPassword;
+    }
+
+    // Ensure avatarUrl is an empty string if not provided, instead of null/undefined
+    submissionData.avatarUrl = submissionData.avatarUrl || '';
+
     try {
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        let users: User[] = storedUsers ? JSON.parse(storedUsers) : [];
-        const userIndex = users.findIndex(u => u.id === userId);
+      const response = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submissionData),
+      });
 
-        if (userIndex > -1) {
-            const currentUserData = users[userIndex];
-            users[userIndex] = {
-                ...currentUserData,
-                name: data.fullName,
-                email: data.email,
-                role: data.role,
-                status: data.status,
-                // Password update logic would be more complex here,
-                // involving hashing if it were a real backend.
-                // For localStorage, we'd just store the new password if provided.
-            };
-            // If data.password is provided and valid, it would be handled here.
-            // For this simulation, we're not directly updating a password in localStorage
-            // unless UserForm explicitly returns it for submissionData.
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error ${response.status} al actualizar el usuario.`);
+      }
 
-            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-            toast({
-              title: "Usuario Actualizado Exitosamente",
-              description: `La información del usuario "${data.fullName}" ha sido actualizada.`,
-            });
-        } else {
-            toast({ variant: "destructive", title: "Error de Actualización", description: "No se encontró el usuario para actualizar." });
-        }
-        router.push('/dashboard/admin/users');
-    } catch (error) {
-        console.error("Error updating user in localStorage:", error);
-        toast({ variant: "destructive", title: "Error al Guardar", description: "No se pudo guardar el usuario actualizado localmente." });
+      toast({
+        title: "Usuario Actualizado Exitosamente",
+        description: `La información del usuario "${data.fullName}" ha sido actualizada.`,
+      });
+      router.push('/dashboard/admin/users');
+      router.refresh(); // Forzar actualización de la lista de usuarios
+    } catch (error: any) {
+      console.error("Error actualizando usuario:", error);
+      toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -148,5 +136,3 @@ export default function EditUserPage() {
     </div>
   );
 }
-
-    
