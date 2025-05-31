@@ -3,98 +3,81 @@
 
 import React, { useState } from 'react';
 import CourseForm from '@/app/dashboard/courses/course-form';
-import type { Course } from '@/types/course';
+import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { PlusCircle } from 'lucide-react';
 
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-
 export default function CreateCoursePage() {
   const { toast } = useToast();
   const router = useRouter();
-  const { currentSessionRole, userProfile } = useSessionRole(); // Obtener userProfile
+  const { currentSessionRole, userProfile } = useSessionRole();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (data: any, thumbnailUrl?: string) => {
+  const handleSubmit = async (formData: any, thumbnailUrlFromForm?: string) => {
     setIsSubmitting(true);
     
-    // Determinar el nombre del instructor basado en el rol y el perfil del usuario
     let instructorNameToSet = "Instructor Desconocido";
     if (currentSessionRole === 'instructor' && userProfile.name) {
       instructorNameToSet = userProfile.name;
     } else if (currentSessionRole === 'administrador' && userProfile.name) {
-      // Los administradores también pueden crear cursos figurando como instructores
       instructorNameToSet = userProfile.name; 
     } else if (currentSessionRole === 'administrador') {
-      instructorNameToSet = "Administración AlpriNexus"; // Fallback si el admin no tiene nombre de perfil
+      instructorNameToSet = "Administración AlpriNexus";
     }
 
-
-    const newCourseData: Course = {
-      id: crypto.randomUUID(), // Generate a unique ID
-      title: data.title,
-      description: data.description,
-      thumbnailUrl: thumbnailUrl || "https://placehold.co/600x400.png?text=Curso",
+    const coursePayload = {
+      title: formData.title,
+      description: formData.description,
+      thumbnailUrl: thumbnailUrlFromForm || "https://placehold.co/600x400.png?text=Curso",
       instructorName: instructorNameToSet,
       status: currentSessionRole === 'instructor' ? 'pending' : 'approved',
-      lessons: data.lessons.map((lesson: any) => ({
-        id: lesson.id || crypto.randomUUID(),
+      lessons: formData.lessons.map((lesson: any) => ({
+        // id is not sent, API will generate it
         title: lesson.title,
         contentType: lesson.contentType || 'text',
-        content: lesson.contentType === 'text' ? lesson.content || '' : undefined,
+        content: lesson.contentType === 'text' ? lesson.content || undefined : undefined,
         videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
-        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
+        quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || undefined : undefined,
         quizOptions: lesson.contentType === 'quiz' ? (lesson.quizOptions || []).filter((opt: string) => opt && opt.trim() !== '') : undefined,
         correctQuizOptionIndex: lesson.contentType === 'quiz' ? lesson.correctQuizOptionIndex : undefined,
       })),
-      interactiveContent: data.interactiveContent,
-      dataAiHint: data.title.substring(0,20) // Simple data-ai-hint from title
+      interactiveContent: formData.interactiveContent || null,
+      dataAiHint: formData.title.substring(0,20) || null,
     };
 
-    // TODO: Reemplazar con llamada a API POST /api/courses
-    // try {
-    //   const response = await fetch('/api/courses', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify(newCourseData),
-    //   });
-    //   if (!response.ok) throw new Error('Fallo al crear el curso');
-    //   const createdCourse = await response.json();
-    //   toast({
-    //     title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
-    //     description: `El curso "${createdCourse.title}" ha sido creado.`,
-    //   });
-    //   // Redirigir según el rol
-    // } catch (error) {
-    //   console.error("Error creando curso vía API:", error);
-    //   toast({ variant: "destructive", title: "Error de Creación", description: "No se pudo crear el curso." });
-    // }
-
-    // Fallback a localStorage mientras la API no está lista
     try {
-      const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-      const courses: Course[] = storedCourses ? JSON.parse(storedCourses) : [];
-      courses.push(newCourseData);
-      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(courses));
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(coursePayload),
+      });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error Data:", errorData);
+        throw new Error(errorData.message || `Error ${response.status} al crear el curso.`);
+      }
+
+      const result = await response.json();
       toast({
         title: currentSessionRole === 'instructor' ? "Curso Enviado a Revisión" : "Curso Creado Exitosamente",
-        description: `El curso "${newCourseData.title}" ha sido ${currentSessionRole === 'instructor' ? 'enviado para su revisión' : 'creado y añadido localmente'}.`,
+        description: `El curso "${result.course.title}" ha sido creado con ID ${result.course.id}.`,
       });
 
       if (currentSessionRole === 'administrador') {
         router.push('/dashboard/admin/courses');
-      } else { // Instructor
+      } else { 
         router.push('/dashboard/instructor/my-courses');
       }
-    } catch (error) {
-        console.error("Error saving new course to localStorage:", error);
+      router.refresh(); // Forzar la actualización de datos en la página de destino
+    } catch (error: any) {
+        console.error("Error creando curso vía API:", error);
         toast({
             variant: "destructive",
-            title: "Error al Guardar",
-            description: "No se pudo guardar el nuevo curso localmente."
+            title: "Error de Creación",
+            description: error.message || "No se pudo crear el curso. Revise los datos o inténtelo más tarde."
         });
     } finally {
         setIsSubmitting(false);
