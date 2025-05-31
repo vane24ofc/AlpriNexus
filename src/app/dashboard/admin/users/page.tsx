@@ -27,13 +27,29 @@ import { Input } from '@/components/ui/input';
 
 interface User {
   id: string;
-  name: string;
+  name: string; // Corresponds to fullName from API
   email: string;
   role: Role;
-  joinDate: string;
+  joinDate: string; // Derived from createdAt from API
   avatarUrl?: string;
   status: 'active' | 'inactive';
+  // Add createdAt and updatedAt if needed for direct use, though joinDate is derived
+  createdAt?: string; 
+  updatedAt?: string;
 }
+
+// For API response structure
+interface ApiUser {
+  id: string;
+  fullName: string;
+  email: string;
+  role: Role;
+  status: 'active' | 'inactive';
+  avatarUrl?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 
@@ -42,8 +58,6 @@ const initialSampleUsers: User[] = [
   { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
   { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
   { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
-  { id: 'user4', name: 'Ana Otro-Estudiante', email: 'student2@example.com', role: 'estudiante', joinDate: '2023-05-01', avatarUrl: 'https://placehold.co/40x40.png?text=AE', status: 'inactive' },
-  { id: 'user5', name: 'Roberto Instructor-Jefe', email: 'head.instructor@example.com', role: 'instructor', joinDate: '2023-01-25', status: 'active' },
 ];
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -83,7 +97,7 @@ const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: User
                 {roleInfo.label}
             </Badge>
             </TableCell>
-            <TableCell className="hidden lg:table-cell whitespace-nowrap">{new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</TableCell>
+            <TableCell className="hidden lg:table-cell whitespace-nowrap">{user.joinDate ? new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</TableCell>
             <TableCell className="hidden md:table-cell">
             <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
                 {user.status === 'active' ? 'Activo' : 'Inactivo'}
@@ -153,20 +167,45 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
-    // TODO: Reemplazar con llamada a API: const fetchedUsers = await api.getUsers();
-    // setUsers(fetchedUsers);
     try {
-      const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-      if (storedUsers) {
-        setUsers(JSON.parse(storedUsers));
-      } else {
-        setUsers(initialSampleUsers);
-        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+      const response = await fetch('/api/users');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
-    } catch (error) {
-      console.error("Error cargando usuarios desde localStorage:", error);
-      toast({ variant: "destructive", title: "Error al Cargar", description: "No se pudieron cargar los usuarios. Usando datos de ejemplo." });
-      setUsers(initialSampleUsers);
+      const dataFromApi: ApiUser[] = await response.json();
+      const mappedUsers: User[] = dataFromApi.map(apiUser => ({
+        id: apiUser.id,
+        name: apiUser.fullName,
+        email: apiUser.email,
+        role: apiUser.role,
+        status: apiUser.status,
+        avatarUrl: apiUser.avatarUrl,
+        joinDate: new Date(apiUser.createdAt).toISOString().split('T')[0],
+        createdAt: apiUser.createdAt,
+        updatedAt: apiUser.updatedAt,
+      }));
+      setUsers(mappedUsers);
+    } catch (error: any) {
+      console.error('Error fetching users from API:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error al Cargar Usuarios',
+        description: error.message || 'No se pudieron obtener los usuarios del servidor. Mostrando datos de ejemplo.',
+      });
+      // Fallback to localStorage/sample data if API fails
+      try {
+        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        if (storedUsers) {
+          setUsers(JSON.parse(storedUsers));
+        } else {
+          setUsers(initialSampleUsers);
+          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+        }
+      } catch (localError) {
+        console.error("Error cargando usuarios desde localStorage tras fallo de API:", localError);
+        setUsers(initialSampleUsers); // Ultimate fallback
+      }
     } finally {
       setIsLoading(false);
     }
@@ -178,10 +217,21 @@ export default function AdminUsersPage() {
     fetchUsers();
   }, [searchParams, fetchUsers]);
 
+  // Temporarily keep localStorage for Edit/Delete/ChangeRole/ToggleStatus simulation
+  // This useEffect will be removed or modified once PUT/DELETE APIs are implemented
   useEffect(() => {
-    // Guardar en localStorage cuando `users` cambie y no estemos cargando
-    if (!isLoading) {
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+    if (!isLoading && users.length > 0 && localStorage.getItem(USERS_STORAGE_KEY)) { 
+      // Only update localStorage if it was already used (e.g., after a modification simulation)
+      // Or if the API failed and we are relying on local data.
+      // For now, let's be cautious and only update if there's an explicit simulated modification
+      // This part needs refinement once actual API calls for mutations are in place.
+      // For now, let's assume that if fetchUsers failed and used localStorage, we want to save changes made via UI back to localStorage.
+      const apiFailedAndLocalStorageUsed = users === initialSampleUsers || (localStorage.getItem(USERS_STORAGE_KEY) && users !== initialSampleUsers);
+      if (apiFailedAndLocalStorageUsed) {
+         localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      }
+    } else if (!isLoading && users.length === 0 && !localStorage.getItem(USERS_STORAGE_KEY)) {
+      // If API returns no users and localStorage is also empty, maybe store empty or sample
     }
   }, [users, isLoading]);
 
@@ -214,12 +264,15 @@ export default function AdminUsersPage() {
   const handleDeleteUser = async () => {
     if (!userToModify) return;
     const userName = userToModify.name;
-    // TODO: Reemplazar con llamada a API: await api.deleteUser(userToModify.id);
-    setUsers(prevUsers => prevUsers.filter(user => user.id !== userToModify!.id));
-    // localStorage update will be handled by the useEffect watching `users`
+    // TODO: Implement API DELETE /api/users/[userId]
+    // For now, simulate with localStorage:
+    const updatedUsers = users.filter(user => user.id !== userToModify!.id);
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Persist simulated change
+    
     toast({
-      title: "Usuario Eliminado",
-      description: `El usuario "${userName}" ha sido eliminado.`,
+      title: "Usuario Eliminado (Simulado)",
+      description: `El usuario "${userName}" ha sido eliminado localmente.`,
       variant: "destructive",
     });
     closeDialog();
@@ -229,15 +282,17 @@ export default function AdminUsersPage() {
     if (!userToModify || !newRoleForChange) return;
     const userName = userToModify.name;
     const newRoleLabel = roleDisplayInfo[newRoleForChange].label;
-    // TODO: Reemplazar con llamada a API: await api.updateUserRole(userToModify.id, newRoleForChange);
-    setUsers(prevUsers => 
-        prevUsers.map(user => 
+    // TODO: Implement API PUT /api/users/[userId] { role: newRoleForChange }
+    // For now, simulate with localStorage:
+    const updatedUsers = users.map(user => 
             user.id === userToModify!.id ? { ...user, role: newRoleForChange! } : user
-        )
-    );
+        );
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Persist simulated change
+    
     toast({
-      title: "Rol de Usuario Actualizado",
-      description: `El rol de "${userName}" ha sido cambiado a ${newRoleLabel}.`,
+      title: "Rol de Usuario Actualizado (Simulado)",
+      description: `El rol de "${userName}" ha sido cambiado a ${newRoleLabel} localmente.`,
     });
     closeDialog();
   };
@@ -248,15 +303,17 @@ export default function AdminUsersPage() {
     const userName = userToModify.name;
     const statusMessage = newStatus === 'active' ? 'activado' : 'desactivado';
 
-    // TODO: Reemplazar con llamada a API: await api.updateUserStatus(userToModify.id, newStatus);
-    setUsers(prevUsers =>
-      prevUsers.map(user =>
+    // TODO: Implement API PUT /api/users/[userId] { status: newStatus }
+    // For now, simulate with localStorage:
+    const updatedUsers = users.map(user =>
         user.id === userToModify!.id ? { ...user, status: newStatus } : user
-      )
-    );
+      );
+    setUsers(updatedUsers);
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(updatedUsers)); // Persist simulated change
+
     toast({
-      title: `Usuario ${statusMessage}`,
-      description: `El usuario "${userName}" ha sido ${statusMessage}.`,
+      title: `Usuario ${statusMessage} (Simulado)`,
+      description: `El usuario "${userName}" ha sido ${statusMessage} localmente.`,
     });
     closeDialog();
   };
@@ -270,7 +327,6 @@ export default function AdminUsersPage() {
     } else {
       params.delete('search');
     }
-    // Asegúrate de que pathname está definido. Si se ejecuta en el cliente, window.location.pathname está disponible.
     const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
     router.replace(`${currentPathname}?${params.toString()}`, { scroll: false });
   };
@@ -381,4 +437,3 @@ export default function AdminUsersPage() {
   );
 }
     
-
