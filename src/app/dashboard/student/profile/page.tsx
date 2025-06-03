@@ -5,7 +5,7 @@ import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { User, Mail, Edit3, Shield, CalendarDays, BookOpen, Camera, Settings, Award, CheckCircle, Users as UsersIcon, Loader2 } from "lucide-react"; // Added Loader2
+import { User, Mail, Settings, Shield, CalendarDays, BookOpen, Camera, Award, CheckCircle, Users as UsersIcon, Loader2 } from "lucide-react"; // Added Loader2
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import {
@@ -36,8 +36,21 @@ const sampleAchievements: Achievement[] = [
 ];
 
 const USER_PROFILE_STORAGE_KEY = 'nexusAlpriUserProfile'; // From DashboardLayout
-const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+const SIMULATED_STUDENT_USER_ID = 3; // Consistent with other student pages
+
+interface ApiStudentEnrollment {
+  enrollmentId: string;
+  userId: number;
+  courseId: string;
+  enrolledAt: string;
+  completedAt: string | null;
+  progressPercent: number;
+  course: {
+    id: string;
+    title: string;
+    status: 'pending' | 'approved' | 'rejected';
+  };
+}
 
 export default function StudentProfilePage() {
   const { toast } = useToast();
@@ -60,26 +73,28 @@ export default function StudentProfilePage() {
 
     const fetchStudentStats = async () => {
       setIsLoadingStats(true);
-      // TODO: API Call - GET /api/me/profile-stats (or similar)
-      // This API would return joinDate, coursesEnrolled count, coursesCompleted count.
-      // For now, we simulate it using localStorage for enrolled/completed and a static join date.
-      await new Promise(resolve => setTimeout(resolve, 700)); // Simulate API delay
-
+      const joinDateSimulated = "15 de Enero, 2023"; // Static for now
       let enrolledCount = 0;
       let completedCount = 0;
-      const joinDateSimulated = "15 de Enero, 2023"; // Could also come from userProfile if set during registration
 
       try {
-        const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        if (storedEnrolled) {
-          enrolledCount = (JSON.parse(storedEnrolled) as string[]).length;
+        const response = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
+        if (response.ok) {
+          const enrollments: ApiStudentEnrollment[] = await response.json();
+          const approvedEnrollments = enrollments.filter(e => e.course && e.course.status === 'approved');
+          enrolledCount = approvedEnrollments.length;
+          completedCount = approvedEnrollments.filter(e => e.completedAt || e.progressPercent === 100).length;
+        } else {
+          // Handle cases where user might have no enrollments (404) or other errors
+          if (response.status !== 404) {
+            const errorData = await response.json().catch(() => ({ message: "Error desconocido al cargar estadísticas de inscripción." }));
+            console.error("Error fetching student enrollment stats:", errorData.message);
+             toast({ variant: "destructive", title: "Error de Estadísticas", description: "No se pudieron cargar las estadísticas de inscripción." });
+          }
         }
-        const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
-        if (storedCompleted) {
-          completedCount = (JSON.parse(storedCompleted) as string[]).length;
-        }
-      } catch (e) {
-        console.error("Error reading student stats from localStorage", e);
+      } catch (e: any) {
+        console.error("Error fetching student stats from API:", e);
+        toast({ variant: "destructive", title: "Error de Carga", description: e.message || "No se pudieron cargar las estadísticas." });
       }
 
       setStudentStats({
@@ -91,7 +106,7 @@ export default function StudentProfilePage() {
     };
 
     fetchStudentStats();
-  }, [userProfile.name]);
+  }, [userProfile.name, toast]);
 
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
