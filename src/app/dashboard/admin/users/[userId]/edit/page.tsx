@@ -6,7 +6,8 @@ import { useParams, useRouter } from 'next/navigation';
 import UserForm from '@/app/dashboard/admin/users/user-form';
 import type { Role } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Edit } from 'lucide-react';
+import { Loader2, Edit, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button'; // Importar Button
 
 interface ApiUser {
   id: string;
@@ -27,15 +28,20 @@ export default function EditUserPage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
-  const [initialUserData, setInitialUserData] = useState<any | undefined>(undefined); // UserForm expects fullName, etc.
+  const [initialUserData, setInitialUserData] = useState<any | undefined>(undefined);
 
   const fetchUser = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setIsLoadingUser(false);
+      toast({ variant: "destructive", title: "Error", description: "ID de usuario no válido."});
+      router.push('/dashboard/admin/users');
+      return;
+    }
     setIsLoadingUser(true);
     try {
       const response = await fetch(`/api/users/${userId}`);
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: 'Usuario no encontrado o error al cargar.' }));
         throw new Error(errorData.message || 'Usuario no encontrado o error al cargar.');
       }
       const userFromApi: ApiUser = await response.json();
@@ -44,8 +50,7 @@ export default function EditUserPage() {
         email: userFromApi.email,
         role: userFromApi.role,
         status: userFromApi.status,
-        avatarUrl: userFromApi.avatarUrl || '', // Ensure avatarUrl is always a string for the form
-        // Passwords are not fetched or pre-filled for editing security
+        avatarUrl: userFromApi.avatarUrl || '',
         password: '', 
         confirmPassword: '',
       });
@@ -66,14 +71,10 @@ export default function EditUserPage() {
     setIsSubmitting(true);
     
     const submissionData = { ...data };
-    // If password fields are empty (or only one is filled, zod would catch), don't send them.
-    // The API will only update password if it's present in the body.
     if (!submissionData.password || submissionData.password.trim() === '') {
       delete submissionData.password;
       delete submissionData.confirmPassword;
     }
-
-    // Ensure avatarUrl is an empty string if not provided, instead of null/undefined
     submissionData.avatarUrl = submissionData.avatarUrl || '';
 
     try {
@@ -84,7 +85,7 @@ export default function EditUserPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ message: `Error ${response.status} al actualizar el usuario.` }));
         throw new Error(errorData.message || `Error ${response.status} al actualizar el usuario.`);
       }
 
@@ -93,7 +94,7 @@ export default function EditUserPage() {
         description: `La información del usuario "${data.fullName}" ha sido actualizada.`,
       });
       router.push('/dashboard/admin/users');
-      router.refresh(); // Forzar actualización de la lista de usuarios
+      router.refresh();
     } catch (error: any) {
       console.error("Error actualizando usuario:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
@@ -111,12 +112,19 @@ export default function EditUserPage() {
     );
   }
 
-  if (!initialUserData) {
+  if (!initialUserData && !isLoadingUser) {
     return (
-         <div className="flex h-screen flex-col items-center justify-center space-y-4">
-            <p className="text-lg text-destructive">No se pudieron cargar los datos del usuario para editar.</p>
+         <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center p-4">
+            <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
+            <p className="text-xl font-semibold text-destructive">Error al Cargar Usuario</p>
+            <p className="text-muted-foreground">No se pudieron cargar los datos del usuario para editar. Es posible que el usuario no exista o haya un problema de red.</p>
+            <Button onClick={() => router.push('/dashboard/admin/users')} className="mt-4">Volver a Usuarios</Button>
          </div>
     );
+  }
+  
+  if (!initialUserData) { // Este caso puede ser redundante por el anterior pero es una salvaguarda
+    return null; // O algún otro UI de carga/error si isLoadingUser es true pero initialUserData aún no está
   }
 
   return (
