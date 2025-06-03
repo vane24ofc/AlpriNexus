@@ -25,18 +25,10 @@ interface UploadedFile {
   error?: string;
   visibility: FileVisibility;
   category: FileCategory;
+  apiResourceId?: string; // To store the ID from the backend DB
 }
 
-interface StoredResource {
-  id: string;
-  name: string;
-  type: string; // e.g., 'PDF', 'Video', 'Documento'
-  size: string;
-  uploadDate: string;
-  url?: string;
-  visibility: FileVisibility;
-  category: FileCategory; // To know which list it belongs to
-}
+// StoredResource interface is no longer needed here as we call API directly
 
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe },
@@ -49,10 +41,8 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
   { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
 ];
 
-// Storage keys are no longer used for saving new uploads here, but kept for reference
-// as ResourcesPage might still use them for initial load fallback.
-// const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
-// const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
+// SIMULATED_UPLOADER_USER_ID is needed if you want to send uploaderUserId to API
+const SIMULATED_UPLOADER_USER_ID = 1; // Example admin user ID
 
 export function FileUploader() {
   const { currentSessionRole } = useSessionRole();
@@ -68,7 +58,7 @@ export function FileUploader() {
 
   useEffect(() => {
     if (isInstructor) {
-      setSelectedCategory('learning'); // Instructors always upload to learning resources
+      setSelectedCategory('learning'); 
     }
   }, [isInstructor]);
 
@@ -106,75 +96,76 @@ export function FileUploader() {
   };
 
   const handleSimulateUploadAll = async () => {
-    const pendingFiles = files.filter(f => f.status === 'pending' || f.status === 'uploading');
+    const pendingFiles = files.filter(f => f.status === 'pending' || (f.status === 'error' && !f.apiResourceId)); // Retry errors if not already submitted
     if (pendingFiles.length === 0) {
-        toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero." });
+        toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero o asegúrate de que no hayan fallado previamente." });
         return;
     }
     setIsSimulatingUpload(true);
-    toast({ title: "Subida Iniciada (Simulada)", description: "Los archivos seleccionados están siendo procesados." });
+    toast({ title: "Subida Iniciada", description: "Los archivos seleccionados están siendo procesados." });
 
     for (const uploadedFile of pendingFiles) {
-      setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0 } : f));
+      setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f));
       
-      // Simulate progress
       for (let currentProgress = 0; currentProgress <= 100; currentProgress += Math.floor(Math.random() * 20) + 20) {
-        await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+        await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 200)); // Slightly faster simulation
         setFiles(prev =>
           prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: Math.min(currentProgress, 100) } : f))
         );
         if (currentProgress >= 100) break;
       }
 
-      const success = Math.random() > 0.1; // 90% success rate
-      const newStatus = success ? 'success' : 'error';
-      const errorMsg = success ? undefined : 'Fallo al subir (simulado)';
+      // After simulation, try to create metadata record in DB
+      const resourcePayload = {
+        name: uploadedFile.file.name,
+        type: getFileType(uploadedFile.file.name),
+        size: formatBytes(uploadedFile.file.size),
+        visibility: uploadedFile.visibility,
+        category: uploadedFile.category,
+        uploaderUserId: canUpload ? SIMULATED_UPLOADER_USER_ID : undefined, // Set uploader ID if available
+      };
 
-      setFiles(prev =>
-        prev.map(f =>
-          f.id === uploadedFile.id ? { 
-              ...f, 
-              progress: 100, 
-              status: newStatus,
-              error: errorMsg
-          } : f
-        )
-      );
+      try {
+        const response = await fetch('/api/resources', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(resourcePayload),
+        });
 
-      if (success) {
-        // const storedResource: StoredResource = {
-        //   id: uploadedFile.id,
-        //   name: uploadedFile.file.name,
-        //   type: getFileType(uploadedFile.file.name),
-        //   size: formatBytes(uploadedFile.file.size),
-        //   uploadDate: new Date().toISOString().split('T')[0],
-        //   url: '#', // Placeholder URL
-        //   visibility: uploadedFile.visibility,
-        //   category: uploadedFile.category,
-        // };
-
-        // TODO: API Call - POST /api/resources with file data & metadata
-        // On success, the API would handle storage. The client might then
-        // trigger a refetch of the resources list on the ResourcesPage.
-
-        // Removed localStorage persistence for uploaded files.
-        // const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
-        // try {
-        //   if (typeof window !== 'undefined') {
-        //     const existingResourcesString = localStorage.getItem(storageKey);
-        //     const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
-        //     localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
-        //   }
-        // } catch (e) {
-        //   console.error("Error guardando recurso en localStorage:", e);
-        //   toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
-        // }
-        console.log(`Simulated successful upload for ${uploadedFile.file.name}. Metadata would be sent to API.`);
-
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({message: "Error desconocido del servidor."}));
+          throw new Error(errorData.message || `Error ${response.status} al crear metadatos.`);
+        }
+        
+        const result = await response.json();
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === uploadedFile.id ? { 
+                ...f, 
+                progress: 100, 
+                status: 'success',
+                apiResourceId: result.resource.id // Store the ID from the backend
+            } : f
+          )
+        );
+        toast({ title: "Archivo Registrado", description: `Metadatos para "${uploadedFile.file.name}" creados en la base de datos.` });
+      } catch (apiError: any) {
+        console.error(`API Error for ${uploadedFile.file.name}:`, apiError);
+        setFiles(prev =>
+          prev.map(f =>
+            f.id === uploadedFile.id ? { 
+                ...f, 
+                progress: 100, 
+                status: 'error',
+                error: apiError.message || 'Fallo al registrar en BD.'
+            } : f
+          )
+        );
+        toast({ variant: "destructive", title: `Error al Registrar ${uploadedFile.file.name}`, description: apiError.message });
       }
     }
     setIsSimulatingUpload(false);
-    toast({ title: "Proceso de Subida Completado", description: "Algunos archivos pueden haber fallado (simulado)." });
+    // toast({ title: "Proceso de Registro Completado", description: "Verifica el estado de cada archivo." });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -195,10 +186,10 @@ export function FileUploader() {
     setFiles(prevFiles => prevFiles.filter(file => file.id !== id && file.status !== 'uploading'));
   };
   
-  const clearAllPendingFiles = () => {
-    setFiles(prev => prev.filter(f => f.status === 'uploading' || f.status === 'success' || f.status === 'error'));
-    if (files.some(f => f.status === 'uploading')) {
-      toast({title: "No se pueden limpiar todos", description: "Algunos archivos están en proceso de subida."})
+  const clearAllNonSuccessfulFiles = () => {
+    setFiles(prev => prev.filter(f => f.status === 'success' || f.status === 'uploading'));
+    if (files.some(f => f.status === 'uploading' && isSimulatingUpload)) {
+      toast({title: "Algunos archivos están en proceso", description: "Espera a que terminen las subidas activas para limpiar."})
     }
   };
 
@@ -210,7 +201,7 @@ export function FileUploader() {
     return categoryOptions.find(opt => opt.value === category)?.label || 'Desconocido';
   };
   
-  const filesToUploadCount = files.filter(f => f.status === 'pending').length;
+  const filesToUploadOrRetryCount = files.filter(f => f.status === 'pending' || (f.status === 'error' && !f.apiResourceId)).length;
 
   if (!canUpload) return null;
 
@@ -221,7 +212,7 @@ export function FileUploader() {
         <CardDescription>
           {isAdmin && "Selecciona la categoría y visibilidad, luego arrastra y suelta archivos o haz clic para buscar."}
           {isInstructor && "Selecciona la visibilidad (tus archivos se subirán a 'Archivos de Aprendizaje'), luego arrastra y suelta archivos o haz clic para buscar."}
-          {" Admite imágenes, PDF, videos y documentos."}
+          {" Se registrarán los metadatos en la base de datos. La subida real del archivo no está implementada."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -266,7 +257,7 @@ export function FileUploader() {
               <Select 
                   value={selectedVisibility} 
                   onValueChange={(value: FileVisibility) => setSelectedVisibility(value)}
-                  disabled={isSimulatingUpload || (isAdmin && selectedCategory === 'company' && false)} // Visibilidad siempre editable, incluso para company resources
+                  disabled={isSimulatingUpload}
               >
               <SelectTrigger id="visibility-select">
                   <SelectValue placeholder="Seleccionar visibilidad" />
@@ -298,7 +289,7 @@ export function FileUploader() {
           ) : (
             <>
               <p className="text-lg font-semibold">Arrastra y suelta archivos aquí, o haz clic para seleccionar archivos</p>
-              <p className="text-sm text-muted-foreground">Tamaño máximo de archivo: 50MB</p>
+              <p className="text-sm text-muted-foreground">Tamaño máximo de archivo: 50MB (para simulación)</p>
             </>
           )}
         </div>
@@ -316,10 +307,10 @@ export function FileUploader() {
                       <div className="flex items-center space-x-2 flex-wrap gap-y-1 mt-1">
                         <p className="text-xs text-muted-foreground">{formatBytes(uploadedFile.file.size)}</p>
                         <Badge variant="outline" className="text-xs capitalize">
-                           Categoría: {getCategoryLabel(uploadedFile.category)}
+                           Cat: {getCategoryLabel(uploadedFile.category)}
                         </Badge>
                         <Badge variant="secondary" className="text-xs capitalize">
-                           Visibilidad: {getVisibilityLabel(uploadedFile.visibility)}
+                           Vis: {getVisibilityLabel(uploadedFile.visibility)}
                         </Badge>
                       </div>
                       {uploadedFile.status === 'uploading' && (
@@ -327,17 +318,17 @@ export function FileUploader() {
                       )}
                       {uploadedFile.status === 'success' && (
                         <Badge variant="default" className="mt-2 bg-accent text-accent-foreground">
-                          <CheckCircle className="w-3 h-3 mr-1" /> Éxito
+                          <CheckCircle className="w-3 h-3 mr-1" /> Registrado en BD
                         </Badge>
                       )}
                       {uploadedFile.status === 'error' && (
                         <Badge variant="destructive" className="mt-2">
-                          <XCircle className="w-3 h-3 mr-1" /> Error: {uploadedFile.error || 'Fallo al subir'}
+                          <XCircle className="w-3 h-3 mr-1" /> Error: {uploadedFile.error || 'Fallo al registrar'}
                         </Badge>
                       )}
                        {uploadedFile.status === 'pending' && (
                         <Badge variant="outline" className="mt-2">
-                            Pendiente
+                            Pendiente de Registro
                         </Badge>
                        )}
                     </div>
@@ -363,10 +354,10 @@ export function FileUploader() {
         )}
          {files.length > 0 && (
             <div className="mt-6 flex justify-end gap-2">
-                 <Button variant="outline" onClick={clearAllPendingFiles} disabled={isSimulatingUpload && files.some(f=> f.status === 'uploading')}>Limpiar Pendientes</Button>
-                 <Button onClick={handleSimulateUploadAll} disabled={isSimulatingUpload || filesToUploadCount === 0} className="min-w-[150px]">
+                 <Button variant="outline" onClick={clearAllNonSuccessfulFiles} disabled={isSimulatingUpload && files.some(f=> f.status === 'uploading')}>Limpiar Cola (No Exitosos)</Button>
+                 <Button onClick={handleSimulateUploadAll} disabled={isSimulatingUpload || filesToUploadOrRetryCount === 0} className="min-w-[150px]">
                     {isSimulatingUpload ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Send className="mr-2 h-5 w-5" />}
-                    {isSimulatingUpload ? 'Subiendo...' : `Subir ${filesToUploadCount > 0 ? `(${filesToUploadCount}) Archivo(s)` : 'Archivos Pendientes'}`}
+                    {isSimulatingUpload ? 'Registrando...' : `Registrar ${filesToUploadOrRetryCount > 0 ? `(${filesToUploadOrRetryCount}) Archivo(s)` : 'Archivos'}`}
                   </Button>
             </div>
         )}
