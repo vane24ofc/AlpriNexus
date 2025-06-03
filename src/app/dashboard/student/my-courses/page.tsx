@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -22,18 +21,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
-const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
+// Constants for simulated user ID
+const SIMULATED_STUDENT_USER_ID = 3;
 
-const initialSeedCoursesForStudent: Course[] = [
-  { id: 'studentSeed1', title: 'Fundamentos de Programación (Seed)', description: 'Aprende a programar.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Prof. Codes', status: 'approved', lessons: [{id: 'l1-sseed1', title: 'Intro Prog Seed'}], dataAiHint: 'programming basics' },
-];
+interface ApiEnrolledCourse {
+  enrollmentId: string;
+  userId: number;
+  courseId: string;
+  enrolledAt: string;
+  completedAt: string | null;
+  progressPercent: number;
+  course: {
+    id: string;
+    title: string;
+    description: string;
+    thumbnailUrl: string;
+    instructorName: string;
+    status: 'pending' | 'approved' | 'rejected';
+    dataAiHint?: string;
+    lessons?: any[]; // Lessons aren't strictly needed for this card display but API might send them
+  };
+}
 
 interface EnrolledCourseDisplay extends Course {
   progress: number;
   isCompleted: boolean;
+  enrollmentId?: string; // Optional, might be useful later
 }
 
 interface EnrolledCourseCardProps {
@@ -46,7 +59,7 @@ const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ cour
     <Card className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
       <div className="relative w-full h-48">
         <Image
-          src={course.thumbnailUrl}
+          src={course.thumbnailUrl || 'https://placehold.co/600x338.png'}
           alt={course.title}
           fill
           style={{ objectFit: 'cover' }}
@@ -101,123 +114,45 @@ export default function MyEnrolledCoursesPage() {
   useEffect(() => {
     const loadEnrolledCourses = async () => {
       setIsLoading(true);
-      let coursesToDisplay: EnrolledCourseDisplay[] = [];
-
-      // TODO: API Call - GET /api/me/enrolled-courses (or similar)
-      // This API should return the list of courses the student is enrolled in,
-      // ideally including their progress and completion status.
-      // For now, we simulate this by reading from localStorage.
-
       try {
-        let allAvailableCourses: Course[] = [];
-        // const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        // if (storedCourses) {
-        //   const parsedCourses = JSON.parse(storedCourses);
-        //   if (Array.isArray(parsedCourses)) {
-        //     allAvailableCourses = parsedCourses;
-        //   } else {
-        //      allAvailableCourses = initialSeedCoursesForStudent;
-        //      localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
-        //   }
-        // } else {
-        //   allAvailableCourses = initialSeedCoursesForStudent;
-        //   localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
-        // }
-
-        // Fallback to localStorage while API is not ready
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        if (storedCourses) {
-          allAvailableCourses = JSON.parse(storedCourses);
-        } else {
-          allAvailableCourses = initialSeedCoursesForStudent;
-          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForStudent));
+        const response = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+          throw new Error(errorData.message || 'Error al cargar cursos inscritos.');
         }
+        const apiEnrollments: ApiEnrolledCourse[] = await response.json();
+        
+        const coursesToDisplay: EnrolledCourseDisplay[] = apiEnrollments.map(enrollment => ({
+          id: enrollment.course.id,
+          title: enrollment.course.title,
+          description: enrollment.course.description,
+          thumbnailUrl: enrollment.course.thumbnailUrl,
+          instructorName: enrollment.course.instructorName,
+          status: enrollment.course.status, // Should be 'approved' based on API logic
+          lessons: enrollment.course.lessons || [],
+          dataAiHint: enrollment.course.dataAiHint,
+          progress: enrollment.progressPercent,
+          isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
+          enrollmentId: enrollment.enrollmentId,
+        }));
 
+        setEnrolledCourses(coursesToDisplay);
 
-        let enrolledIds: Set<string> = new Set();
-        // const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        // if (storedEnrolledIdsString) {
-        //   const parsedIds = JSON.parse(storedEnrolledIdsString);
-        //   if (Array.isArray(parsedIds)) {
-        //     enrolledIds = new Set(parsedIds);
-        //   }
-        // }
-
-        // Fallback to localStorage
-        const storedEnrolledIdsString = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        if (storedEnrolledIdsString) {
-            enrolledIds = new Set(JSON.parse(storedEnrolledIdsString));
-        }
-
-
-        let completedIds: Set<string> = new Set();
-        // const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
-        // if (storedCompletedIdsString) {
-        //     const parsedCompletedIds = JSON.parse(storedCompletedIdsString);
-        //     if (Array.isArray(parsedCompletedIds)) {
-        //         completedIds = new Set(parsedCompletedIds);
-        //     }
-        // }
-        // Fallback to localStorage
-        const storedCompletedIdsString = localStorage.getItem(COMPLETED_COURSES_KEY);
-        if (storedCompletedIdsString) {
-            completedIds = new Set(JSON.parse(storedCompletedIdsString));
-        }
-
-
-        coursesToDisplay = allAvailableCourses
-          .filter(course => enrolledIds.has(course.id) && course.status === 'approved')
-          .map(course => {
-            const isCompleted = completedIds.has(course.id);
-            let progress = 0;
-
-            // TODO: API should provide progress or completed lessons
-            // For now, simulate from localStorage
-            if (isCompleted) {
-                progress = 100;
-            } else {
-                const courseLessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
-                const storedLessonProgressString = localStorage.getItem(courseLessonProgressKey);
-                if (storedLessonProgressString && course.lessons && course.lessons.length > 0) {
-                    try {
-                        const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgressString);
-                        progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-                    } catch (e) {
-                        progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
-                    }
-                } else if (course.lessons && course.lessons.length > 0) {
-                     progress = 0;
-                } else {
-                    progress = Math.floor(Math.random() * 99);
-                }
-            }
-
-            return {
-              ...course,
-              instructorName: course.instructorName || "Instructor Desconocido",
-              progress: progress,
-              isCompleted: isCompleted,
-            };
-          });
-
-      } catch (error) {
-        console.error("Error loading enrolled courses (simulated):", error);
+      } catch (error: any) {
+        console.error("Error loading enrolled courses from API:", error);
         toast({
           variant: "destructive",
           title: "Error al Cargar Cursos",
-          description: "No se pudieron cargar tus cursos inscritos. Se muestran datos de ejemplo.",
+          description: error.message || "No se pudieron cargar tus cursos inscritos.",
         });
-        // Fallback to very basic example if all else fails
-        coursesToDisplay = initialSeedCoursesForStudent.map(c => ({...c, progress: 10, isCompleted: false}));
+        setEnrolledCourses([]); // Clear courses on error
+      } finally {
+        setIsLoading(false);
       }
-
-      setEnrolledCourses(coursesToDisplay);
-      setIsLoading(false);
     };
 
     loadEnrolledCourses();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [toast]);
 
   const handleCertificateClick = useCallback((courseTitle: string) => {
     setCertificateCourseTitle(courseTitle);
