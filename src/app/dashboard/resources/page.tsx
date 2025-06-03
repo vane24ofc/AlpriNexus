@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3 } from 'lucide-react';
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3, Briefcase } from 'lucide-react'; // <--- Briefcase añadido aquí
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
@@ -19,14 +19,12 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
-  DialogClose
-} from "@/components/ui/dialog";
+} from "@/components/ui/dialog"; // DialogClose no se usa directamente aquí
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent as ConfirmDialogContent, // Renamed to avoid conflict
+  AlertDialogContent as ConfirmDialogContent,
   AlertDialogDescription as ConfirmDialogDescription,
   AlertDialogFooter as ConfirmDialogFooter,
   AlertDialogHeader as ConfirmDialogHeader,
@@ -53,7 +51,7 @@ interface ResourceFile {
   updatedAt?: string;
 }
 
-interface ApiResource { // Used by FileUploader callback
+interface ApiResource {
   id: string;
   name: string;
   type: string;
@@ -67,10 +65,10 @@ interface ApiResource { // Used by FileUploader callback
   updatedAt?: string;
 }
 
-const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
-  { value: 'public', label: 'Todos (Público)', icon: Globe },
-  { value: 'instructors', label: 'Instructores y Administradores', icon: Users },
-  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye },
+const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType; badgeClass?: string }[] = [
+  { value: 'public', label: 'Todos (Público)', icon: Globe, badgeClass: 'bg-blue-100 text-blue-700 border-blue-300' },
+  { value: 'instructors', label: 'Instructores y Admins', icon: Users, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300' },
+  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
 ];
 
 const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
@@ -145,14 +143,14 @@ export default function ResourcesPage() {
 
     files.forEach(file => {
       const matchesSearch = file.name.toLowerCase().includes(lowerSearchTerm) || file.type.toLowerCase().includes(lowerSearchTerm);
-      if (!matchesSearch) return;
+      if (!matchesSearch && searchTerm.trim() !== '') return; // Only apply search filter if search term is not empty
 
       let isVisible = false;
       if (role === 'administrador') {
         isVisible = true;
       } else if (role === 'instructor') {
         isVisible = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-      } else {
+      } else { // Estudiante
         isVisible = file.visibility === 'public';
       }
 
@@ -191,7 +189,7 @@ export default function ResourcesPage() {
         title: "Recurso Eliminado",
         description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
       });
-      fetchResources(); // Re-fetch resources to update the list
+      fetchResources();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -216,7 +214,6 @@ export default function ResourcesPage() {
   const handleCloseEditDialog = () => {
     setIsEditDialogOpen(false);
     setEditingResource(null);
-    // Reset form fields if needed, though they are set on open
     setEditFormName('');
   };
 
@@ -260,11 +257,12 @@ export default function ResourcesPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Fecha desconocida';
     try {
       return format(parseISO(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
     } catch (error) {
-      return dateString;
+      return dateString; 
     }
   };
 
@@ -310,7 +308,7 @@ export default function ResourcesPage() {
                       <TableCell className="hidden sm:table-cell">{file.type}</TableCell>
                       <TableCell className="hidden md:table-cell">
                         {displayInfo && VisibilityIcon && (
-                          <Badge variant="secondary" className={`text-xs ${displayInfo.badgeClass}`}>
+                          <Badge variant="outline" className={`text-xs ${displayInfo.badgeClass || ''}`}>
                             <VisibilityIcon className="mr-1 h-3 w-3" />
                             {displayInfo.label}
                           </Badge>
@@ -334,7 +332,7 @@ export default function ResourcesPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-primary"
+                                className="text-muted-foreground hover:text-primary h-8 w-8"
                                 onClick={() => handleOpenEditDialog(file)}
                                 title="Editar Metadatos"
                               >
@@ -343,7 +341,7 @@ export default function ResourcesPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
                                 onClick={() => openDeleteDialog(file)}
                                 title="Eliminar Recurso"
                                 disabled={isDeleting && resourceToDelete?.id === file.id}
@@ -499,7 +497,10 @@ export default function ResourcesPage() {
       )}
 
       {resourceToDelete && (
-        <ConfirmDialogContent>
+        <ConfirmDialogContent
+            onOpenChange={setIsDeleteDialogOpen} // Cierra el diálogo si se hace clic fuera o se presiona Esc
+            open={isDeleteDialogOpen}
+        >
             <ConfirmDialogHeader>
               <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
               <ConfirmDialogDescription>
