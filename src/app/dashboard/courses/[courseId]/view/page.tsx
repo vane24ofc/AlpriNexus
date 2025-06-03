@@ -172,8 +172,6 @@ export default function StudentCourseViewPage() {
 
   const courseProgress = useMemo(() => {
     if (initialProgressFromDB !== null && completedLessons.size === 0 && course && course.lessons.length > 0) {
-        // If we have DB progress but no local completed lessons yet (initial load for existing enrollment)
-        // use DB progress. Otherwise, if lessons have been completed locally, calculate based on that.
         if (initialProgressFromDB > 0 && completedLessons.size / course.lessons.length * 100 < initialProgressFromDB ) {
            return initialProgressFromDB;
         }
@@ -188,24 +186,26 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const handleToggleLessonComplete = useCallback(async (lessonId: string) => {
-    if (!course || !currentEnrollmentId) {
-        toast({ variant: "destructive", title: "Error", description: "No se pudo obtener la información del curso o inscripción." });
+    if (!course) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo obtener la información del curso." });
         return;
     }
 
     try {
-      const response = await fetch(`/api/lessons/${lessonId}/complete`, {
+      const completeLessonResponse = await fetch(`/api/lessons/${lessonId}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: SIMULATED_STUDENT_USER_ID, courseId: course.id }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Error ${response.status} al marcar la lección.`);
+      if (!completeLessonResponse.ok) {
+        const errorData = await completeLessonResponse.json();
+        throw new Error(errorData.message || `Error ${completeLessonResponse.status} al marcar la lección.`);
       }
       
       let newProgressPercent = 0;
+      let allCompletedAfterThis = false;
+
       setCompletedLessons(prev => {
         const newSet = new Set(prev);
         newSet.add(lessonId);
@@ -216,27 +216,36 @@ export default function StudentCourseViewPage() {
             newProgressPercent = Math.round((newSet.size / course.lessons.length) * 100);
         }
 
-        if (course && newSet.size === course.lessons.length) {
+        allCompletedAfterThis = (course && newSet.size === course.lessons.length) || false;
+        if (allCompletedAfterThis) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground border-accent" });
         }
         return newSet;
       });
 
-      // Now, update the overall course progress
-      const progressResponse = await fetch(`/api/enrollments/${currentEnrollmentId}/progress`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ progressPercent: newProgressPercent }),
-      });
+      // Now, update the overall course progress in the database
+      if (currentEnrollmentId) {
+        const progressResponse = await fetch(`/api/enrollments/${currentEnrollmentId}/progress`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ progressPercent: newProgressPercent }),
+        });
 
-      if (!progressResponse.ok) {
-        const errorData = await progressResponse.json();
-        console.error("Error actualizando el progreso general del curso:", errorData.message || `Error ${progressResponse.status}`);
-        toast({ variant: "destructive", title: "Error de Progreso", description: "No se pudo actualizar el progreso general del curso en la base de datos." });
+        if (!progressResponse.ok) {
+          const errorData = await progressResponse.json();
+          console.error("Error actualizando el progreso general del curso:", errorData.message || `Error ${progressResponse.status}`);
+          toast({ variant: "destructive", title: "Error de Progreso", description: "No se pudo actualizar el progreso general del curso en la base de datos." });
+        } else {
+          // Update initialProgressFromDB to reflect the new DB state for UI consistency.
+          setInitialProgressFromDB(newProgressPercent);
+          if (allCompletedAfterThis && newProgressPercent === 100) {
+            // Optionally, re-fetch course details to get the completedAt timestamp if backend sets it and UI needs it.
+            // For now, the toast and UI update are likely sufficient.
+          }
+        }
       } else {
-        // Optionally, update initialProgressFromDB to reflect the new DB state,
-        // so the progress bar remains consistent if the component re-renders.
-        setInitialProgressFromDB(newProgressPercent);
+        console.warn("No enrollmentId found, cannot update course progress in DB.");
+        toast({ variant: "destructive", title: "Advertencia", description: "No se encontró la inscripción para actualizar el progreso general." });
       }
 
     } catch (error: any) {
