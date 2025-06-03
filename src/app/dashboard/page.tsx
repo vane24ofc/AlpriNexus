@@ -56,8 +56,8 @@ import { Badge } from '@/components/ui/badge';
 // Keys for localStorage
 const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-const COMPLETED_COURSES_KEY = 'simulatedCompletedCourseIds';
+// LOCAL_STORAGE_ENROLLED_KEY is no longer the primary source for StudentDashboardContent's enrollments
+// COMPLETED_COURSES_KEY is no longer the primary source for StudentDashboardContent's completions
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
 const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
@@ -66,7 +66,7 @@ const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 
 
-interface User {
+interface User { // Kept for AdminDashboardContent
   id: string;
   name: string;
   email: string;
@@ -348,58 +348,56 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
 };
 
 // Student Dashboard Content
-interface EnrolledCourseData extends Course {
+interface StudentApiEnrollment { // Type for the raw API response from /api/enrollments/user/[userId]
+  enrollmentId: string;
+  userId: number;
+  courseId: string;
+  enrolledAt: string;
+  completedAt: string | null;
+  progressPercent: number;
+  course: { // Nested course details
+    id: string;
+    title: string;
+    description: string;
+    thumbnailUrl: string;
+    instructorName: string;
+    status: 'pending' | 'approved' | 'rejected';
+    dataAiHint?: string;
+    lessons?: any[]; // Lessons might not be fully populated here
+  };
+}
+
+interface StudentDashboardCourseDisplay { // Type for courses displayed in student dashboard
+  id: string;
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  instructorName: string;
+  dataAiHint?: string;
   progress: number;
   isCompleted: boolean;
 }
 
 interface StudentDashboardContentProps {
-  allCourses: Course[];
-  enrolledCourseIds: Set<string>;
-  completedCourseIds: Set<string>;
+  enrolledCourseDetails: StudentDashboardCourseDisplay[]; // Use the new type
 }
 
-const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCourses, enrolledCourseIds, completedCourseIds }) => {
-  const studentCourses = useMemo(() => {
-    if (typeof window === 'undefined') return []; 
-    return allCourses
-      .filter(course => enrolledCourseIds.has(course.id) && course.status === 'approved')
-      .map(course => {
-        const isCompleted = completedCourseIds.has(course.id);
-        let progress = 0;
-        if (isCompleted) {
-          progress = 100;
-        } else {
-          const lessonProgressKey = `${COMPLETED_LESSONS_PREFIX}${course.id}`;
-          const storedLessonProgress = localStorage.getItem(lessonProgressKey);
-          if (storedLessonProgress && course.lessons && course.lessons.length > 0) {
-            try {
-              const completedLessonsForThisCourse: string[] = JSON.parse(storedLessonProgress);
-              progress = Math.round((completedLessonsForThisCourse.length / course.lessons.length) * 100);
-            } catch (e) { 
-              console.warn("Error parsing lesson progress for course:", course.id, e);
-              progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99); 
-            }
-          } else {
-            progress = (course.lessons && course.lessons.length > 0) ? 0 : Math.floor(Math.random() * 99);
-          }
-        }
-        return { ...course, progress, isCompleted } as EnrolledCourseData;
-      });
-  }, [allCourses, enrolledCourseIds, completedCourseIds]);
-
+const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrolledCourseDetails }) => {
+  
   const courseToContinue = useMemo(() => {
-    if (studentCourses.length === 0) return null;
-    const incompleteCourses = studentCourses.filter(course => !course.isCompleted);
+    if (enrolledCourseDetails.length === 0) return null;
+    const incompleteCourses = enrolledCourseDetails.filter(course => !course.isCompleted);
     if (incompleteCourses.length > 0) {
+      // Sort by highest progress among incomplete courses
       incompleteCourses.sort((a, b) => b.progress - a.progress); 
       return incompleteCourses[0];
     }
-    return studentCourses.sort((a,b) => b.progress - a.progress)[0]; 
-  }, [studentCourses]);
+    // If all are complete, pick the one with highest progress (likely 100), or any if all 100
+    return enrolledCourseDetails.sort((a,b) => b.progress - a.progress)[0]; 
+  }, [enrolledCourseDetails]);
 
-  const numCompletedCourses = studentCourses.filter(c => c.isCompleted).length;
-  const numEnrolledCourses = studentCourses.length;
+  const numCompletedCourses = enrolledCourseDetails.filter(c => c.isCompleted).length;
+  const numEnrolledCourses = enrolledCourseDetails.length;
 
   return (
     <div className="space-y-6">
@@ -465,9 +463,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ allCo
             </Link>
         </Button>
       </div>
-      {studentCourses.length > 0 ? (
+      {enrolledCourseDetails.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {studentCourses.map((course) => (
+          {enrolledCourseDetails.map((course) => (
             <Card key={course.id} className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow">
               <Image src={course.thumbnailUrl} alt={course.title} width={600} height={300} className="w-full h-48 object-cover" data-ai-hint={course.dataAiHint || "course thumbnail"} />
               <CardHeader>
@@ -576,8 +574,8 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
         // Por ahora, solo limpia localStorage
         localStorage.removeItem(USERS_STORAGE_KEY);
         localStorage.removeItem(COURSES_STORAGE_KEY);
-        localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY);
-        localStorage.removeItem(COMPLETED_COURSES_KEY);
+        // localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY); // No longer primary for student data
+        // localStorage.removeItem(COMPLETED_COURSES_KEY); // No longer primary for student data
         localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
         localStorage.removeItem(VIRTUAL_SESSIONS_STORAGE_KEY);
         localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
@@ -690,13 +688,17 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
 }
 
 
+const SIMULATED_STUDENT_USER_ID = 3;
+
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole } = useSessionRole(); 
   const { toast } = useToast(); 
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
-  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set());
+  const [allCourses, setAllCourses] = useState<Course[]>([]); // For Admin, Instructor, and as base for Student
+  const [allUsers, setAllUsers] = useState<User[]>([]); // For Admin
+  
+  // For StudentDashboardContent specifically - will hold processed enrollment data
+  const [studentEnrolledCourseDetails, setStudentEnrolledCourseDetails] = useState<StudentDashboardCourseDisplay[]>([]);
+
   const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
 
   useEffect(() => {
@@ -707,45 +709,62 @@ export default function DashboardHomePage() {
       }
       setIsLoadingDashboardData(true);
       try {
-        // TODO: API Call - GET /api/dashboard-summary o endpoints individuales
-        // Por ahora, simulamos con localStorage
+        // Fetch all courses (used by all roles in some capacity)
+        const coursesResponse = await fetch('/api/courses');
+        if (!coursesResponse.ok) {
+            const errorData = await coursesResponse.json().catch(() => ({ message: `Error cargando cursos: ${coursesResponse.status}`}));
+            throw new Error(errorData.message);
+        }
+        const coursesDataFromApi: Course[] = await coursesResponse.json();
+        setAllCourses(coursesDataFromApi);
 
-        // TODO: API Call - GET /api/courses
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        const coursesData = storedCourses ? JSON.parse(storedCourses) : initialSampleCourses;
-        setAllCourses(coursesData);
-        if (!storedCourses && initialSampleCourses.length > 0) localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
+        if (currentSessionRole === 'administrador') {
+          const usersResponse = await fetch('/api/users');
+          if (!usersResponse.ok) {
+            const errorData = await usersResponse.json().catch(() => ({ message: `Error cargando usuarios: ${usersResponse.status}`}));
+            throw new Error(errorData.message);
+          }
+          const usersDataFromApi: User[] = await usersResponse.json();
+          // Map API user to local User type if necessary (assuming they match for now)
+          setAllUsers(usersDataFromApi.map(u => ({...u, name: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
+        }
 
-        // TODO: API Call - GET /api/users (si el rol es admin)
-        const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        const usersData = storedUsers ? JSON.parse(storedUsers) : initialSampleUsers;
-        setAllUsers(usersData);
-        if (!storedUsers && initialSampleUsers.length > 0) localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+        if (currentSessionRole === 'estudiante') {
+          const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
+          if (!enrollmentsResponse.ok) {
+             if (enrollmentsResponse.status === 404) { // No enrollments found is not an error
+                setStudentEnrolledCourseDetails([]);
+             } else {
+                const errorData = await enrollmentsResponse.json().catch(() => ({ message: `Error cargando inscripciones: ${enrollmentsResponse.status}`}));
+                throw new Error(errorData.message);
+             }
+          } else {
+            const apiEnrollments: StudentApiEnrollment[] = await enrollmentsResponse.json();
+            const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments.map(enrollment => ({
+              id: enrollment.course.id,
+              title: enrollment.course.title,
+              description: enrollment.course.description,
+              thumbnailUrl: enrollment.course.thumbnailUrl,
+              instructorName: enrollment.course.instructorName,
+              dataAiHint: enrollment.course.dataAiHint,
+              progress: enrollment.progressPercent,
+              isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
+            }));
+            setStudentEnrolledCourseDetails(processedEnrollments);
+          }
+        }
 
-        // TODO: API Call - GET /api/me/enrollments (para IDs de cursos inscritos)
-        const storedEnrolled = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        const enrolledIdsData = storedEnrolled ? new Set<string>(JSON.parse(storedEnrolled)) : new Set<string>();
-        setEnrolledCourseIds(enrolledIdsData);
-        
-        // TODO: API Call - GET /api/me/completed-courses (para IDs de cursos completados)
-        const storedCompleted = localStorage.getItem(COMPLETED_COURSES_KEY);
-        const completedIdsData = storedCompleted ? new Set<string>(JSON.parse(storedCompleted)) : new Set<string>();
-        setCompletedCourseIds(completedIdsData);
-
-      } catch (error) {
-        console.error("Error loading data from localStorage for dashboard:", error);
+      } catch (error: any) {
+        console.error("Error loading data for dashboard:", error);
         toast({ 
             variant: "destructive",
             title: "Error al Cargar Datos del Panel",
-            description: "No se pudieron cargar los datos. Se usarán valores de ejemplo."
+            description: error.message || "No se pudieron cargar los datos del servidor. Se usarán valores de ejemplo si es posible."
         });
-        // Fallback a datos de ejemplo si localStorage falla
-        setAllCourses(initialSampleCourses);
-        setAllUsers(initialSampleUsers);
-        setEnrolledCourseIds(new Set());
-        setCompletedCourseIds(new Set());
-        if (initialSampleCourses.length > 0 && typeof window !== 'undefined') localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSampleCourses));
-        if (initialSampleUsers.length > 0 && typeof window !== 'undefined') localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initialSampleUsers));
+        // Fallback to initial samples if API fails catastrophically for courses/users
+        if (allCourses.length === 0) setAllCourses(initialSampleCourses);
+        if (allUsers.length === 0 && currentSessionRole === 'administrador') setAllUsers(initialSampleUsers);
+        // Student enrollments would just be empty on error
       }
       setIsLoadingDashboardData(false);
     };
@@ -753,7 +772,6 @@ export default function DashboardHomePage() {
     if (!isLoadingRole && currentSessionRole) { 
       loadData();
     } else if (!isLoadingRole && !currentSessionRole) {
-      // Si no hay rol y no se está cargando el rol, no hay datos que cargar o mostrar.
       setIsLoadingDashboardData(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -787,8 +805,9 @@ export default function DashboardHomePage() {
     case 'instructor':
       return <InstructorDashboardContent allCourses={allCourses} />;
     case 'estudiante':
-      return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />;
+      return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
     default: 
-      return <StudentDashboardContent allCourses={allCourses} enrolledCourseIds={enrolledCourseIds} completedCourseIds={completedCourseIds} />; 
+      return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />; 
   }
 }
+
