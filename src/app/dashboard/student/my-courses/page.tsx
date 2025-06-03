@@ -18,7 +18,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"; // Keep for potential future use or other dialogs
 import { useToast } from '@/hooks/use-toast';
 
 // Constants for simulated user ID
@@ -60,10 +60,10 @@ interface EnrolledCourseDisplay {
 
 interface EnrolledCourseCardProps {
   course: EnrolledCourseDisplay;
-  onCertificateClick: (courseTitle: string) => void;
+  // onCertificateClick prop removed
 }
 
-const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ course, onCertificateClick }: EnrolledCourseCardProps) {
+const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ course }: EnrolledCourseCardProps) {
   return (
     <Card className="overflow-hidden shadow-lg hover:shadow-primary/20 transition-shadow flex flex-col">
       <div className="relative w-full h-48">
@@ -94,18 +94,15 @@ const MemoizedEnrolledCourseCard = React.memo(function EnrolledCourseCard({ cour
           </div>
           <Progress value={course.progress} aria-label={`Progreso del curso ${course.title}: ${course.progress}%`} className={`h-2 ${course.isCompleted ? "[&>div]:bg-accent" : ""}`} />
         </div>
-        {course.isCompleted ? (
-             <Button onClick={() => onCertificateClick(course.title)} className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Award className="mr-2 h-4 w-4" /> Ver Certificado (Simulado)
-            </Button>
-        ) : (
-            <Button asChild className="w-full bg-primary hover:bg-primary/90">
-                <Link href={`/dashboard/courses/${course.id}/view`}>
-                    {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'}
-                    <Zap className="ml-2 h-4 w-4" />
-                </Link>
-            </Button>
-        )}
+        <Button asChild className={`w-full ${course.isCompleted ? 'bg-accent hover:bg-accent/90 text-accent-foreground' : 'bg-primary hover:bg-primary/90'}`}>
+            <Link href={`/dashboard/courses/${course.id}/view`}>
+                {course.isCompleted ? (
+                    <> <BookOpen className="mr-2 h-4 w-4" /> Revisar Curso </>
+                ) : (
+                    <> {course.progress > 0 ? 'Continuar Aprendiendo' : 'Empezar Curso'} <Zap className="ml-2 h-4 w-4" /> </>
+                )}
+            </Link>
+        </Button>
       </CardContent>
     </Card>
   );
@@ -116,8 +113,7 @@ MemoizedEnrolledCourseCard.displayName = 'MemoizedEnrolledCourseCard';
 export default function MyEnrolledCoursesPage() {
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourseDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCertificateDialogOpen, setIsCertificateDialogOpen] = useState(false);
-  const [certificateCourseTitle, setCertificateCourseTitle] = useState('');
+  // Removed certificate dialog state
   const { toast } = useToast();
 
   useEffect(() => {
@@ -165,10 +161,7 @@ export default function MyEnrolledCoursesPage() {
     loadEnrolledCourses();
   }, [toast]);
 
-  const handleCertificateClick = useCallback((courseTitle: string) => {
-    setCertificateCourseTitle(courseTitle);
-    setIsCertificateDialogOpen(true);
-  }, []);
+  // Removed handleCertificateClick function
 
   if (isLoading) {
     return (
@@ -210,29 +203,13 @@ export default function MyEnrolledCoursesPage() {
             <MemoizedEnrolledCourseCard
                 key={course.id}
                 course={course}
-                onCertificateClick={handleCertificateClick}
+                // onCertificateClick prop removed
             />
           ))}
         </div>
       )}
 
-      <AlertDialog open={isCertificateDialogOpen} onOpenChange={setIsCertificateDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center">
-                <Award className="mr-2 h-6 w-6 text-accent" />
-                ¡Felicidades!
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Has completado el curso "{certificateCourseTitle}". Aquí se mostraría tu certificado digital.
-              Esta es una simulación, ¡pero tu esfuerzo es real!
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsCertificateDialogOpen(false)}>Entendido</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Certificate AlertDialog removed */}
     </div>
   );
 }

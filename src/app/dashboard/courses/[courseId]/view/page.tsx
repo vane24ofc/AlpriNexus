@@ -11,6 +11,7 @@ import { ArrowLeft, BookOpen, PlayCircle, FileText, CheckCircle, Loader2, Youtub
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+// AlertDialog is kept for potential other uses, but certificate dialog is removed.
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +63,7 @@ export default function StudentCourseViewPage() {
   const [quizState, setQuizState] = useState<Record<string, QuizAttemptState>>({});
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
-  const [isCertificateDialogOpen, setIsCertificateDialogOpen] = useState(false);
+  // Certificate dialog state removed
   const [initialProgressFromDB, setInitialProgressFromDB] = useState<number | null>(null);
 
   useEffect(() => {
@@ -223,7 +224,6 @@ export default function StudentCourseViewPage() {
         return newSet;
       });
 
-      // Now, update the overall course progress in the database
       if (currentEnrollmentId) {
         const progressResponse = await fetch(`/api/enrollments/${currentEnrollmentId}/progress`, {
           method: 'PUT',
@@ -236,12 +236,7 @@ export default function StudentCourseViewPage() {
           console.error("Error actualizando el progreso general del curso:", errorData.message || `Error ${progressResponse.status}`);
           toast({ variant: "destructive", title: "Error de Progreso", description: "No se pudo actualizar el progreso general del curso en la base de datos." });
         } else {
-          // Update initialProgressFromDB to reflect the new DB state for UI consistency.
           setInitialProgressFromDB(newProgressPercent);
-          if (allCompletedAfterThis && newProgressPercent === 100) {
-            // Optionally, re-fetch course details to get the completedAt timestamp if backend sets it and UI needs it.
-            // For now, the toast and UI update are likely sufficient.
-          }
         }
       } else {
         console.warn("No enrollmentId found, cannot update course progress in DB.");
@@ -256,15 +251,12 @@ export default function StudentCourseViewPage() {
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
-    if (allLessonsCompleted) {
-      setIsCertificateDialogOpen(true);
-      return;
-    }
+    // Certificate dialog logic removed
     const firstUncompletedLesson = course.lessons.find(lesson => !completedLessons.has(lesson.id));
     if (firstUncompletedLesson) {
       setActiveAccordionItem(`lesson-${firstUncompletedLesson.id}`);
     } else if (course.lessons.length > 0) {
-      setActiveAccordionItem(`lesson-${course.lessons[0].id}`);
+      setActiveAccordionItem(`lesson-${course.lessons[0].id}`); // If all completed, or starting fresh, open first
     }
   };
 
@@ -646,30 +638,13 @@ export default function StudentCourseViewPage() {
                   variant={allLessonsCompleted ? "default" : "default"}
                   style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
               >
-                  {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
+                  {allLessonsCompleted ? <><BookOpen className="mr-2 h-5 w-5" /> Revisar Curso</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
               </Button>
-
             </CardContent>
           </Card>
         </div>
       </div>
-      <AlertDialog open={isCertificateDialogOpen} onOpenChange={setIsCertificateDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center">
-                <Award className="mr-2 h-6 w-6 text-accent" />
-                ¡Felicidades!
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Has completado el curso "{course?.title}". Aquí se mostraría tu certificado digital.
-              Esta es una simulación, ¡pero tu esfuerzo es real!
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setIsCertificateDialogOpen(false)}>Entendido</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Certificate AlertDialog removed */}
     </div>
   );
 }
