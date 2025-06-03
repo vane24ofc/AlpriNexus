@@ -1,28 +1,81 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, PlusCircle, MessageSquare, BarChart, Star, Edit3 } from "lucide-react";
+import { BookOpen, Users, PlusCircle, MessageSquare, BarChart as BarChartIcon, Star, Edit3, Loader2 } from "lucide-react";
 import Link from "next/link";
-import type { Course } from '@/types/course'; // Assuming you have this type
-
-// Simulación de cursos creados por el instructor actual (similar a MyCoursesPage)
-const instructorSampleCourses: Course[] = [
-  { id: 'instrCourse1', title: 'Desarrollo Web Full Stack con Next.js', description: 'Curso completo sobre Next.js.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'approved', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse2', title: 'Bases de Datos NoSQL con MongoDB', description: 'Aprende MongoDB desde cero.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'pending', lessons: [{id: 'l1', title: 'Intro'}] },
-  { id: 'instrCourse3', title: 'Introducción al Diseño de Experiencia de Usuario (UX)', description: 'Principios básicos de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', instructorName: 'Usuario Actual', status: 'rejected', lessons: [{id: 'l1', title: 'Intro'}] },
-];
+import type { Course } from '@/types/course';
+import { useSessionRole } from '@/app/dashboard/layout';
+import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function InstructorDashboardPage() {
-  const stats = [
-    { title: "Mis Cursos", value: instructorSampleCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Estudiantes Totales", value: "350", icon: Users, link: "#" }, // Placeholder
-    { title: "Revisiones Pendientes", value: instructorSampleCourses.filter(c => c.status === 'pending').length.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
-    { title: "Calificación Promedio", value: "4.7/5", icon: BarChart, link: "#" }, // Placeholder
-  ];
+  const { userProfile, currentSessionRole } = useSessionRole();
+  const { toast } = useToast();
+  const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCoursesForInstructor = async () => {
+      if (currentSessionRole !== 'instructor' || !userProfile.name) {
+        setIsLoading(false);
+        setInstructorCourses([]);
+        return;
+      }
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/courses');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+          throw new Error(errorData.message || 'Error al cargar los cursos de la plataforma.');
+        }
+        const allPlatformCourses: Course[] = await response.json();
+        const filteredForInstructor = allPlatformCourses.filter(
+          course => course.instructorName === userProfile.name
+        );
+        setInstructorCourses(filteredForInstructor);
+      } catch (error: any) {
+        console.error("Error cargando cursos para el instructor:", error);
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
+        setInstructorCourses([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCoursesForInstructor();
+  }, [userProfile.name, currentSessionRole, toast]);
+
+  const pendingReviewCount = useMemo(() => 
+    instructorCourses.filter(c => c.status === 'pending').length,
+    [instructorCourses]
+  );
+
+  const stats = useMemo(() => [
+    { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
+    { title: "Estudiantes Totales (Simulado)", value: "350", icon: Users, link: "#" }, // Placeholder
+    { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
+    { title: "Calificación Promedio (Simulado)", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
+  ], [instructorCourses, pendingReviewCount]);
+
+  const recentFeedbacks = useMemo(() => [
+    { student: "Emily R.", course: instructorCourses[0]?.title || "Curso de Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
+    { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso de Ejemplo", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
+    { student: "Sarah K.", course: instructorCourses[2]?.title || "Tercer Curso de Ejemplo", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
+  ].filter(f => instructorCourses.length > 0), [instructorCourses]);
+
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="text-lg text-muted-foreground">Cargando panel de instructor...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -59,22 +112,26 @@ export default function InstructorDashboardPage() {
             <CardDescription>Un vistazo rápido a tus cursos y su estado.</CardDescription>
           </CardHeader>
           <CardContent>
-            {instructorSampleCourses.length > 0 ? (
+            {isLoading && instructorCourses.length === 0 ? (
+                <div className="flex justify-center items-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+            ) : instructorCourses.length > 0 ? (
               <ul className="space-y-4">
-                {instructorSampleCourses.slice(0, 3).map((course) => { // Mostrar solo los primeros 3 como resumen
-                  const students = Math.floor(Math.random() * 200) + 50; // Placeholder
-                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; // Placeholder
+                {instructorCourses.slice(0, 3).map((course) => { 
+                  const students = Math.floor(Math.random() * 200) + 50; 
+                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; 
                   return (
                   <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-semibold text-lg">{course.title}</h3>
-                        <p className="text-sm text-muted-foreground">{students} estudiantes inscritos</p>
+                        <h3 className="font-semibold text-lg line-clamp-1" title={course.title}>{course.title}</h3>
+                        <p className="text-sm text-muted-foreground">{students} estudiantes inscritos (simulado)</p>
                         <Badge 
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
                           className={`mt-1 text-xs ${
-                            course.status === 'approved' ? 'bg-accent text-accent-foreground' : 
-                            course.status === 'pending' ? 'bg-yellow-500 text-white' : ''
+                            course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
+                            course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
                           }`}
                         >
                           {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente' : 'Rechazado'}
@@ -100,7 +157,7 @@ export default function InstructorDashboardPage() {
             ) : (
               <p className="text-muted-foreground text-center py-4">Aún no has creado cursos.</p>
             )}
-            {instructorSampleCourses.length > 3 && (
+            {instructorCourses.length > 3 && (
                 <Button variant="outline" className="w-full mt-4" asChild>
                     <Link href="/dashboard/instructor/my-courses">Ver todos mis cursos</Link>
                 </Button>
@@ -110,30 +167,30 @@ export default function InstructorDashboardPage() {
 
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Comentarios Recientes</CardTitle>
+            <CardTitle>Comentarios Recientes (Simulado)</CardTitle>
             <CardDescription>Últimos comentarios de los estudiantes.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              {[
-                { student: "Emily R.", course: "JS Avanzado", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
-                { student: "John B.", course: "Python DSA", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
-                { student: "Sarah K.", course: "Intro UX", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
-              ].map((feedback, index) => (
-                <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
-                    <span className="text-xs text-muted-foreground">{feedback.time}</span>
-                  </div>
-                  <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
-                  <div className="flex items-center mt-1">
-                    {Array(5).fill(0).map((_, i) => (
-                      <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {recentFeedbacks.length > 0 ? (
+              <ul className="space-y-3">
+                {recentFeedbacks.map((feedback, index) => (
+                  <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
+                      <span className="text-xs text-muted-foreground">{feedback.time}</span>
+                    </div>
+                    <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
+                    <div className="flex items-center mt-1">
+                      {Array(5).fill(0).map((_, i) => (
+                        <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+                <p className="text-muted-foreground text-center py-4">No hay comentarios recientes para tus cursos.</p>
+            )}
           </CardContent>
         </Card>
       </div>
