@@ -14,19 +14,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+// const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses'; // No longer needed for course data
 const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
 
-const initialSeedCoursesForExplore: Course[] = [
-  { id: 'exploreSeed1', title: 'Introducción a la IA (Seed)', description: 'Conceptos básicos de Inteligencia Artificial.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'IA Expert', status: 'approved', lessons: [{id: 'l1-seed-e1', title: 'Intro IA Seed'}], dataAiHint: 'ai concepts' },
-  { id: 'exploreSeed2', title: 'Marketing Digital 101 (Seed)', description: 'Fundamentos de marketing digital.', thumbnailUrl: 'https://placehold.co/600x338.png', instructorName: 'Marketing Guru', status: 'approved', lessons: [{id: 'l1-seed-e2', title: 'Intro Marketing Seed'}], dataAiHint: 'digital marketing basics' },
-];
+// initialSeedCoursesForExplore removed, data will come from API
 
 interface CourseCardProps {
   course: Course;
   isEnrolled: boolean;
   onEnroll: (courseId: string, courseTitle: string) => void;
-  showAdminActions?: boolean; // New prop for admin-specific actions
+  showAdminActions?: boolean; 
 }
 
 const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, onEnroll, showAdminActions = false }: CourseCardProps) {
@@ -35,7 +32,7 @@ const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, 
     <Card className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
       <div className="relative w-full h-48">
         <Image
-          src={course.thumbnailUrl}
+          src={course.thumbnailUrl || 'https://placehold.co/600x338.png'}
           alt={course.title}
           fill
           style={{ objectFit: 'cover' }}
@@ -79,7 +76,7 @@ interface CourseListItemProps {
   course: Course;
   isEnrolled: boolean;
   onEnroll: (courseId: string, courseTitle: string) => void;
-  showAdminActions?: boolean; // New prop for admin-specific actions
+  showAdminActions?: boolean; 
 }
 
 const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEnrolled, onEnroll, showAdminActions = false }: CourseListItemProps) {
@@ -89,7 +86,7 @@ const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEn
       <CardContent className="p-4 flex flex-col sm:flex-row items-start gap-4">
         <div className="relative w-full sm:w-40 h-32 sm:h-24 flex-shrink-0 rounded-md overflow-hidden">
            <Image
-              src={course.thumbnailUrl}
+              src={course.thumbnailUrl || 'https://placehold.co/600x338.png'}
               alt={course.title}
               fill
               style={{ objectFit: 'cover' }}
@@ -134,7 +131,7 @@ export default function ExploreCoursesPage() {
   const router = useRouter();
   const { currentSessionRole, userProfile } = useSessionRole();
 
-  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [allCoursesFromApi, setAllCoursesFromApi] = useState<Course[]>([]); // Renamed to avoid confusion
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -146,19 +143,18 @@ export default function ExploreCoursesPage() {
       const initialUrlSearchTerm = searchParams.get('search') || '';
       setSearchTerm(initialUrlSearchTerm);
 
-      // TODO: API Call - GET /api/courses
       try {
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        if (storedCourses) {
-          setAllCourses(JSON.parse(storedCourses));
-        } else {
-          setAllCourses(initialSeedCoursesForExplore);
-          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForExplore));
+        const response = await fetch('/api/courses');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+          throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
         }
-      } catch (error) {
-        console.error("Error loading courses from localStorage:", error);
-        setAllCourses(initialSeedCoursesForExplore);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "Se usarán datos de ejemplo." });
+        const coursesFromApi: Course[] = await response.json();
+        setAllCoursesFromApi(coursesFromApi);
+      } catch (error: any) {
+        console.error("Error cargando cursos desde API:", error);
+        setAllCoursesFromApi([]);
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
       }
 
       try {
@@ -178,8 +174,21 @@ export default function ExploreCoursesPage() {
     loadInitialData();
   }, [searchParams, toast]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (searchTerm) {
+        params.set('search', searchTerm);
+      } else {
+        params.delete('search');
+      }
+      router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, router]);
+
   const coursesForPublicListing = useMemo(() => {
-    const approved = allCourses.filter(course => course.status === 'approved');
+    const approved = allCoursesFromApi.filter(course => course.status === 'approved');
     if (!searchTerm.trim()) {
       return approved;
     }
@@ -189,11 +198,11 @@ export default function ExploreCoursesPage() {
       (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm)) ||
       (course.instructorName && course.instructorName.toLowerCase().includes(lowercasedSearchTerm))
     );
-  }, [allCourses, searchTerm]);
+  }, [allCoursesFromApi, searchTerm]);
 
   const coursesCreatedByAdmin = useMemo(() => {
     if (currentSessionRole !== 'administrador' || !userProfile.name) return [];
-    const adminCourses = allCourses.filter(course => course.instructorName === userProfile.name);
+    const adminCourses = allCoursesFromApi.filter(course => course.instructorName === userProfile.name);
     if (!searchTerm.trim()) {
       return adminCourses;
     }
@@ -202,7 +211,7 @@ export default function ExploreCoursesPage() {
       course.title.toLowerCase().includes(lowercasedSearchTerm) ||
       (course.description && course.description.toLowerCase().includes(lowercasedSearchTerm))
     );
-  }, [allCourses, searchTerm, currentSessionRole, userProfile.name]);
+  }, [allCoursesFromApi, searchTerm, currentSessionRole, userProfile.name]);
 
 
   const handleEnroll = useCallback(async (courseId: string, courseTitle: string) => {
@@ -220,6 +229,14 @@ export default function ExploreCoursesPage() {
   }, [toast]);
 
   const renderCourseList = (coursesToRender: Course[], showAdminActionsView: boolean) => {
+    if (isLoading && allCoursesFromApi.length === 0 && !searchTerm) {
+        return (
+            <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Cargando cursos...</p>
+            </div>
+        );
+    }
     if (coursesToRender.length === 0) {
       return (
         <p className="text-center text-muted-foreground py-8">
@@ -257,8 +274,7 @@ export default function ExploreCoursesPage() {
     );
   };
 
-
-  if (isLoading) {
+  if (isLoading && allCoursesFromApi.length === 0) { 
     return (
         <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -295,7 +311,7 @@ export default function ExploreCoursesPage() {
                 className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading && allCoursesFromApi.length === 0}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -311,8 +327,12 @@ export default function ExploreCoursesPage() {
           {currentSessionRole === 'administrador' ? (
             <Tabs defaultValue="public-listing">
               <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="public-listing">Listado Público ({isLoading ? '...' : coursesForPublicListing.length})</TabsTrigger>
-                <TabsTrigger value="admin-created">Mis Cursos Creados ({isLoading ? '...' : coursesCreatedByAdmin.length})</TabsTrigger>
+                <TabsTrigger value="public-listing" disabled={isLoading && allCoursesFromApi.length === 0 && !searchTerm}>
+                  Listado Público ({isLoading && allCoursesFromApi.length === 0 && !searchTerm ? '...' : coursesForPublicListing.length})
+                </TabsTrigger>
+                <TabsTrigger value="admin-created" disabled={isLoading && allCoursesFromApi.length === 0 && !searchTerm}>
+                  Mis Cursos Creados ({isLoading && allCoursesFromApi.length === 0 && !searchTerm ? '...' : coursesCreatedByAdmin.length})
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="public-listing">
                 {renderCourseList(coursesForPublicListing, false)}
@@ -330,3 +350,5 @@ export default function ExploreCoursesPage() {
   );
 }
     
+
+      
