@@ -384,3 +384,4 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
     </Card>
   );
 }
+

@@ -41,6 +41,23 @@ interface ResourceFile {
   updatedAt?: string;
 }
 
+// This type should align with what the API returns for a single resource
+// and what onResourceRegistered prop expects.
+interface ApiResource {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  uploadDate: string;
+  url?: string;
+  visibility: FileVisibility;
+  category: FileCategory;
+  uploaderUserId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
   public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
   instructors: { label: 'Instructores', icon: Users, badgeClass: 'bg-blue-500 hover:bg-blue-600 text-white' },
@@ -87,6 +104,14 @@ export default function ResourcesPage() {
   useEffect(() => {
     fetchResources();
   }, [fetchResources]);
+
+  const handleResourceRegistered = useCallback(() => {
+    toast({
+      title: "Lista Actualizada",
+      description: "Actualizando la lista de recursos...",
+    });
+    fetchResources(); // Re-fetch resources from the API
+  }, [fetchResources, toast]);
 
   const filterFilesByVisibilityAndCategory = (files: ResourceFile[], role: Role | null) => {
     if (!role) return { company: [], learning: [] };
@@ -144,7 +169,8 @@ export default function ResourcesPage() {
         description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
       });
       
-      setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
+      // Re-fetch resources to update the list after deletion
+      fetchResources();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -166,14 +192,6 @@ export default function ResourcesPage() {
     }
   };
   
-  const handleResourceRegistered = () => {
-    toast({
-      title: "Lista Actualizada",
-      description: "Actualizando la lista de recursos...",
-    });
-    fetchResources(); // Re-fetch resources from the API
-  };
-
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
@@ -338,3 +356,4 @@ export default function ResourcesPage() {
     </div>
   );
 }
+
