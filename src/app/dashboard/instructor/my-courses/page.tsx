@@ -105,7 +105,7 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
         </Badge>
       </TableCell>
       <TableCell className="hidden lg:table-cell">
-        {course.lessons?.length || 0} Lecciones {/* Placeholder, API should provide student count */}
+        {course.lessons?.length || 0} Lecciones
       </TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
@@ -157,38 +157,40 @@ export default function MyCoursesPage() {
   const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
   const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
 
-  useEffect(() => {
-    const fetchInstructorCourses = async () => {
-      if (currentSessionRole !== 'instructor' || !userProfile.name) {
-        setIsLoading(false);
-        setAllInstructorCourses([]);
-        return;
-      }
-      setIsLoading(true);
-      const initialSearch = searchParams.get('search') || '';
-      setSearchTerm(initialSearch);
+  const fetchInstructorCourses = useCallback(async () => {
+    if (currentSessionRole !== 'instructor' || !userProfile.name) {
+      setIsLoading(false);
+      setAllInstructorCourses([]);
+      return;
+    }
+    setIsLoading(true);
+    const initialSearch = searchParams.get('search') || ''; // Get search term from URL params
+    setSearchTerm(initialSearch);
 
-      try {
-        const response = await fetch('/api/courses');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
-          throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
-        }
-        const allPlatformCourses: Course[] = await response.json();
-        const filteredForInstructor = allPlatformCourses.filter(
-          course => course.instructorName === userProfile.name
-        );
-        setAllInstructorCourses(filteredForInstructor);
-      } catch (error: any) {
-        console.error("Error cargando cursos del instructor desde API:", error);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
-        setAllInstructorCourses([]);
-      } finally {
-        setIsLoading(false);
+    try {
+      const response = await fetch('/api/courses');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+        throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
       }
-    };
+      const allPlatformCourses: Course[] = await response.json();
+      const filteredForInstructor = allPlatformCourses.filter(
+        course => course.instructorName === userProfile.name
+      );
+      setAllInstructorCourses(filteredForInstructor);
+    } catch (error: any) {
+      console.error("Error cargando cursos del instructor desde API:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
+      setAllInstructorCourses([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userProfile.name, currentSessionRole, toast, searchParams]); // Added searchParams to dependency array
+
+  useEffect(() => {
     fetchInstructorCourses();
-  }, [userProfile.name, currentSessionRole, toast]); // Removed searchParams as it was handled by another useEffect
+  }, [fetchInstructorCourses]);
+
 
    useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -273,8 +275,16 @@ export default function MyCoursesPage() {
     return filteredCourses.filter(course => course.status === 'approved');
   }, [filteredCourses]);
 
+  const pendingReviewCourses = useMemo(() => {
+    return filteredCourses.filter(course => course.status === 'pending');
+  }, [filteredCourses]);
 
-  const renderCourseTable = (coursesToRender: Course[], emptyMessage: string) => {
+  const rejectedCourses = useMemo(() => {
+    return filteredCourses.filter(course => course.status === 'rejected');
+  }, [filteredCourses]);
+
+
+  const renderCourseTable = (coursesToRender: Course[], emptyMessage: string, tabName: string) => {
     if (isLoading && allInstructorCourses.length === 0 && !searchTerm) {
         return (
             <div className="flex justify-center items-center py-8">
@@ -284,7 +294,7 @@ export default function MyCoursesPage() {
         );
     }
     if (coursesToRender.length === 0) {
-      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
+      return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos ${tabName} para "${searchTerm}".` : emptyMessage}</p>;
     }
     return (
       <div className="overflow-x-auto">
@@ -351,6 +361,7 @@ export default function MyCoursesPage() {
        <Card className="shadow-md">
         <CardHeader className="pb-4">
             <CardTitle className="text-base">Buscar en Mis Cursos</CardTitle>
+            <CardDescription>El filtro se aplica a todas las pestañas (Publicados, Pendientes, Rechazados).</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
             <div className="relative">
@@ -367,27 +378,18 @@ export default function MyCoursesPage() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="all">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="all" disabled={isLoading && allInstructorCourses.length === 0}>
-            Todos Mis Cursos ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : filteredCourses.length})
-          </TabsTrigger>
-          <TabsTrigger value="published" disabled={isLoading && allInstructorCourses.length === 0}>
+      <Tabs defaultValue="published">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
+           <TabsTrigger value="published" disabled={isLoading && allInstructorCourses.length === 0}>
             Publicados ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : publishedCourses.length})
           </TabsTrigger>
+          <TabsTrigger value="pending" disabled={isLoading && allInstructorCourses.length === 0}>
+            Pendientes ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : pendingReviewCourses.length})
+          </TabsTrigger>
+          <TabsTrigger value="rejected" disabled={isLoading && allInstructorCourses.length === 0}>
+            Rechazados ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : rejectedCourses.length})
+          </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="all">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Todos Mis Cursos</CardTitle>
-              <CardDescription>Cursos que has creado, incluyendo pendientes, publicados y rechazados.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {renderCourseTable(filteredCourses, "Aún no has creado ningún curso. ¡Empieza creando uno nuevo!")}
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="published">
           <Card className="shadow-lg">
@@ -396,7 +398,31 @@ export default function MyCoursesPage() {
               <CardDescription>Cursos que han sido aprobados y están disponibles en la plataforma.</CardDescription>
             </CardHeader>
             <CardContent>
-              {renderCourseTable(publishedCourses, "No tienes cursos publicados actualmente.")}
+              {renderCourseTable(publishedCourses, "No tienes cursos publicados actualmente.", "publicados")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="pending">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Mis Cursos Pendientes de Revisión</CardTitle>
+              <CardDescription>Cursos que has enviado y están esperando la aprobación del administrador.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderCourseTable(pendingReviewCourses, "No tienes cursos pendientes de revisión.", "pendientes")}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="rejected">
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>Mis Cursos Rechazados</CardTitle>
+              <CardDescription>Cursos que han sido revisados y no aprobados. Puedes editarlos y reenviarlos.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {renderCourseTable(rejectedCourses, "No tienes cursos rechazados.", "rechazados")}
             </CardContent>
           </Card>
         </TabsContent>
@@ -408,7 +434,7 @@ export default function MyCoursesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle className="text-2xl">Estadísticas del Curso: {selectedCourseForStats.title}</AlertDialogTitle>
               <AlertDialogDescription>
-                Un resumen del rendimiento y la participación de los estudiantes en este curso.
+                Un resumen del rendimiento y la participación de los estudiantes en este curso (simulado).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="grid gap-6 py-4">
@@ -505,4 +531,3 @@ export default function MyCoursesPage() {
     </div>
   );
 }
-
