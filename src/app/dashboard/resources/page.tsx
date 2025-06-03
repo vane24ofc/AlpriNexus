@@ -5,20 +5,32 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2 } from 'lucide-react';
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { FileUploader } from "@/components/uploads/file-uploader";
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogContent as ConfirmDialogContent, // Renamed to avoid conflict
+  AlertDialogDescription as ConfirmDialogDescription,
+  AlertDialogFooter as ConfirmDialogFooter,
+  AlertDialogHeader as ConfirmDialogHeader,
+  AlertDialogTitle as ConfirmDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
@@ -36,14 +48,12 @@ interface ResourceFile {
   url?: string;
   visibility: FileVisibility;
   category: FileCategory;
-  uploaderUserId?: number; 
+  uploaderUserId?: number;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// This type should align with what the API returns for a single resource
-// and what onResourceRegistered prop expects.
-interface ApiResource {
+interface ApiResource { // Used by FileUploader callback
   id: string;
   name: string;
   type: string;
@@ -57,12 +67,17 @@ interface ApiResource {
   updatedAt?: string;
 }
 
+const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
+  { value: 'public', label: 'Todos (Público)', icon: Globe },
+  { value: 'instructors', label: 'Instructores y Administradores', icon: Users },
+  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye },
+];
 
-const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
-  public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
-  instructors: { label: 'Instructores', icon: Users, badgeClass: 'bg-blue-500 hover:bg-blue-600 text-white' },
-  private: { label: 'Privado', icon: Eye, badgeClass: 'bg-gray-500 hover:bg-gray-600 text-white' },
-};
+const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
+  { value: 'learning', label: 'Archivos de Aprendizaje', icon: BookOpen },
+  { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
+];
+
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole();
@@ -74,6 +89,14 @@ export default function ResourcesPage() {
   const [resourceToDelete, setResourceToDelete] = useState<ResourceFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<ResourceFile | null>(null);
+  const [editFormName, setEditFormName] = useState('');
+  const [editFormVisibility, setEditFormVisibility] = useState<FileVisibility>('public');
+  const [editFormCategory, setEditFormCategory] = useState<FileCategory>('learning');
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
 
   const canUploadAndManage = useMemo(() => currentSessionRole === 'administrador' || currentSessionRole === 'instructor', [currentSessionRole]);
 
@@ -93,8 +116,8 @@ export default function ResourcesPage() {
       const apiData: ResourceFile[] = await response.json();
       setAllResourcesFromApi(apiData);
     } catch (error: any) {
-      console.error("Full error object in fetchResources catch block:", error); 
-      toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
+      console.error("Full error object in fetchResources catch block:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Recursos", description: `Detalle: ${error.message || 'Error desconocido.'}` });
       setAllResourcesFromApi([]);
     } finally {
       setIsLoading(false);
@@ -105,12 +128,12 @@ export default function ResourcesPage() {
     fetchResources();
   }, [fetchResources]);
 
-  const handleResourceRegistered = useCallback(() => {
+  const handleResourceRegistered = useCallback((newResource: ApiResource) => {
     toast({
-      title: "Lista Actualizada",
-      description: "Actualizando la lista de recursos...",
+      title: "Recurso Registrado",
+      description: `El recurso "${newResource.name}" fue añadido. Actualizando lista...`,
     });
-    fetchResources(); // Re-fetch resources from the API
+    fetchResources();
   }, [fetchResources, toast]);
 
   const filterFilesByVisibilityAndCategory = (files: ResourceFile[], role: Role | null) => {
@@ -129,7 +152,7 @@ export default function ResourcesPage() {
         isVisible = true;
       } else if (role === 'instructor') {
         isVisible = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-      } else { 
+      } else {
         isVisible = file.visibility === 'public';
       }
 
@@ -168,9 +191,7 @@ export default function ResourcesPage() {
         title: "Recurso Eliminado",
         description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
       });
-      
-      // Re-fetch resources to update the list after deletion
-      fetchResources();
+      fetchResources(); // Re-fetch resources to update the list
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -184,14 +205,69 @@ export default function ResourcesPage() {
     }
   };
 
+  const handleOpenEditDialog = (resource: ResourceFile) => {
+    setEditingResource(resource);
+    setEditFormName(resource.name);
+    setEditFormVisibility(resource.visibility);
+    setEditFormCategory(resource.category);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCloseEditDialog = () => {
+    setIsEditDialogOpen(false);
+    setEditingResource(null);
+    // Reset form fields if needed, though they are set on open
+    setEditFormName('');
+  };
+
+  const handleSaveEditedResource = async () => {
+    if (!editingResource || !editFormName.trim()) {
+      toast({ variant: "destructive", title: "Error de Validación", description: "El nombre del recurso no puede estar vacío."});
+      return;
+    }
+    setIsSavingEdit(true);
+
+    const payload = {
+      name: editFormName.trim(),
+      visibility: editFormVisibility,
+      category: editFormCategory,
+    };
+
+    try {
+      const response = await fetch(`/api/resources/${editingResource.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Error ${response.status} al actualizar.`}));
+        throw new Error(errorData.message || 'No se pudo actualizar el recurso.');
+      }
+      toast({
+        title: "Recurso Actualizado",
+        description: `Los metadatos del recurso "${editingResource.name}" han sido actualizados.`,
+      });
+      fetchResources();
+      handleCloseEditDialog();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al Actualizar",
+        description: error.message,
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(parseISO(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
     } catch (error) {
-      return dateString; 
+      return dateString;
     }
   };
-  
+
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
@@ -203,7 +279,7 @@ export default function ResourcesPage() {
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? ( 
+        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? (
              <div className="flex justify-center items-center py-8">
                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -222,7 +298,7 @@ export default function ResourcesPage() {
               </TableHeader>
               <TableBody>
                 {files.map((file) => {
-                  const displayInfo = visibilityDisplay[file.visibility];
+                  const displayInfo = visibilityOptions.find(opt => opt.value === file.visibility);
                   const VisibilityIcon = displayInfo?.icon;
 
                   return (
@@ -242,28 +318,39 @@ export default function ResourcesPage() {
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">{formatDate(file.uploadDate)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end items-center space-x-2">
+                        <div className="flex justify-end items-center space-x-1 sm:space-x-2">
                           <Button variant="outline" size="sm" asChild>
-                            <a href={file.url || '#'} target="_blank" rel="noopener noreferrer">
-                              <Eye className="mr-1 h-4 w-4" /> Visualizar
+                            <a href={file.url || '#'} target="_blank" rel="noopener noreferrer" title="Visualizar (abrir en nueva pestaña)">
+                              <Eye className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Visualizar</span>
                             </a>
                           </Button>
                           <Button variant="outline" size="sm" asChild>
-                            <a href={file.url || '#'} download={file.name}>
-                              <Download className="mr-1 h-4 w-4" /> Descargar
+                            <a href={file.url || '#'} download={file.name} title="Descargar archivo">
+                              <Download className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Descargar</span>
                             </a>
                           </Button>
                           {canUploadAndManage && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              onClick={() => openDeleteDialog(file)}
-                              title="Eliminar Recurso"
-                              disabled={isDeleting && resourceToDelete?.id === file.id}
-                            >
-                              {isDeleting && resourceToDelete?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => handleOpenEditDialog(file)}
+                                title="Editar Metadatos"
+                              >
+                                <Edit3 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                onClick={() => openDeleteDialog(file)}
+                                title="Eliminar Recurso"
+                                disabled={isDeleting && resourceToDelete?.id === file.id}
+                              >
+                                {isDeleting && resourceToDelete?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -282,7 +369,7 @@ export default function ResourcesPage() {
     </Card>
   );
 
-  if (isLoading && allResourcesFromApi.length === 0) { 
+  if (isLoading && allResourcesFromApi.length === 0) {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -334,26 +421,100 @@ export default function ResourcesPage() {
         BookOpen
       )}
 
+      {editingResource && (
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Metadatos del Recurso</DialogTitle>
+              <DialogDescription>
+                Actualiza la información del archivo "{editingResource.name}".
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-1">
+                <Label htmlFor="edit-resource-name">Nombre del Archivo</Label>
+                <Input
+                  id="edit-resource-name"
+                  value={editFormName}
+                  onChange={(e) => setEditFormName(e.target.value)}
+                  disabled={isSavingEdit}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-resource-category">Categoría</Label>
+                <Select
+                  value={editFormCategory}
+                  onValueChange={(value) => setEditFormCategory(value as FileCategory)}
+                  disabled={isSavingEdit}
+                >
+                  <SelectTrigger id="edit-resource-category">
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categoryOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center">
+                          <opt.icon className="w-4 h-4 mr-2" />
+                          {opt.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="edit-resource-visibility">Visibilidad</Label>
+                <Select
+                  value={editFormVisibility}
+                  onValueChange={(value) => setEditFormVisibility(value as FileVisibility)}
+                  disabled={isSavingEdit}
+                >
+                  <SelectTrigger id="edit-resource-visibility">
+                    <SelectValue placeholder="Seleccionar visibilidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {visibilityOptions.map(opt => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center">
+                          <opt.icon className="w-4 h-4 mr-2" />
+                          {opt.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCloseEditDialog} disabled={isSavingEdit}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEditedResource} disabled={isSavingEdit || !editFormName.trim()}>
+                {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar Cambios
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {resourceToDelete && (
-        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
-              <AlertDialogDescription>
+        <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
+              <ConfirmDialogDescription>
                 ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
               <AlertDialogCancel onClick={() => { setResourceToDelete(null); setIsDeleteDialogOpen(false); }} disabled={isDeleting}>Cancelar</AlertDialogCancel>
               <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Eliminar
               </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+            </ConfirmDialogFooter>
+        </ConfirmDialogContent>
       )}
     </div>
   );
 }
-
