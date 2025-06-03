@@ -21,6 +21,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -30,29 +32,14 @@ interface ResourceFile {
   name: string;
   type: string;
   size: string;
-  uploadDate: string;
+  uploadDate: string; // Viene como string ISO de la BD
   url?: string;
   visibility: FileVisibility;
   category: FileCategory;
+  uploaderUserId?: number; // Opcional, puede ser string o number dependiendo de tu API
+  createdAt?: string;
+  updatedAt?: string;
 }
-
-// These initial samples will act as our "simulated API response" for now.
-const initialSampleCompanyResources: ResourceFile[] = [
-  { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors', category: 'company' },
-  { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private', category: 'company' },
-  { id: 'cr3', name: 'Guía de Marca NexusAlpri.pdf', type: 'PDF', size: '5.0 MB', uploadDate: '2023-09-20', url: '#', visibility: 'public', category: 'company' },
-  { id: 'cr4', name: 'Reporte Anual 2023.pdf', type: 'PDF', size: '3.0 MB', uploadDate: '2024-01-10', url: '#', visibility: 'public', category: 'company'},
-  { id: 'cr5', name: 'Manual de Procedimientos de Seguridad.docx', type: 'Documento', size: '750 KB', uploadDate: '2024-02-01', url: '#', visibility: 'instructors', category: 'company' },
-  { id: 'cr6', name: 'Presentación Resultados Trimestrales.pptx', type: 'Presentación', size: '4.2 MB', uploadDate: '2024-01-20', url: '#', visibility: 'private', category: 'company' },
-];
-
-const initialSampleLearningResources: ResourceFile[] = [
-  { id: 'lr1', name: 'Introducción a JavaScript - Módulo 1.mp4', type: 'Video', size: '150 MB', uploadDate: '2023-11-05', url: '#', visibility: 'public', category: 'learning' },
-  { id: 'lr2', name: 'Ejercicios Prácticos de Python.pdf', type: 'PDF', size: '800 KB', uploadDate: '2023-11-02', url: '#', visibility: 'public', category: 'learning' },
-  { id: 'lr3', name: 'Presentación - Desarrollo Web Moderno.pptx', type: 'Presentación', size: '3.5 MB', uploadDate: '2023-10-28', url: '#', visibility: 'instructors', category: 'learning' },
-  { id: 'lr4', name: 'Glosario de Términos de IA.docx', type: 'Documento', size: '450 KB', uploadDate: '2023-11-10', url: '#', visibility: 'instructors', category: 'learning' },
-  { id: 'lr5', name: 'Notas Privadas del Instructor sobre Web Avanzado.docx', type: 'Documento', size: '50 KB', uploadDate: '2023-11-12', url: '#', visibility: 'private', category: 'learning' },
-];
 
 const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.ElementType; badgeClass: string }> = {
   public: { label: 'Todos', icon: Globe, badgeClass: 'bg-green-500 hover:bg-green-600 text-white' },
@@ -63,8 +50,7 @@ const visibilityDisplay: Record<FileVisibility, { label: string; icon: React.Ele
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole();
   const { toast } = useToast();
-  const [companyResources, setCompanyResources] = useState<ResourceFile[]>([]);
-  const [learningResources, setLearningResources] = useState<ResourceFile[]>([]);
+  const [allResourcesFromApi, setAllResourcesFromApi] = useState<ResourceFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -76,58 +62,59 @@ export default function ResourcesPage() {
   useEffect(() => {
     const loadResources = async () => {
       setIsLoading(true);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // TODO: Replace with actual API calls
-      // For now, use the initial sample data as if it came from an API
-      // try {
-      //   const companyResponse = await fetch('/api/resources?category=company');
-      //   if (!companyResponse.ok) throw new Error('Failed to fetch company resources');
-      //   const companyData = await companyResponse.json();
-      //   setCompanyResources(companyData);
-
-      //   const learningResponse = await fetch('/api/resources?category=learning');
-      //   if (!learningResponse.ok) throw new Error('Failed to fetch learning resources');
-      //   const learningData = await learningResponse.json();
-      //   setLearningResources(learningData);
-      // } catch (error) {
-      //   console.error("Error fetching resources from API:", error);
-      //   toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los recursos." });
-      //   setCompanyResources(initialSampleCompanyResources); // Fallback to sample on API error
-      //   setLearningResources(initialSampleLearningResources); // Fallback to sample on API error
-      // }
-
-      setCompanyResources(initialSampleCompanyResources);
-      setLearningResources(initialSampleLearningResources);
-      
-      setIsLoading(false);
+      try {
+        const response = await fetch('/api/resources');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+          throw new Error(errorData.message || 'No se pudieron cargar los recursos.');
+        }
+        const apiData: ResourceFile[] = await response.json();
+        setAllResourcesFromApi(apiData);
+      } catch (error: any) {
+        console.error("Error fetching resources from API:", error);
+        toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
+        setAllResourcesFromApi([]); // Limpiar en caso de error
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadResources();
-  }, []);
+  }, [toast]);
 
-  const filterFilesByVisibility = (files: ResourceFile[], role: Role | null) => {
-    if (!role) return [];
+  const filterFilesByVisibilityAndCategory = (files: ResourceFile[], role: Role | null) => {
+    if (!role) return { company: [], learning: [] };
     const lowerSearchTerm = searchTerm.toLowerCase();
-    return files.filter(file => {
-      const matchesSearch = file.name.toLowerCase().includes(lowerSearchTerm) || file.type.toLowerCase().includes(lowerSearchTerm);
-      if (!matchesSearch) return false;
 
-      if (role === 'administrador') return true;
-      if (role === 'instructor') {
-        return file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Instructors can see their private learning files
+    const company: ResourceFile[] = [];
+    const learning: ResourceFile[] = [];
+
+    files.forEach(file => {
+      const matchesSearch = file.name.toLowerCase().includes(lowerSearchTerm) || file.type.toLowerCase().includes(lowerSearchTerm);
+      if (!matchesSearch) return;
+
+      let isVisible = false;
+      if (role === 'administrador') {
+        isVisible = true;
+      } else if (role === 'instructor') {
+        isVisible = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
+      } else { // estudiante
+        isVisible = file.visibility === 'public';
       }
-      return file.visibility === 'public';
+
+      if (isVisible) {
+        if (file.category === 'company') {
+          company.push(file);
+        } else if (file.category === 'learning') {
+          learning.push(file);
+        }
+      }
     });
+    return { company, learning };
   };
 
-  const companyResourcesForRole = useMemo(() => {
-    return filterFilesByVisibility(companyResources, currentSessionRole);
-  }, [companyResources, currentSessionRole, searchTerm]);
-
-  const learningResourcesForRole = useMemo(() => {
-    return filterFilesByVisibility(learningResources, currentSessionRole);
-  }, [learningResources, currentSessionRole, searchTerm]);
+  const { company: companyResourcesForRole, learning: learningResourcesForRole } = useMemo(() => {
+    return filterFilesByVisibilityAndCategory(allResourcesFromApi, currentSessionRole);
+  }, [allResourcesFromApi, currentSessionRole, searchTerm]);
 
   const openDeleteDialog = (resource: ResourceFile) => {
     setResourceToDelete(resource);
@@ -137,27 +124,28 @@ export default function ResourcesPage() {
   const confirmDeleteResource = async () => {
     if (!resourceToDelete) return;
 
-    // TODO: API Call - DELETE /api/resources/:resourceId (or specific endpoint based on category)
-    // On success, the API should handle deletion. The client would then typically refetch the list
-    // or optimistically update the UI. For this simulation, we'll just update the local state.
+    // TODO: Implement API Call - DELETE /api/resources/:resourceId
+    // Por ahora, solo actualiza el estado local para simular la eliminación.
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
 
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    if (resourceToDelete.category === 'company') {
-      setCompanyResources(prev => prev.filter(r => r.id !== resourceToDelete.id));
-    } else {
-      setLearningResources(prev => prev.filter(r => r.id !== resourceToDelete.id));
-    }
+    setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
 
     toast({
       title: "Recurso Eliminado (Simulado)",
-      description: `El archivo "${resourceToDelete.name}" ha sido eliminado.`,
+      description: `El archivo "${resourceToDelete.name}" ha sido eliminado de la vista. La eliminación real requiere API.`,
       variant: "destructive",
     });
     
     setResourceToDelete(null);
     setIsDeleteDialogOpen(false);
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return format(parseISO(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
+    } catch (error) {
+      return dateString; 
+    }
   };
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
@@ -203,7 +191,7 @@ export default function ResourcesPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="hidden lg:table-cell">{file.uploadDate}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{formatDate(file.uploadDate)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end items-center space-x-2">
                           <Button variant="outline" size="sm" asChild>
@@ -248,7 +236,7 @@ export default function ResourcesPage() {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando recursos...</p>
+        <p className="text-lg text-muted-foreground">Cargando recursos desde la base de datos...</p>
       </div>
     );
   }
@@ -278,20 +266,20 @@ export default function ResourcesPage() {
       </Card>
 
       {canUploadAndManage && (
-        <FileUploader />
+        <FileUploader /> // La subida real se implementará después
       )}
 
       {renderResourceTable(
         companyResourcesForRole,
         "Recursos de la Empresa",
-        "Documentos y archivos importantes de la organización, filtrados según tu rol y permisos.",
+        "Documentos y archivos importantes de la organización.",
         Shield
       )}
 
       {renderResourceTable(
         learningResourcesForRole,
         "Archivos de Aprendizaje",
-        "Materiales de estudio, videos, y documentos para los cursos, filtrados según tu rol y permisos.",
+        "Materiales de estudio, videos, y documentos para los cursos.",
         BookOpen
       )}
 
@@ -301,7 +289,7 @@ export default function ResourcesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
               <AlertDialogDescription>
-                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
+                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer (simulado).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -316,5 +304,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-
-    
