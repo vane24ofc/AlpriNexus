@@ -56,7 +56,7 @@ const UpdateCourseInputSchema = z.object({
 });
 
 
-// GET handler to fetch a single course by ID with its lessons
+// GET handler to fetch a single course by ID with its lessons and optional enrollment details
 export async function GET(
   request: NextRequest,
   { params }: { params: { courseId: string } }
@@ -65,6 +65,9 @@ export async function GET(
   if (!courseId) {
     return NextResponse.json({ message: 'Invalid course ID provided.' }, { status: 400 });
   }
+
+  const userIdStr = request.nextUrl.searchParams.get('userId');
+  const userId = userIdStr ? parseInt(userIdStr, 10) : null;
 
   let connection;
   try {
@@ -78,7 +81,7 @@ export async function GET(
     if (courses.length === 0) {
       return NextResponse.json({ message: 'Course not found.' }, { status: 404 });
     }
-    const course = courses[0];
+    const courseData = courses[0];
 
     const [lessonRows] = await connection.execute(
       'SELECT * FROM lessons WHERE courseId = ? ORDER BY orderIndex ASC, createdAt ASC;',
@@ -89,8 +92,20 @@ export async function GET(
       quizOptions: typeof lesson.quizOptions === 'string' ? JSON.parse(lesson.quizOptions) : lesson.quizOptions,
     }));
     
+    let enrollmentDetails = null;
+    if (userId && !isNaN(userId)) {
+      const [enrollmentRows] = await connection.execute(
+        'SELECT enrollmentId, progressPercent, completedAt FROM course_enrollments WHERE courseId = ? AND userId = ?',
+        [courseId, userId]
+      );
+      const enrollments = enrollmentRows as any[];
+      if (enrollments.length > 0) {
+        enrollmentDetails = enrollments[0];
+      }
+    }
+    
     await connection.end();
-    return NextResponse.json({ ...course, lessons });
+    return NextResponse.json({ ...courseData, lessons, enrollment: enrollmentDetails });
 
   } catch (error: any) {
     console.error(`Error fetching course ${courseId}:`, error);
@@ -171,7 +186,7 @@ export async function PUT(
     await connection.end();
 
     // Fetch the updated course to return it
-    const response = await GET(request, { params: { courseId } });
+    const response = await GET(request, { params: { courseId } }); // Pass request to GET for potential userId param
     const updatedCourse = await response.json();
 
     return NextResponse.json({ message: 'Course updated successfully.', course: updatedCourse });
@@ -220,4 +235,3 @@ export async function DELETE(
     );
   }
 }
-
