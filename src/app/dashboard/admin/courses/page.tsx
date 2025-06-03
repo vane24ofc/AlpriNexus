@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal, Users as UsersIcon } from 'lucide-react';
-import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   DropdownMenu,
@@ -27,21 +27,25 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialogContent as ConfirmDialogContent, // Renamed to avoid conflict
+  AlertDialogDescription as ConfirmDialogDescription,
+  AlertDialogFooter as ConfirmDialogFooter,
+  AlertDialogHeader as ConfirmDialogHeader,
+  AlertDialogTitle as ConfirmDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import type { User } from '@/app/dashboard/admin/users/page'; // Assuming User type is exported for API User
 
-// Sample users for the enrolled students dialog (can be shared or fetched in a real app)
-const sampleEnrolledStudents = [
-  { id: 'student1', name: 'Carlos Santana' },
-  { id: 'student2', name: 'Elena Rodriguez' },
-  { id: 'student3', name: 'Juan Pérez' },
-  { id: 'student4', name: 'Laura Gómez' },
-];
+interface ApiUser { // Simplified user type for this context
+  id: string;
+  fullName: string;
+  role: string;
+}
+
+interface EnrolledStudent {
+  id: string;
+  name: string;
+}
 
 interface CourseRowProps {
   course: Course;
@@ -133,6 +137,8 @@ export default function AdminCoursesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
+  const [isLoadingEnrolledStudents, setIsLoadingEnrolledStudents] = useState(false);
+  const [enrolledStudentsList, setEnrolledStudentsList] = useState<EnrolledStudent[]>([]);
   const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
 
   const fetchCourses = useCallback(async () => {
@@ -147,7 +153,7 @@ export default function AdminCoursesPage() {
       setAllCourses(coursesFromApi);
     } catch (error: any) {
       console.error("Error cargando cursos desde API:", error);
-      setAllCourses([]); // Clear courses on API error
+      setAllCourses([]);
       toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
     } finally {
       setIsLoading(false);
@@ -175,7 +181,6 @@ export default function AdminCoursesPage() {
         }
         router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, router]); 
 
   const handleCourseAction = async (courseId: string, newStatus: 'approved' | 'rejected') => {
@@ -199,12 +204,11 @@ export default function AdminCoursesPage() {
         title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
         description: `El curso "${course.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
       });
-      fetchCourses(); // Refetch to update list
+      fetchCourses(); 
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Actualización", description: error.message });
-      setIsLoading(false); // Ensure loading is false on error
+      setIsLoading(false); 
     }
-    // setIsLoading will be set to false by fetchCourses
     setCourseToModify(null);
     setActionType(null);
   };
@@ -224,12 +228,11 @@ export default function AdminCoursesPage() {
         description: `El curso "${courseTitle}" ha sido eliminado.`,
         variant: "destructive"
       });
-      fetchCourses(); // Refetch to update list
+      fetchCourses(); 
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
-      setIsLoading(false); // Ensure loading is false on error
+      setIsLoading(false); 
     }
-    // setIsLoading will be set to false by fetchCourses
     setCourseToModify(null);
     setActionType(null);
   }
@@ -239,14 +242,44 @@ export default function AdminCoursesPage() {
     setActionType(type);
   }, []);
 
-  const handleOpenEnrolledStudentsModal = useCallback((course: Course) => {
+  const handleOpenEnrolledStudentsModal = useCallback(async (course: Course) => {
     setSelectedCourseForEnrolledView(course);
     setIsEnrolledStudentsDialogOpen(true);
-  }, []);
+    setIsLoadingEnrolledStudents(true);
+    setEnrolledStudentsList([]);
+
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const response = await fetch('/api/users');
+      if (!response.ok) {
+        throw new Error('No se pudieron obtener los usuarios de la plataforma.');
+      }
+      const allApiUsers: ApiUser[] = await response.json();
+      const studentUsers = allApiUsers.filter(user => user.role === 'estudiante');
+
+      if (studentUsers.length === 0) {
+        setEnrolledStudentsList([]);
+      } else {
+        // Simulate a random subset of students enrolled in this course
+        const maxSimulated = Math.min(studentUsers.length, 5); // Show up to 5 simulated students
+        const shuffledStudents = studentUsers.sort(() => 0.5 - Math.random());
+        const simulatedEnrolled = shuffledStudents.slice(0, maxSimulated).map(u => ({ id: u.id, name: u.fullName }));
+        setEnrolledStudentsList(simulatedEnrolled);
+      }
+    } catch (error: any) {
+      console.error("Error simulando lista de inscritos:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo cargar la lista simulada de estudiantes inscritos." });
+      setEnrolledStudentsList([]); // Clear on error
+    } finally {
+      setIsLoadingEnrolledStudents(false);
+    }
+  }, [toast]);
 
   const handleCloseEnrolledStudentsModal = () => {
     setSelectedCourseForEnrolledView(null);
     setIsEnrolledStudentsDialogOpen(false);
+    setEnrolledStudentsList([]);
   };
 
   const filteredCourses = useMemo(() => {
@@ -262,7 +295,6 @@ export default function AdminCoursesPage() {
   }, [allCourses, searchTerm]);
 
   const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
-    // Show loader if isLoading is true AND there are no courses yet (avoid flicker if courses exist)
     if (isLoading && allCourses.length === 0 && !searchTerm) { 
         return (
             <div className="flex justify-center items-center py-8">
@@ -384,16 +416,16 @@ export default function AdminCoursesPage() {
 
       {courseToModify && actionType && (
         <AlertDialog open={!!courseToModify} onOpenChange={() => { setCourseToModify(null); setActionType(null);}}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Confirmar Acción</AlertDialogTitle>
-              <AlertDialogDescription>
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>Confirmar Acción</ConfirmDialogTitle>
+              <ConfirmDialogDescription>
                 {actionType === 'approve' && `¿Estás seguro de que quieres aprobar el curso "${courseToModify.title}"?`}
                 {actionType === 'reject' && `¿Estás seguro de que quieres rechazar el curso "${courseToModify.title}"? Esto lo moverá a la pestaña de rechazados.`}
                 {actionType === 'delete' && `¿Estás seguro de que quieres eliminar permanentemente el curso "${courseToModify.title}"? Esta acción no se puede deshacer.`}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
@@ -408,8 +440,8 @@ export default function AdminCoursesPage() {
                 {actionType === 'reject' && 'Rechazar'}
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
               </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
         </AlertDialog>
       )}
 
@@ -419,20 +451,26 @@ export default function AdminCoursesPage() {
                 <DialogHeader>
                     <DialogTitle className="text-xl">Estudiantes Inscritos en: {selectedCourseForEnrolledView.title}</DialogTitle>
                     <DialogDescription>
-                        Lista de estudiantes actualmente inscritos en este curso (simulado).
+                        Lista de estudiantes actualmente inscritos en este curso. <br/>
+                        <span className="text-xs text-muted-foreground">(Simulación basada en usuarios 'estudiante' de la plataforma)</span>
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="max-h-[300px] my-4">
-                     {sampleEnrolledStudents.length > 0 ? (
+                     {isLoadingEnrolledStudents ? (
+                        <div className="flex justify-center items-center py-6">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="ml-3 text-muted-foreground">Cargando estudiantes...</p>
+                        </div>
+                     ) : enrolledStudentsList.length > 0 ? (
                         <ul className="space-y-2 pr-3">
-                            {sampleEnrolledStudents.map((student) => (
+                            {enrolledStudentsList.map((student) => (
                                 <li key={student.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
                                     <span className="text-sm font-medium">{student.name}</span>
                                 </li>
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No hay estudiantes inscritos en este curso (simulación).</p>
+                        <p className="text-sm text-muted-foreground text-center py-4">No hay estudiantes inscritos en este curso o no hay usuarios 'estudiante' en la plataforma para simular.</p>
                     )}
                 </ScrollArea>
                 <DialogFooter>
