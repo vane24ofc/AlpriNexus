@@ -22,9 +22,9 @@ import {
 } from "@/components/ui/alert-dialog";
 
 // const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses'; // No longer used for fetching course data
-const COMPLETED_COURSES_STORAGE_KEY = 'simulatedCompletedCourseIds';
+const SIMULATED_STUDENT_USER_ID = 3; // Assuming student ID is 3 for API calls
+// COMPLETED_LESSONS_PREFIX and COMPLETED_COURSES_STORAGE_KEY are no longer the primary source of truth for completed lessons/courses
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
-const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
 const ENGAGEMENT_DURATION = 3000;
 
 const fallbackSampleCourse: Course = {
@@ -73,82 +73,88 @@ export default function StudentCourseViewPage() {
         let fetchedCourseData: Course | null = null;
 
         try {
-          const response = await fetch(`/api/courses/${courseId}`);
-          if (response.ok) {
-            fetchedCourseData = await response.json();
+          // Fetch course details
+          const courseResponse = await fetch(`/api/courses/${courseId}`);
+          if (courseResponse.ok) {
+            fetchedCourseData = await courseResponse.json();
           } else {
-            const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
-            throw new Error(errorData.message || `Error cargando curso: ${response.status}`);
+            const errorData = await courseResponse.json().catch(() => ({ message: `HTTP error! status: ${courseResponse.status}`}));
+            throw new Error(errorData.message || `Error cargando curso: ${courseResponse.status}`);
           }
+
+          if (fetchedCourseData) {
+            setCourse(fetchedCourseData);
+
+            // Fetch completed lessons for this course and user
+            const completedLessonsResponse = await fetch(`/api/courses/${courseId}/user/${SIMULATED_STUDENT_USER_ID}/completed-lessons`);
+            let initialCompleted = new Set<string>();
+            if (completedLessonsResponse.ok) {
+              const completedLessonIds: string[] = await completedLessonsResponse.json();
+              initialCompleted = new Set<string>(completedLessonIds);
+            } else {
+              console.warn(`Could not fetch completed lessons for course ${courseId}`);
+            }
+            setCompletedLessons(initialCompleted);
+
+            // Load quiz state and determine lessons ready for completion based on initial completed lessons
+            const initialQuizStateFromStorage: Record<string, QuizAttemptState> = {};
+            const initialReadyForCompletionFromStorage = new Set<string>();
+
+            fetchedCourseData.lessons.forEach(lesson => {
+              const isLessonMarkedCompletedByApi = initialCompleted.has(lesson.id);
+              if (lesson.contentType === 'quiz') {
+                const storedQuizStateForLesson = localStorage.getItem(`${QUIZ_STATE_STORAGE_PREFIX}${lesson.id}`);
+                let parsedState: QuizAttemptState = { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
+                if (storedQuizStateForLesson) {
+                  try {
+                      parsedState = JSON.parse(storedQuizStateForLesson) as QuizAttemptState;
+                  } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
+                }
+                initialQuizStateFromStorage[lesson.id] = parsedState;
+                if (parsedState.answered || isLessonMarkedCompletedByApi) { // If quiz answered OR lesson already completed by API
+                  initialReadyForCompletionFromStorage.add(lesson.id);
+                }
+              } else if (isLessonMarkedCompletedByApi) { // For text/video, if API says completed, it's ready
+                   initialReadyForCompletionFromStorage.add(lesson.id);
+              }
+            });
+            setQuizState(initialQuizStateFromStorage);
+            setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
+
+            // Set active accordion item
+            if (fetchedCourseData.lessons && fetchedCourseData.lessons.length > 0) {
+              const allDone = initialCompleted.size === fetchedCourseData.lessons.length;
+              if (!allDone) {
+                  const firstUncompleted = fetchedCourseData.lessons.find(l => !initialCompleted.has(l.id));
+                  setActiveAccordionItem(firstUncompleted ? `lesson-${firstUncompleted.id}` : `lesson-${fetchedCourseData.lessons[0].id}`);
+              } else {
+                   setActiveAccordionItem(`lesson-${fetchedCourseData.lessons[0].id}`);
+              }
+            }
+          } else {
+            // This case should be handled by the error throw above, but as a fallback
+            throw new Error("No course data received from API.");
+          }
+
         } catch (apiError: any) {
-          console.error("API error fetching course:", apiError);
+          console.error("API error fetching course details:", apiError);
           toast({
             variant: "destructive",
             title: "Error al Cargar Curso",
             description: apiError.message || "No se pudo cargar el curso desde el servidor.",
           });
-        }
-
-        if (fetchedCourseData) {
-          setCourse(fetchedCourseData);
-          // Load progress from localStorage
-          const storedCompletedKey = `${COMPLETED_LESSONS_PREFIX}${courseId}`;
-          const storedCompletedLessons = localStorage.getItem(storedCompletedKey);
-          const initialCompleted = storedCompletedLessons ? new Set<string>(JSON.parse(storedCompletedLessons)) : new Set<string>();
-          setCompletedLessons(initialCompleted);
-
-          const initialQuizStateFromStorage: Record<string, QuizAttemptState> = {};
-          const initialReadyForCompletionFromStorage = new Set<string>();
-
-          fetchedCourseData.lessons.forEach(lesson => {
-            const isLessonCompleted = initialCompleted.has(lesson.id);
-            if (lesson.contentType === 'quiz') {
-              const storedQuizStateForLesson = localStorage.getItem(`${QUIZ_STATE_STORAGE_PREFIX}${lesson.id}`);
-              let parsedState: QuizAttemptState = { started: false, answered: false, selectedOptionIndex: null, isCorrect: null };
-              if (storedQuizStateForLesson) {
-                try {
-                    parsedState = JSON.parse(storedQuizStateForLesson) as QuizAttemptState;
-                } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
-              }
-              initialQuizStateFromStorage[lesson.id] = parsedState;
-              if (parsedState.answered) {
-                initialReadyForCompletionFromStorage.add(lesson.id);
-              }
-            } else if (isLessonCompleted) {
-                 initialReadyForCompletionFromStorage.add(lesson.id);
-            }
-          });
-          setQuizState(initialQuizStateFromStorage);
-          setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
-
-          if (fetchedCourseData.lessons && fetchedCourseData.lessons.length > 0) {
-            const allDone = initialCompleted.size === fetchedCourseData.lessons.length;
-            if (!allDone) {
-                const firstUncompleted = fetchedCourseData.lessons.find(l => !initialCompleted.has(l.id));
-                setActiveAccordionItem(firstUncompleted ? `lesson-${firstUncompleted.id}` : `lesson-${fetchedCourseData.lessons[0].id}`);
-            } else {
-                 setActiveAccordionItem(`lesson-${fetchedCourseData.lessons[0].id}`);
-            }
-          }
-        } else {
-          // API failed or course not found, use fallback
-          setCourse(fallbackSampleCourse);
+          setCourse(fallbackSampleCourse); // Use fallback if API fails
           setCompletedLessons(new Set());
           setQuizState({});
           setLessonsReadyForCompletion(new Set());
           if (fallbackSampleCourse.lessons.length > 0) {
             setActiveAccordionItem(`lesson-${fallbackSampleCourse.lessons[0].id}`);
           }
-          toast({
-            variant: "destructive",
-            title: "Curso No Encontrado",
-            description: "No se pudo encontrar el curso solicitado. Mostrando contenido de ejemplo.",
-          });
         }
         setIsLoading(false);
       } else {
         setIsLoading(false);
-        setCourse(fallbackSampleCourse); // Should not happen if routing is correct
+        setCourse(fallbackSampleCourse);
          toast({
             variant: "destructive",
             title: "ID de Curso Inválido",
@@ -173,34 +179,40 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const handleToggleLessonComplete = useCallback(async (lessonId: string) => {
-    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/complete (persists to DB)
-    // For now, simulate with localStorage:
-    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+    if (!course) return;
 
-    setCompletedLessons(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(lessonId)) {
-        // To un-complete: newSet.delete(lessonId); (Currently not supported, stays completed)
-      } else {
+    try {
+      const response = await fetch(`/api/lessons/${lessonId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: SIMULATED_STUDENT_USER_ID, courseId: course.id }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error ${response.status} al marcar la lección.`);
+      }
+      
+      // If API call is successful, update local state
+      setCompletedLessons(prev => {
+        const newSet = new Set(prev);
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
 
-        localStorage.setItem(`${COMPLETED_LESSONS_PREFIX}${courseId}`, JSON.stringify(Array.from(newSet)));
-
+        // Check if all lessons are now completed with the updated set
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground border-accent" });
-            // TODO: API Call - POST /api/courses/:courseId/complete (to mark course as complete for user in DB)
-            const globalCompleted = JSON.parse(localStorage.getItem(COMPLETED_COURSES_STORAGE_KEY) || '[]');
-            if (!globalCompleted.includes(courseId)) {
-                globalCompleted.push(courseId);
-                localStorage.setItem(COMPLETED_COURSES_STORAGE_KEY, JSON.stringify(globalCompleted));
-            }
+            // TODO: Future step: Call API to update overall course_enrollments.progressPercent to 100 and set completedAt
         }
-      }
-      return newSet;
-    });
-  }, [course, courseId, toast]);
+        return newSet;
+      });
+
+    } catch (error: any) {
+      console.error("Error marking lesson complete via API:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo marcar la lección como completada." });
+    }
+  }, [course, toast]);
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
@@ -229,7 +241,6 @@ export default function StudentCourseViewPage() {
 
     const newStateForQuiz = { ...currentQuiz, started: true, answered: false, selectedOptionIndex: null, isCorrect: null };
     setQuizState(prev => ({ ...prev, [lessonId]: newStateForQuiz }));
-    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/quiz-start (optional, if you want to track starts in DB)
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
     toast({ title: "Quiz Iniciado", description: "¡Mucha suerte!" });
   }, [quizState, completedLessons, toast]);
@@ -242,11 +253,7 @@ export default function StudentCourseViewPage() {
     const isCorrect = lesson.correctQuizOptionIndex !== undefined && selectedOptionIndex === lesson.correctQuizOptionIndex;
 
     const newStateForQuiz: QuizAttemptState = { started: true, answered: true, selectedOptionIndex, isCorrect };
-    // TODO: API Call - POST /api/courses/:courseId/lessons/:lessonId/quiz-attempt
-    // Body: { selectedOptionIndex, isCorrect }
-    // API would record the attempt in quiz_attempts table.
-    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
-
+    
     setQuizState(prev => ({ ...prev, [lessonId]: newStateForQuiz }));
     localStorage.setItem(`${QUIZ_STATE_STORAGE_PREFIX}${lessonId}`, JSON.stringify(newStateForQuiz));
 
@@ -358,25 +365,20 @@ export default function StudentCourseViewPage() {
                     let buttonStyleClasses = "w-full justify-start text-left h-auto py-2.5 px-3 ";
 
                     if (isLessonMarkedCompleted && currentQuizData.answered) {
-                       // Feedback shown after lesson is marked complete
-                       if (isSelected) { // The option user selected
+                       if (isSelected) { 
                            buttonStyleClasses += currentQuizData.isCorrect
                                ? "bg-green-500 text-white hover:bg-green-600 border-green-500"
                                : "bg-destructive text-destructive-foreground hover:bg-destructive/90 border-destructive";
-                       } else if (lesson.correctQuizOptionIndex === index && currentQuizData.isCorrect === false) { // Explicitly check isCorrect is false for highlighting correct
-                           // If user was wrong, highlight the actual correct answer
+                       } else if (lesson.correctQuizOptionIndex === index && currentQuizData.isCorrect === false) { 
                            buttonStyleClasses += "bg-green-500/20 border-2 border-green-500 text-green-700 dark:text-green-300";
                        } else {
                            buttonStyleClasses += "bg-card hover:bg-card/90 opacity-70";
                        }
                     } else if (currentQuizData.answered && isSelected) {
-                        // Answered, but lesson not yet marked complete - neutral selected style
                         buttonStyleClasses += "bg-primary/20 border-primary";
                     } else if (currentQuizData.started && isSelected) {
-                        // Started and selected, but not yet "answered" (if there was a submit step, not our case)
                          buttonStyleClasses += "bg-primary/20 border-primary";
                     } else {
-                        // Default button style if not answered or not selected
                         buttonStyleClasses += "bg-card hover:bg-card/90";
                     }
 
@@ -430,7 +432,7 @@ export default function StudentCourseViewPage() {
     );
   }
 
-  if (!course) { // This should ideally be caught by the isLoading check if API fails and sets course to fallback
+  if (!course) { 
     return (
       <div className="text-center py-10">
         <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
@@ -631,4 +633,3 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
-
