@@ -56,8 +56,6 @@ import { Badge } from '@/components/ui/badge';
 // Keys for localStorage
 const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
 const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-// LOCAL_STORAGE_ENROLLED_KEY is no longer the primary source for StudentDashboardContent's enrollments
-// COMPLETED_COURSES_KEY is no longer the primary source for StudentDashboardContent's completions
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
 const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
@@ -66,20 +64,22 @@ const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 
 
-interface User { // Kept for AdminDashboardContent
+interface User { 
   id: string;
-  name: string;
+  fullName: string; // Changed from name to fullName to match API User
   email: string;
   role: Role;
-  joinDate: string;
+  joinDate: string; 
   avatarUrl?: string;
   status: 'active' | 'inactive';
+  createdAt: string; // Added to match ApiUser
+  updatedAt: string; // Added to match ApiUser
 }
 
 const initialSampleUsers: User[] = [
-  { id: 'user1', name: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active' },
-  { id: 'user2', name: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active' },
-  { id: 'user3', name: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active' },
+  { id: 'user1', fullName: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'user2', fullName: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: 'user3', fullName: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ];
 
 const initialSampleCourses: Course[] = [
@@ -91,18 +91,16 @@ const initialSampleCourses: Course[] = [
 
 // Admin Dashboard Content
 interface AdminDashboardContentProps {
-  allUsers: User[];
-  allCourses: Course[];
+  userCount: number;
+  activeCourseCount: number;
   onOpenAnnouncementDialog: () => void; 
 }
 
-const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers, allCourses, onOpenAnnouncementDialog }) => {
-  const userCount = allUsers.length;
-  const activeCourseCount = allCourses.filter(c => c.status === 'approved').length;
+const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount, activeCourseCount, onOpenAnnouncementDialog }) => {
 
   const stats = [
-    { title: "Usuarios Totales", value: userCount.toString(), icon: Users, trend: "+5% desde el mes pasado" },
-    { title: "Cursos Activos", value: activeCourseCount.toString(), icon: BookOpen, trend: "+2 nuevos esta semana" },
+    { title: "Usuarios Totales", value: userCount.toLocaleString(), icon: Users, trend: "+5% desde el mes pasado" },
+    { title: "Cursos Activos", value: activeCourseCount.toLocaleString(), icon: BookOpen, trend: "+2 nuevos esta semana" },
     { title: "Salud del Sistema", value: "Óptima", icon: Settings, trend: "Todos los sistemas operativos" },
     { title: "Tasa de Participación", value: "78%", icon: BarChart3, trend: "Aumento del 3%" },
   ];
@@ -202,18 +200,12 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ allUsers,
 
 // Instructor Dashboard Content
 interface InstructorDashboardContentProps {
-  allCourses: Course[];
+  instructorCourses: Course[]; // Now receives pre-filtered courses
 }
 
-const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ allCourses }) => {
+const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ instructorCourses }) => {
   const { userProfile } = useSessionRole();
-  const currentInstructorName = userProfile.name; 
-
-  const instructorCourses = useMemo(() => 
-    allCourses.filter(c => c.instructorName === currentInstructorName),
-    [allCourses, currentInstructorName]
-  );
-
+ 
   const pendingReviewCount = instructorCourses.filter(c => c.status === 'pending').length;
 
   const stats = [
@@ -274,7 +266,7 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
                   <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-semibold text-lg">{course.title}</h3>
+                        <h3 className="font-semibold text-lg line-clamp-1" title={course.title}>{course.title}</h3>
                         <p className="text-sm text-muted-foreground">{students} estudiantes inscritos</p>
                         <Badge 
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
@@ -348,14 +340,14 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
 };
 
 // Student Dashboard Content
-interface StudentApiEnrollment { // Type for the raw API response from /api/enrollments/user/[userId]
+interface StudentApiEnrollment { 
   enrollmentId: string;
   userId: number;
   courseId: string;
   enrolledAt: string;
   completedAt: string | null;
   progressPercent: number;
-  course: { // Nested course details
+  course: { 
     id: string;
     title: string;
     description: string;
@@ -363,11 +355,11 @@ interface StudentApiEnrollment { // Type for the raw API response from /api/enro
     instructorName: string;
     status: 'pending' | 'approved' | 'rejected';
     dataAiHint?: string;
-    lessons?: any[]; // Lessons might not be fully populated here
+    lessons?: any[]; 
   };
 }
 
-interface StudentDashboardCourseDisplay { // Type for courses displayed in student dashboard
+interface StudentDashboardCourseDisplay { 
   id: string;
   title: string;
   description: string;
@@ -379,7 +371,7 @@ interface StudentDashboardCourseDisplay { // Type for courses displayed in stude
 }
 
 interface StudentDashboardContentProps {
-  enrolledCourseDetails: StudentDashboardCourseDisplay[]; // Use the new type
+  enrolledCourseDetails: StudentDashboardCourseDisplay[]; 
 }
 
 const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrolledCourseDetails }) => {
@@ -388,11 +380,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrol
     if (enrolledCourseDetails.length === 0) return null;
     const incompleteCourses = enrolledCourseDetails.filter(course => !course.isCompleted);
     if (incompleteCourses.length > 0) {
-      // Sort by highest progress among incomplete courses
       incompleteCourses.sort((a, b) => b.progress - a.progress); 
       return incompleteCourses[0];
     }
-    // If all are complete, pick the one with highest progress (likely 100), or any if all 100
     return enrolledCourseDetails.sort((a,b) => b.progress - a.progress)[0]; 
   }, [enrolledCourseDetails]);
 
@@ -531,11 +521,12 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrol
 
 
 interface AdminDashboardWrapperProps {
-  allUsers: User[];
-  allCourses: Course[];
+  userCount: number;
+  activeCourseCount: number;
+  onOpenAnnouncementDialog: () => void; 
 }
 
-const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers, allCourses }) => {
+const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount, activeCourseCount, onOpenAnnouncementDialog }) => {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
@@ -553,7 +544,6 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
       });
       return;
     }
-    // TODO: API Call - POST /api/announcements
     console.log("Enviando anuncio (simulado):", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
     toast({
       title: "Anuncio Enviado (Simulado)",
@@ -565,17 +555,13 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
     setAnnouncementAudience('all'); 
   };
   
-  const openAnnouncementDialog = () => setIsAnnouncementDialogOpen(true);
+  const openDialog = () => setIsAnnouncementDialogOpen(true);
 
   const handleResetPlatformData = () => {
     try {
         if (typeof window === 'undefined') return;
-        // TODO: API Call - POST /api/platform/reset-data (o similar, si el backend maneja la inicialización)
-        // Por ahora, solo limpia localStorage
         localStorage.removeItem(USERS_STORAGE_KEY);
         localStorage.removeItem(COURSES_STORAGE_KEY);
-        // localStorage.removeItem(LOCAL_STORAGE_ENROLLED_KEY); // No longer primary for student data
-        // localStorage.removeItem(COMPLETED_COURSES_KEY); // No longer primary for student data
         localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
         localStorage.removeItem(VIRTUAL_SESSIONS_STORAGE_KEY);
         localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
@@ -606,9 +592,9 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
   return (
     <AlertDialog open={isDataResetDialogOpen} onOpenChange={setIsDataResetDialogOpen}>
       <AdminDashboardContent 
-        allUsers={allUsers} 
-        allCourses={allCourses}
-        onOpenAnnouncementDialog={openAnnouncementDialog} 
+        userCount={userCount} 
+        activeCourseCount={activeCourseCount}
+        onOpenAnnouncementDialog={openDialog} 
       /> 
       <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
         <DialogContent className="sm:max-w-[520px]">
@@ -691,13 +677,18 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ allUsers,
 const SIMULATED_STUDENT_USER_ID = 3;
 
 export default function DashboardHomePage() {
-  const { currentSessionRole, isLoadingRole } = useSessionRole(); 
+  const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole(); 
   const { toast } = useToast(); 
-  const [allCourses, setAllCourses] = useState<Course[]>([]); // For Admin, Instructor, and as base for Student
-  const [allUsers, setAllUsers] = useState<User[]>([]); // For Admin
   
-  // For StudentDashboardContent specifically - will hold processed enrollment data
+  // States for data fetched from API
+  const [apiUsers, setApiUsers] = useState<User[]>([]); 
+  const [apiCourses, setApiCourses] = useState<Course[]>([]);
   const [studentEnrolledCourseDetails, setStudentEnrolledCourseDetails] = useState<StudentDashboardCourseDisplay[]>([]);
+  const [instructorSpecificCourses, setInstructorSpecificCourses] = useState<Course[]>([]);
+  
+  // Stats derived from API data
+  const [adminTotalUsersCount, setAdminTotalUsersCount] = useState(0);
+  const [adminActiveCoursesCount, setAdminActiveCoursesCount] = useState(0);
 
   const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
 
@@ -709,14 +700,13 @@ export default function DashboardHomePage() {
       }
       setIsLoadingDashboardData(true);
       try {
-        // Fetch all courses (used by all roles in some capacity)
         const coursesResponse = await fetch('/api/courses');
         if (!coursesResponse.ok) {
             const errorData = await coursesResponse.json().catch(() => ({ message: `Error cargando cursos: ${coursesResponse.status}`}));
             throw new Error(errorData.message);
         }
         const coursesDataFromApi: Course[] = await coursesResponse.json();
-        setAllCourses(coursesDataFromApi);
+        setApiCourses(coursesDataFromApi);
 
         if (currentSessionRole === 'administrador') {
           const usersResponse = await fetch('/api/users');
@@ -725,14 +715,22 @@ export default function DashboardHomePage() {
             throw new Error(errorData.message);
           }
           const usersDataFromApi: User[] = await usersResponse.json();
-          // Map API user to local User type if necessary (assuming they match for now)
-          setAllUsers(usersDataFromApi.map(u => ({...u, name: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
+          setApiUsers(usersDataFromApi.map(u => ({...u, name: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
+          setAdminTotalUsersCount(usersDataFromApi.length);
+          setAdminActiveCoursesCount(coursesDataFromApi.filter(c => c.status === 'approved').length);
+        }
+
+        if (currentSessionRole === 'instructor' && userProfile.name) {
+          const filteredInstructorCourses = coursesDataFromApi.filter(
+            course => course.instructorName === userProfile.name
+          );
+          setInstructorSpecificCourses(filteredInstructorCourses);
         }
 
         if (currentSessionRole === 'estudiante') {
           const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
           if (!enrollmentsResponse.ok) {
-             if (enrollmentsResponse.status === 404) { // No enrollments found is not an error
+             if (enrollmentsResponse.status === 404) { 
                 setStudentEnrolledCourseDetails([]);
              } else {
                 const errorData = await enrollmentsResponse.json().catch(() => ({ message: `Error cargando inscripciones: ${enrollmentsResponse.status}`}));
@@ -740,15 +738,17 @@ export default function DashboardHomePage() {
              }
           } else {
             const apiEnrollments: StudentApiEnrollment[] = await enrollmentsResponse.json();
-            const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments.map(enrollment => ({
-              id: enrollment.course.id,
-              title: enrollment.course.title,
-              description: enrollment.course.description,
-              thumbnailUrl: enrollment.course.thumbnailUrl,
-              instructorName: enrollment.course.instructorName,
-              dataAiHint: enrollment.course.dataAiHint,
-              progress: enrollment.progressPercent,
-              isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
+            const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments
+              .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') // Filter for approved courses
+              .map(enrollment => ({
+                id: enrollment.course.id,
+                title: enrollment.course.title,
+                description: enrollment.course.description,
+                thumbnailUrl: enrollment.course.thumbnailUrl,
+                instructorName: enrollment.course.instructorName,
+                dataAiHint: enrollment.course.dataAiHint,
+                progress: enrollment.progressPercent,
+                isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
             }));
             setStudentEnrolledCourseDetails(processedEnrollments);
           }
@@ -761,10 +761,15 @@ export default function DashboardHomePage() {
             title: "Error al Cargar Datos del Panel",
             description: error.message || "No se pudieron cargar los datos del servidor. Se usarán valores de ejemplo si es posible."
         });
-        // Fallback to initial samples if API fails catastrophically for courses/users
-        if (allCourses.length === 0) setAllCourses(initialSampleCourses);
-        if (allUsers.length === 0 && currentSessionRole === 'administrador') setAllUsers(initialSampleUsers);
-        // Student enrollments would just be empty on error
+        if (apiCourses.length === 0) setApiCourses(initialSampleCourses);
+        if (apiUsers.length === 0 && currentSessionRole === 'administrador') {
+            setApiUsers(initialSampleUsers);
+            setAdminTotalUsersCount(initialSampleUsers.length);
+            setAdminActiveCoursesCount(initialSampleCourses.filter(c => c.status === 'approved').length);
+        }
+        if (instructorSpecificCourses.length === 0 && currentSessionRole === 'instructor'){
+            setInstructorSpecificCourses(initialSampleCourses.filter(c => c.instructorName === userProfile.name));
+        }
       }
       setIsLoadingDashboardData(false);
     };
@@ -775,7 +780,7 @@ export default function DashboardHomePage() {
       setIsLoadingDashboardData(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingRole, currentSessionRole]); 
+  }, [isLoadingRole, currentSessionRole, userProfile.name]); 
 
 
   if (isLoadingRole || isLoadingDashboardData) { 
@@ -801,13 +806,12 @@ export default function DashboardHomePage() {
 
   switch (currentSessionRole) {
     case 'administrador':
-      return <AdminDashboardWrapper allUsers={allUsers} allCourses={allCourses} />;
+      return <AdminDashboardWrapper userCount={adminTotalUsersCount} activeCourseCount={adminActiveCoursesCount} />;
     case 'instructor':
-      return <InstructorDashboardContent allCourses={allCourses} />;
+      return <InstructorDashboardContent instructorCourses={instructorSpecificCourses} />;
     case 'estudiante':
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
     default: 
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />; 
   }
 }
-
