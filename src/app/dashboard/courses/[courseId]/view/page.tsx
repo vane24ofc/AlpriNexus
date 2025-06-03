@@ -599,15 +599,14 @@ export default function StudentCourseViewPage() {
                 <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
-
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} />
                 <Button
                     className="w-full text-base py-2.5"
                     onClick={handleCourseAction}
                     variant={allLessonsCompleted ? "default" : "default"}
                     style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
-                >
-                    {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
+               >
+                    {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgressPercent > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
                 </Button>
             </CardContent>
           </Card>
