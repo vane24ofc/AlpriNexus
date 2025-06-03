@@ -21,9 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-// const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses'; // No longer used for fetching course data
-const SIMULATED_STUDENT_USER_ID = 3; // Assuming student ID is 3 for API calls
-// COMPLETED_LESSONS_PREFIX and COMPLETED_COURSES_STORAGE_KEY are no longer the primary source of truth for completed lessons/courses
+const SIMULATED_STUDENT_USER_ID = 3; 
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 const ENGAGEMENT_DURATION = 3000;
 
@@ -57,6 +55,7 @@ export default function StudentCourseViewPage() {
   const courseId = params.courseId as string;
 
   const [course, setCourse] = useState<Course | null>(null);
+  const [currentEnrollmentId, setCurrentEnrollmentId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [completedLessons, setCompletedLessons] = useState<Set<string>>(new Set());
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
@@ -64,17 +63,16 @@ export default function StudentCourseViewPage() {
   const [lessonsReadyForCompletion, setLessonsReadyForCompletion] = useState<Set<string>>(new Set());
   const engagementTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
   const [isCertificateDialogOpen, setIsCertificateDialogOpen] = useState(false);
-
+  const [initialProgressFromDB, setInitialProgressFromDB] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchCourseDetails = async () => {
       if (courseId) {
         setIsLoading(true);
-        let fetchedCourseData: Course | null = null;
+        let fetchedCourseData: Course & { enrollment?: { enrollmentId: string, progressPercent: number, completedAt: string | null } } | null = null;
 
         try {
-          // Fetch course details
-          const courseResponse = await fetch(`/api/courses/${courseId}`);
+          const courseResponse = await fetch(`/api/courses/${courseId}?userId=${SIMULATED_STUDENT_USER_ID}`);
           if (courseResponse.ok) {
             fetchedCourseData = await courseResponse.json();
           } else {
@@ -84,8 +82,14 @@ export default function StudentCourseViewPage() {
 
           if (fetchedCourseData) {
             setCourse(fetchedCourseData);
+            if (fetchedCourseData.enrollment?.enrollmentId) {
+                setCurrentEnrollmentId(fetchedCourseData.enrollment.enrollmentId);
+            }
+            if (fetchedCourseData.enrollment?.progressPercent !== undefined) {
+                setInitialProgressFromDB(fetchedCourseData.enrollment.progressPercent);
+            }
 
-            // Fetch completed lessons for this course and user
+
             const completedLessonsResponse = await fetch(`/api/courses/${courseId}/user/${SIMULATED_STUDENT_USER_ID}/completed-lessons`);
             let initialCompleted = new Set<string>();
             if (completedLessonsResponse.ok) {
@@ -96,7 +100,6 @@ export default function StudentCourseViewPage() {
             }
             setCompletedLessons(initialCompleted);
 
-            // Load quiz state and determine lessons ready for completion based on initial completed lessons
             const initialQuizStateFromStorage: Record<string, QuizAttemptState> = {};
             const initialReadyForCompletionFromStorage = new Set<string>();
 
@@ -111,17 +114,16 @@ export default function StudentCourseViewPage() {
                   } catch (e) { console.error("Failed to parse quiz state for lesson", lesson.id, e); }
                 }
                 initialQuizStateFromStorage[lesson.id] = parsedState;
-                if (parsedState.answered || isLessonMarkedCompletedByApi) { // If quiz answered OR lesson already completed by API
+                if (parsedState.answered || isLessonMarkedCompletedByApi) { 
                   initialReadyForCompletionFromStorage.add(lesson.id);
                 }
-              } else if (isLessonMarkedCompletedByApi) { // For text/video, if API says completed, it's ready
+              } else if (isLessonMarkedCompletedByApi) {
                    initialReadyForCompletionFromStorage.add(lesson.id);
               }
             });
             setQuizState(initialQuizStateFromStorage);
             setLessonsReadyForCompletion(initialReadyForCompletionFromStorage);
 
-            // Set active accordion item
             if (fetchedCourseData.lessons && fetchedCourseData.lessons.length > 0) {
               const allDone = initialCompleted.size === fetchedCourseData.lessons.length;
               if (!allDone) {
@@ -132,7 +134,6 @@ export default function StudentCourseViewPage() {
               }
             }
           } else {
-            // This case should be handled by the error throw above, but as a fallback
             throw new Error("No course data received from API.");
           }
 
@@ -143,7 +144,7 @@ export default function StudentCourseViewPage() {
             title: "Error al Cargar Curso",
             description: apiError.message || "No se pudo cargar el curso desde el servidor.",
           });
-          setCourse(fallbackSampleCourse); // Use fallback if API fails
+          setCourse(fallbackSampleCourse); 
           setCompletedLessons(new Set());
           setQuizState({});
           setLessonsReadyForCompletion(new Set());
@@ -166,12 +167,20 @@ export default function StudentCourseViewPage() {
      return () => {
         Object.values(engagementTimersRef.current).forEach(clearTimeout);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, toast]);
 
   const courseProgress = useMemo(() => {
+    if (initialProgressFromDB !== null && completedLessons.size === 0 && course && course.lessons.length > 0) {
+        // If we have DB progress but no local completed lessons yet (initial load for existing enrollment)
+        // use DB progress. Otherwise, if lessons have been completed locally, calculate based on that.
+        if (initialProgressFromDB > 0 && completedLessons.size / course.lessons.length * 100 < initialProgressFromDB ) {
+           return initialProgressFromDB;
+        }
+    }
     if (!course || !course.lessons || course.lessons.length === 0) return 0;
     return Math.round((completedLessons.size / course.lessons.length) * 100);
-  }, [course, completedLessons]);
+  }, [course, completedLessons, initialProgressFromDB]);
 
   const allLessonsCompleted = useMemo(() => {
     if (!course || !course.lessons || course.lessons.length === 0) return false;
@@ -179,7 +188,10 @@ export default function StudentCourseViewPage() {
   }, [course, completedLessons]);
 
   const handleToggleLessonComplete = useCallback(async (lessonId: string) => {
-    if (!course) return;
+    if (!course || !currentEnrollmentId) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudo obtener la información del curso o inscripción." });
+        return;
+    }
 
     try {
       const response = await fetch(`/api/lessons/${lessonId}/complete`, {
@@ -193,26 +205,45 @@ export default function StudentCourseViewPage() {
         throw new Error(errorData.message || `Error ${response.status} al marcar la lección.`);
       }
       
-      // If API call is successful, update local state
+      let newProgressPercent = 0;
       setCompletedLessons(prev => {
         const newSet = new Set(prev);
         newSet.add(lessonId);
         const lessonTitle = course?.lessons.find(l => l.id === lessonId)?.title;
         toast({ title: "¡Lección Marcada!", description: `Has marcado la lección "${lessonTitle}" como completada.` });
 
-        // Check if all lessons are now completed with the updated set
+        if (course && course.lessons.length > 0) {
+            newProgressPercent = Math.round((newSet.size / course.lessons.length) * 100);
+        }
+
         if (course && newSet.size === course.lessons.length) {
             toast({ title: "¡Curso Completado!", description: `¡Felicidades! Has completado el curso "${course.title}".`, duration: 5000, className: "bg-accent text-accent-foreground border-accent" });
-            // TODO: Future step: Call API to update overall course_enrollments.progressPercent to 100 and set completedAt
         }
         return newSet;
       });
 
+      // Now, update the overall course progress
+      const progressResponse = await fetch(`/api/enrollments/${currentEnrollmentId}/progress`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ progressPercent: newProgressPercent }),
+      });
+
+      if (!progressResponse.ok) {
+        const errorData = await progressResponse.json();
+        console.error("Error actualizando el progreso general del curso:", errorData.message || `Error ${progressResponse.status}`);
+        toast({ variant: "destructive", title: "Error de Progreso", description: "No se pudo actualizar el progreso general del curso en la base de datos." });
+      } else {
+        // Optionally, update initialProgressFromDB to reflect the new DB state,
+        // so the progress bar remains consistent if the component re-renders.
+        setInitialProgressFromDB(newProgressPercent);
+      }
+
     } catch (error: any) {
-      console.error("Error marking lesson complete via API:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo marcar la lección como completada." });
+      console.error("Error marking lesson complete or updating progress:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo marcar la lección como completada o actualizar el progreso." });
     }
-  }, [course, toast]);
+  }, [course, toast, currentEnrollmentId]);
 
   const handleCourseAction = () => {
     if (!course || !course.lessons || course.lessons.length === 0) return;
@@ -601,13 +632,14 @@ export default function StudentCourseViewPage() {
                 </p>
                 <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} />
                 <Button
-                    className="w-full text-base py-2.5"
-                    onClick={handleCourseAction}
-                    variant={allLessonsCompleted ? "default" : "default"}
-                    style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
-               >
-                    {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgressPercent > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
-                </Button>
+                  className="w-full text-base py-2.5"
+                  onClick={handleCourseAction}
+                  variant={allLessonsCompleted ? "default" : "default"}
+                  style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
+              >
+                  {allLessonsCompleted ? <><Award className="mr-2 h-5 w-5" /> Ver Certificado (Simulado)</> : (courseProgress > 0 ? "Continuar donde lo dejaste" : "Empezar Curso")}
+              </Button>
+
             </CardContent>
           </Card>
         </div>
