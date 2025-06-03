@@ -15,10 +15,9 @@ export default function CreateUserPage() {
   const handleSubmit = async (data: any) => {
     setIsSubmitting(true);
     
-    // Ensure avatarUrl is an empty string if not provided, instead of null/undefined for the API
     const submissionData = {
       ...data,
-      avatarUrl: data.avatarUrl || '', 
+      avatarUrl: data.avatarUrl || '', // Ensure avatarUrl is an empty string if not provided for the API
     };
 
     try {
@@ -39,7 +38,7 @@ export default function CreateUserPage() {
         description: `El usuario "${data.fullName}" con ID ${result.userId} ha sido creado.`,
       });
       router.push('/dashboard/admin/users');
-      router.refresh(); // Forzar actualización de la lista de usuarios en la página de destino
+      router.refresh(); 
     } catch (error: any) {
       console.error("Error creando usuario:", error);
       toast({
