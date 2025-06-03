@@ -49,8 +49,10 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
   { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
 ];
 
-const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
-const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
+// Storage keys are no longer used for saving new uploads here, but kept for reference
+// as ResourcesPage might still use them for initial load fallback.
+// const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
+// const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
 
 export function FileUploader() {
   const { currentSessionRole } = useSessionRole();
@@ -140,46 +142,35 @@ export function FileUploader() {
       );
 
       if (success) {
-        const storedResource: StoredResource = {
-          id: uploadedFile.id,
-          name: uploadedFile.file.name,
-          type: getFileType(uploadedFile.file.name),
-          size: formatBytes(uploadedFile.file.size),
-          uploadDate: new Date().toISOString().split('T')[0],
-          url: '#', // Placeholder URL
-          visibility: uploadedFile.visibility,
-          category: uploadedFile.category,
-        };
+        // const storedResource: StoredResource = {
+        //   id: uploadedFile.id,
+        //   name: uploadedFile.file.name,
+        //   type: getFileType(uploadedFile.file.name),
+        //   size: formatBytes(uploadedFile.file.size),
+        //   uploadDate: new Date().toISOString().split('T')[0],
+        //   url: '#', // Placeholder URL
+        //   visibility: uploadedFile.visibility,
+        //   category: uploadedFile.category,
+        // };
 
-        // TODO: API Call - POST /api/resources
-        // Example:
+        // TODO: API Call - POST /api/resources with file data & metadata
+        // On success, the API would handle storage. The client might then
+        // trigger a refetch of the resources list on the ResourcesPage.
+
+        // Removed localStorage persistence for uploaded files.
+        // const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
         // try {
-        //   const response = await fetch('/api/resources', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(storedResource),
-        //   });
-        //   if (!response.ok) throw new Error('Failed to upload resource metadata');
-        //   // Handle successful API response if needed
+        //   if (typeof window !== 'undefined') {
+        //     const existingResourcesString = localStorage.getItem(storageKey);
+        //     const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
+        //     localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
+        //   }
         // } catch (e) {
-        //   console.error("Error saving resource via API:", e);
-        //   toast({ variant: "destructive", title: "Error de Subida", description: "No se pudo guardar el archivo en el servidor." });
-        //   // Optionally revert status in UI
-        //   setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'error', error: 'Error de servidor' } : f));
-        //   continue; // Skip localStorage update for this file
+        //   console.error("Error guardando recurso en localStorage:", e);
+        //   toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
         // }
+        console.log(`Simulated successful upload for ${uploadedFile.file.name}. Metadata would be sent to API.`);
 
-        const storageKey = uploadedFile.category === 'company' ? COMPANY_RESOURCES_STORAGE_KEY : LEARNING_RESOURCES_STORAGE_KEY;
-        try {
-          if (typeof window !== 'undefined') {
-            const existingResourcesString = localStorage.getItem(storageKey);
-            const existingResources: StoredResource[] = existingResourcesString ? JSON.parse(existingResourcesString) : [];
-            localStorage.setItem(storageKey, JSON.stringify([...existingResources, storedResource]));
-          }
-        } catch (e) {
-          console.error("Error guardando recurso en localStorage:", e);
-          toast({ variant: "destructive", title: "Error de Almacenamiento Local", description: "No se pudo guardar el archivo simulado." });
-        }
       }
     }
     setIsSimulatingUpload(false);
@@ -383,3 +374,5 @@ export function FileUploader() {
     </Card>
   );
 }
+
+    
