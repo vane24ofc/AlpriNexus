@@ -149,6 +149,7 @@ export default function AdminUsersPage() {
   const [userToModify, setUserToModify] = useState<User | null>(null);
   const [actionType, setActionType] = useState<'delete' | 'changeRole' | 'toggleStatus' | null>(null);
   const [newRoleForChange, setNewRoleForChange] = useState<Role | null>(null);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -166,7 +167,7 @@ export default function AdminUsersPage() {
         role: apiUser.role,
         status: apiUser.status,
         avatarUrl: apiUser.avatarUrl || undefined,
-        joinDate: new Date(apiUser.createdAt).toISOString().split('T')[0], // Keep as ISO string for Date constructor
+        joinDate: new Date(apiUser.createdAt).toISOString(), // Keep as ISO string for Date constructor
         createdAt: apiUser.createdAt,
         updatedAt: apiUser.updatedAt,
       }));
@@ -217,6 +218,7 @@ export default function AdminUsersPage() {
 
   const handleDeleteUser = async () => {
     if (!userToModify) return;
+    setIsActionLoading(true);
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -227,15 +229,19 @@ export default function AdminUsersPage() {
         title: "Usuario Eliminado",
         description: `El usuario "${userToModify.name}" ha sido eliminado.`,
       });
-      fetchUsers(); 
+      fetchUsers(); // Refresh the list
+      closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
+      closeDialog();
+    } finally {
+      setIsActionLoading(false);
     }
-    closeDialog();
   };
   
   const handleChangeRole = async () => {
     if (!userToModify || !newRoleForChange) return;
+    setIsActionLoading(true);
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, {
         method: 'PUT',
@@ -250,15 +256,19 @@ export default function AdminUsersPage() {
         title: "Rol de Usuario Actualizado",
         description: `El rol de "${userToModify.name}" ha sido cambiado a ${roleDisplayInfo[newRoleForChange].label}.`,
       });
-      fetchUsers();
+      fetchUsers(); // Refresh the list
+      closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Actualización de Rol", description: error.message });
+      closeDialog();
+    } finally {
+      setIsActionLoading(false);
     }
-    closeDialog();
   };
 
   const handleToggleUserStatus = async () => {
     if (!userToModify) return;
+    setIsActionLoading(true);
     const newStatus = userToModify.status === 'active' ? 'inactive' : 'active';
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, {
@@ -274,11 +284,14 @@ export default function AdminUsersPage() {
         title: `Usuario ${newStatus === 'active' ? 'Activado' : 'Desactivado'}`,
         description: `El usuario "${userToModify.name}" ha sido ${newStatus === 'active' ? 'activado' : 'desactivado'}.`,
       });
-      fetchUsers();
+      fetchUsers(); // Refresh the list
+      closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al Cambiar Estado", description: error.message });
+      closeDialog();
+    } finally {
+      setIsActionLoading(false);
     }
-    closeDialog();
   };
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -379,15 +392,17 @@ export default function AdminUsersPage() {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={closeDialog}>Cancelar</AlertDialogCancel>
+              <AlertDialogCancel onClick={closeDialog} disabled={isActionLoading}>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
                   if (actionType === 'delete') handleDeleteUser();
                   if (actionType === 'changeRole') handleChangeRole();
                   if (actionType === 'toggleStatus') handleToggleUserStatus();
                 }}
+                disabled={isActionLoading}
                 className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'toggleStatus' && userToModify.status === 'active' ? 'bg-orange-500 hover:bg-orange-600 text-white' : (actionType === 'toggleStatus' && userToModify.status === 'inactive' ? 'bg-green-500 hover:bg-green-600 text-white': ''))}
               >
+                {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
                 {actionType === 'changeRole' && 'Confirmar Cambio de Rol'}
                 {actionType === 'toggleStatus' && (userToModify.status === 'active' ? 'Desactivar Usuario' : 'Activar Usuario')}
@@ -400,3 +415,5 @@ export default function AdminUsersPage() {
   );
 }
 
+
+    
