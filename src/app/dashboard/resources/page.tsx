@@ -76,7 +76,7 @@ export default function ResourcesPage() {
       const apiData: ResourceFile[] = await response.json();
       setAllResourcesFromApi(apiData);
     } catch (error: any) {
-      console.error("Full error object in fetchResources catch block:", error); // Loguear el objeto de error completo
+      console.error("Full error object in fetchResources catch block:", error); 
       toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
       setAllResourcesFromApi([]);
     } finally {
@@ -104,7 +104,7 @@ export default function ResourcesPage() {
         isVisible = true;
       } else if (role === 'instructor') {
         isVisible = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-      } else { // estudiante
+      } else { 
         isVisible = file.visibility === 'public';
       }
 
@@ -143,6 +143,7 @@ export default function ResourcesPage() {
         title: "Recurso Eliminado",
         description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
       });
+      
       setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
     } catch (error: any) {
       toast({
@@ -164,6 +165,15 @@ export default function ResourcesPage() {
       return dateString; 
     }
   };
+  
+  const handleResourceRegistered = () => {
+    toast({
+      title: "Lista Actualizada",
+      description: "Actualizando la lista de recursos...",
+    });
+    fetchResources(); // Re-fetch resources from the API
+  };
+
 
   const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
     <Card className="shadow-lg">
@@ -175,7 +185,7 @@ export default function ResourcesPage() {
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? ( // Mostrar loader solo si la carga global está activa y no hay datos en API
+        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? ( 
              <div className="flex justify-center items-center py-8">
                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -254,7 +264,7 @@ export default function ResourcesPage() {
     </Card>
   );
 
-  if (isLoading && allResourcesFromApi.length === 0) { // Muestra el loader principal si está cargando y aún no hay datos de la API
+  if (isLoading && allResourcesFromApi.length === 0) { 
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -289,7 +299,7 @@ export default function ResourcesPage() {
       </Card>
 
       {canUploadAndManage && (
-        <FileUploader />
+        <FileUploader onResourceRegistered={handleResourceRegistered} />
       )}
 
       {renderResourceTable(
@@ -328,4 +338,3 @@ export default function ResourcesPage() {
     </div>
   );
 }
-

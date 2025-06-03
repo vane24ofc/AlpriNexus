@@ -25,10 +25,27 @@ interface UploadedFile {
   error?: string;
   visibility: FileVisibility;
   category: FileCategory;
-  apiResourceId?: string; // To store the ID from the backend DB
+  apiResourceId?: string;
 }
 
-// StoredResource interface is no longer needed here as we call API directly
+interface ApiResource {
+  id: string;
+  name: string;
+  type: string;
+  size: string;
+  uploadDate: string;
+  url?: string;
+  visibility: FileVisibility;
+  category: FileCategory;
+  uploaderUserId?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+
+interface FileUploaderProps {
+  onResourceRegistered?: (newResource: ApiResource) => void;
+}
 
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe },
@@ -41,10 +58,9 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
   { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
 ];
 
-// SIMULATED_UPLOADER_USER_ID is needed if you want to send uploaderUserId to API
-const SIMULATED_UPLOADER_USER_ID = 1; // Example admin user ID
+const SIMULATED_UPLOADER_USER_ID = 1;
 
-export function FileUploader() {
+export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
   const { currentSessionRole } = useSessionRole();
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [selectedVisibility, setSelectedVisibility] = useState<FileVisibility>('public');
@@ -96,7 +112,7 @@ export function FileUploader() {
   };
 
   const handleSimulateUploadAll = async () => {
-    const pendingFiles = files.filter(f => f.status === 'pending' || (f.status === 'error' && !f.apiResourceId)); // Retry errors if not already submitted
+    const pendingFiles = files.filter(f => f.status === 'pending' || (f.status === 'error' && !f.apiResourceId));
     if (pendingFiles.length === 0) {
         toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero o asegúrate de que no hayan fallado previamente." });
         return;
@@ -108,21 +124,20 @@ export function FileUploader() {
       setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f));
       
       for (let currentProgress = 0; currentProgress <= 100; currentProgress += Math.floor(Math.random() * 20) + 20) {
-        await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 200)); // Slightly faster simulation
+        await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 200));
         setFiles(prev =>
           prev.map(f => (f.id === uploadedFile.id ? { ...f, progress: Math.min(currentProgress, 100) } : f))
         );
         if (currentProgress >= 100) break;
       }
 
-      // After simulation, try to create metadata record in DB
       const resourcePayload = {
         name: uploadedFile.file.name,
         type: getFileType(uploadedFile.file.name),
         size: formatBytes(uploadedFile.file.size),
         visibility: uploadedFile.visibility,
         category: uploadedFile.category,
-        uploaderUserId: canUpload ? SIMULATED_UPLOADER_USER_ID : undefined, // Set uploader ID if available
+        uploaderUserId: canUpload ? SIMULATED_UPLOADER_USER_ID : undefined,
       };
 
       try {
@@ -137,18 +152,23 @@ export function FileUploader() {
           throw new Error(errorData.message || `Error ${response.status} al crear metadatos.`);
         }
         
-        const result = await response.json();
+        const result: { message: string; resource: ApiResource } = await response.json();
         setFiles(prev =>
           prev.map(f =>
             f.id === uploadedFile.id ? { 
                 ...f, 
                 progress: 100, 
                 status: 'success',
-                apiResourceId: result.resource.id // Store the ID from the backend
+                apiResourceId: result.resource.id
             } : f
           )
         );
         toast({ title: "Archivo Registrado", description: `Metadatos para "${uploadedFile.file.name}" creados en la base de datos.` });
+        
+        if (onResourceRegistered) {
+          onResourceRegistered(result.resource);
+        }
+
       } catch (apiError: any) {
         console.error(`API Error for ${uploadedFile.file.name}:`, apiError);
         setFiles(prev =>
@@ -165,7 +185,6 @@ export function FileUploader() {
       }
     }
     setIsSimulatingUpload(false);
-    // toast({ title: "Proceso de Registro Completado", description: "Verifica el estado de cada archivo." });
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -365,5 +384,3 @@ export function FileUploader() {
     </Card>
   );
 }
-
-    
