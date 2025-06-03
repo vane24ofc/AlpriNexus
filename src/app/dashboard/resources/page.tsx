@@ -36,9 +36,7 @@ interface ResourceFile {
   category: FileCategory;
 }
 
-const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
-const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
-
+// These initial samples will act as our "simulated API response" for now.
 const initialSampleCompanyResources: ResourceFile[] = [
   { id: 'cr1', name: 'Políticas Internas Q4 2023.pdf', type: 'PDF', size: '2.5 MB', uploadDate: '2023-10-15', url: '#', visibility: 'instructors', category: 'company' },
   { id: 'cr2', name: 'Plan Estratégico 2024.docx', type: 'Documento', size: '1.2 MB', uploadDate: '2023-11-01', url: '#', visibility: 'private', category: 'company' },
@@ -78,43 +76,32 @@ export default function ResourcesPage() {
   useEffect(() => {
     const loadResources = async () => {
       setIsLoading(true);
-      // TODO: API Call - GET /api/resources/company and GET /api/resources/learning
-      // Example for company resources:
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // TODO: Replace with actual API calls
+      // For now, use the initial sample data as if it came from an API
       // try {
-      //   const response = await fetch('/api/resources/company');
-      //   if (!response.ok) throw new Error('Failed to fetch company resources');
-      //   const data = await response.json();
-      //   setCompanyResources(data);
+      //   const companyResponse = await fetch('/api/resources?category=company');
+      //   if (!companyResponse.ok) throw new Error('Failed to fetch company resources');
+      //   const companyData = await companyResponse.json();
+      //   setCompanyResources(companyData);
+
+      //   const learningResponse = await fetch('/api/resources?category=learning');
+      //   if (!learningResponse.ok) throw new Error('Failed to fetch learning resources');
+      //   const learningData = await learningResponse.json();
+      //   setLearningResources(learningData);
       // } catch (error) {
-      //   console.error("Error fetching company resources:", error);
-      //   // Fallback to localStorage or initial samples
+      //   console.error("Error fetching resources from API:", error);
+      //   toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los recursos." });
+      //   setCompanyResources(initialSampleCompanyResources); // Fallback to sample on API error
+      //   setLearningResources(initialSampleLearningResources); // Fallback to sample on API error
       // }
-      // Similar for learning resources
 
-      // Fallback to localStorage
-      try {
-        const storedCompany = localStorage.getItem(COMPANY_RESOURCES_STORAGE_KEY);
-        setCompanyResources(storedCompany ? JSON.parse(storedCompany) : initialSampleCompanyResources);
-        if (!storedCompany) {
-          localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
-        }
-
-        const storedLearning = localStorage.getItem(LEARNING_RESOURCES_STORAGE_KEY);
-        setLearningResources(storedLearning ? JSON.parse(storedLearning) : initialSampleLearningResources);
-        if (!storedLearning) {
-          localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
-        }
-      } catch (error) {
-        console.error("Error cargando recursos desde localStorage:", error);
-        setCompanyResources(initialSampleCompanyResources);
-        setLearningResources(initialSampleLearningResources);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem(COMPANY_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleCompanyResources));
-            localStorage.setItem(LEARNING_RESOURCES_STORAGE_KEY, JSON.stringify(initialSampleLearningResources));
-        }
-      } finally {
-        setIsLoading(false);
-      }
+      setCompanyResources(initialSampleCompanyResources);
+      setLearningResources(initialSampleLearningResources);
+      
+      setIsLoading(false);
     };
     loadResources();
   }, []);
@@ -151,51 +138,24 @@ export default function ResourcesPage() {
     if (!resourceToDelete) return;
 
     // TODO: API Call - DELETE /api/resources/:resourceId (or specific endpoint based on category)
-    // Example:
-    // try {
-    //   const response = await fetch(`/api/resources/${resourceToDelete.id}?category=${resourceToDelete.category}`, { method: 'DELETE' });
-    //   if (!response.ok) throw new Error('Failed to delete resource');
-    //   // If API call is successful, then update local state
-    // } catch (error) {
-    //   console.error("Error deleting resource via API:", error);
-    //   toast({ variant: "destructive", title: "Error de Eliminación", description: "No se pudo eliminar el recurso." });
-    //   setResourceToDelete(null);
-    //   setIsDeleteDialogOpen(false);
-    //   return;
-    // }
+    // On success, the API should handle deletion. The client would then typically refetch the list
+    // or optimistically update the UI. For this simulation, we'll just update the local state.
 
-    let updatedResources: ResourceFile[];
-    let storageKey: string;
+    // Simulate API call delay
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     if (resourceToDelete.category === 'company') {
-      updatedResources = companyResources.filter(r => r.id !== resourceToDelete.id);
-      setCompanyResources(updatedResources);
-      storageKey = COMPANY_RESOURCES_STORAGE_KEY;
+      setCompanyResources(prev => prev.filter(r => r.id !== resourceToDelete.id));
     } else {
-      updatedResources = learningResources.filter(r => r.id !== resourceToDelete.id);
-      setLearningResources(updatedResources);
-      storageKey = LEARNING_RESOURCES_STORAGE_KEY;
+      setLearningResources(prev => prev.filter(r => r.id !== resourceToDelete.id));
     }
 
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(updatedResources));
-      toast({
-        title: "Recurso Eliminado",
-        description: `El archivo "${resourceToDelete.name}" ha sido eliminado.`,
-        variant: "destructive",
-      });
-    } catch (error) {
-      console.error("Error al eliminar recurso de localStorage:", error);
-      toast({
-        variant: "destructive",
-        title: "Error de Eliminación",
-        description: "No se pudo eliminar el recurso del almacenamiento local.",
-      });
-      // Revert state if localStorage fails (optional, for robustness)
-      if (resourceToDelete.category === 'company') setCompanyResources(companyResources);
-      else setLearningResources(learningResources);
-    }
-
+    toast({
+      title: "Recurso Eliminado (Simulado)",
+      description: `El archivo "${resourceToDelete.name}" ha sido eliminado.`,
+      variant: "destructive",
+    });
+    
     setResourceToDelete(null);
     setIsDeleteDialogOpen(false);
   };
@@ -356,3 +316,5 @@ export default function ResourcesPage() {
     </div>
   );
 }
+
+    
