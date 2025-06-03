@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Bell, CheckCircle, AlertTriangle, MessageCircle, BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,7 +25,8 @@ interface Notification {
   link?: string;
 }
 
-const NOTIFICATIONS_STORAGE_KEY = 'nexusAlpriNotifications';
+// NOTIFICATIONS_STORAGE_KEY is no longer used for primary loading/saving.
+// const NOTIFICATIONS_STORAGE_KEY = 'nexusAlpriNotifications';
 
 const initialSeedNotifications: Notification[] = [
   { id: 'seed1', type: 'course', title: '¡Nuevo Curso Disponible!', description: 'Se ha añadido el curso de JavaScript Avanzado.', timestamp: 'hace 2m', read: false, link: '#' },
@@ -76,110 +77,79 @@ export function NotificationIcon() {
   useEffect(() => {
     const loadNotifications = async () => {
       setIsLoading(true);
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 700)); 
+
       // TODO: API Call - GET /api/me/notifications
-      // Example:
+      // If API call fails or is not yet implemented, we use initialSeedNotifications.
+      // Example structure for API call:
       // try {
       //   const response = await fetch('/api/me/notifications');
       //   if (!response.ok) throw new Error('Failed to fetch notifications');
       //   const apiNotifications: Notification[] = await response.json();
-      //   setNotifications(apiNotifications.map(n => ({...n, timestamp: formatDistanceToNow(new Date(n.timestamp), { addSuffix: true, locale: es }) })));
+      //   // Process timestamps if necessary, e.g., using date-fns/formatDistanceToNow
+      //   setNotifications(apiNotifications); 
       // } catch (error) {
       //   console.error("Error loading notifications from API:", error);
-      //   toast({ variant: "destructive", title: "Error de Notificaciones", description: "No se pudieron cargar las notificaciones."});
-      //   const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-      //   setNotifications(storedNotifications ? JSON.parse(storedNotifications) : initialSeedNotifications);
+      //   toast({ variant: "destructive", title: "Error de Notificaciones", description: "No se pudieron cargar las notificaciones del servidor. Mostrando ejemplos."});
+      //   setNotifications(initialSeedNotifications); // Fallback to seed data
       // } finally {
       //   setIsLoading(false);
       // }
 
-      // Fallback to localStorage
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API delay
-      try {
-        const storedNotifications = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
-        if (storedNotifications) {
-          setNotifications(JSON.parse(storedNotifications));
-        } else {
-          setNotifications(initialSeedNotifications);
-          localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(initialSeedNotifications));
-        }
-      } catch (error) {
-        console.error("Error loading notifications from localStorage:", error);
-        setNotifications(initialSeedNotifications);
-      }
+      // For now, directly use initialSeedNotifications as if API failed or is not ready
+      setNotifications(initialSeedNotifications);
       setIsLoading(false);
     };
     loadNotifications();
-  }, []);
+  }, [toast]); // toast dependency is for potential error messages from API call
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
 
-  const persistNotifications = useCallback(async (updatedNotifications: Notification[]) => {
-    // In a real app, this function would likely not exist if API handles persistence.
-    // For now, it updates localStorage.
-    try {
-      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(updatedNotifications));
-    } catch (error) {
-      console.error("Error persisting notifications to localStorage:", error);
-      toast({ variant: "destructive", title: "Error Local", description: "No se pudieron guardar los cambios en las notificaciones."});
-    }
-  }, [toast]);
+  // persistNotifications function is removed as persistence would be handled by API calls.
 
   const handleMarkAllAsRead = useCallback(async () => {
     setIsLoading(true);
     // TODO: API Call - POST /api/me/notifications/mark-all-read
-    // After successful API call, update local state:
+    // On success, the API would return the updated notifications or a success message.
+    // Then, update the local state:
     // try {
-    //   const response = await fetch('/api/me/notifications/mark-all-read', { method: 'POST' });
-    //   if (!response.ok) throw new Error('Failed to mark all as read');
+    //   /* API call */
     //   const updated = notifications.map(n => ({ ...n, read: true }));
     //   setNotifications(updated);
-    //   // persistNotifications(updated); // API handles persistence
     //   toast({ title: "Notificaciones Actualizadas", description: "Todas las notificaciones marcadas como leídas." });
-    // } catch (error) {
-    //   console.error("Error marking all notifications as read:", error);
-    //   toast({ variant: "destructive", title: "Error", description: "No se pudieron marcar todas como leídas." });
-    // } finally {
-    //    setIsLoading(false);
-    // }
+    // } catch (error) { /* ... */ }
+    // finally { setIsLoading(false); }
 
-    // Fallback to localStorage
-    await new Promise(resolve => setTimeout(resolve, 300)); // Simulate API delay
+    // Simulating API behavior:
+    await new Promise(resolve => setTimeout(resolve, 300));
     const updated = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updated);
-    await persistNotifications(updated);
+    // No persistNotifications call here.
     setIsLoading(false);
     toast({ title: "Notificaciones Actualizadas", description: "Todas las notificaciones marcadas como leídas." });
-  }, [notifications, persistNotifications, toast]);
+  }, [notifications, toast]);
 
   const handleToggleRead = useCallback(async (id: string) => {
     const notification = notifications.find(n => n.id === id);
     if (!notification) return;
 
     const newReadState = !notification.read;
-    // TODO: API Call - PUT /api/me/notifications/:id/read { read: newReadState }
-    // After successful API call, update local state:
+    // TODO: API Call - PUT /api/me/notifications/:id { read: newReadState }
+    // On success, update local state.
     // try {
-    //   const response = await fetch(`/api/me/notifications/${id}/read`, {
-    //     method: 'PUT',
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ read: newReadState })
-    //   });
-    //   if (!response.ok) throw new Error('Failed to update notification read state');
-    //   const updated = notifications.map(n => n.id === id ? { ...n, read: newReadState } : n);
-    //   setNotifications(updated);
-    //   // persistNotifications(updated); // API handles persistence
-    // } catch (error) {
-    //   console.error("Error toggling notification read state:", error);
-    //   toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el estado de la notificación." });
-    // }
+    //    /* API Call */
+    //    const updated = notifications.map(n => n.id === id ? { ...n, read: newReadState } : n);
+    //    setNotifications(updated);
+    // } catch (error) { /* ... */ }
 
-    // Fallback to localStorage
+    // Simulating API behavior:
     const updated = notifications.map(n =>
       n.id === id ? { ...n, read: newReadState } : n
     );
     setNotifications(updated);
-    await persistNotifications(updated);
-  }, [notifications, persistNotifications, toast]);
+    // No persistNotifications call here.
+  }, [notifications]);
 
 
   return (
