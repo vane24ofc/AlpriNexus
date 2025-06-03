@@ -65,13 +65,18 @@ export default function ResourcesPage() {
     try {
       const response = await fetch('/api/resources');
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
-        throw new Error(errorData.message || 'No se pudieron cargar los recursos.');
+        let errorData = { message: `HTTP error! status: ${response.status}` };
+        try {
+            errorData = await response.json();
+        } catch (jsonError) {
+            console.error("Could not parse error response as JSON:", jsonError);
+        }
+        throw new Error(errorData.message || `Failed to fetch resources (status: ${response.status})`);
       }
       const apiData: ResourceFile[] = await response.json();
       setAllResourcesFromApi(apiData);
     } catch (error: any) {
-      console.error("Error fetching resources from API:", error);
+      console.error("Full error object in fetchResources catch block:", error); // Loguear el objeto de error completo
       toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
       setAllResourcesFromApi([]);
     } finally {
@@ -138,10 +143,7 @@ export default function ResourcesPage() {
         title: "Recurso Eliminado",
         description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
       });
-      // Actualizar la lista de recursos localmente o volver a cargar desde la API
       setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
-      // Opcionalmente, para asegurar consistencia completa:
-      // fetchResources(); 
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -173,7 +175,7 @@ export default function ResourcesPage() {
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && files.length === 0 ? (
+        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? ( // Mostrar loader solo si la carga global está activa y no hay datos en API
              <div className="flex justify-center items-center py-8">
                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
@@ -252,7 +254,7 @@ export default function ResourcesPage() {
     </Card>
   );
 
-  if (isLoading && allResourcesFromApi.length === 0) {
+  if (isLoading && allResourcesFromApi.length === 0) { // Muestra el loader principal si está cargando y aún no hay datos de la API
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -280,7 +282,7 @@ export default function ResourcesPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="max-w-sm"
-                    disabled={isLoading}
+                    disabled={isLoading && allResourcesFromApi.length === 0}
                 />
             </div>
         </CardContent>
@@ -326,3 +328,4 @@ export default function ResourcesPage() {
     </div>
   );
 }
+

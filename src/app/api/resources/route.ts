@@ -17,30 +17,22 @@ export async function GET(request: NextRequest) {
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
-    // TODO: En el futuro, podríamos añadir filtros por category, visibility, uploaderUserId
-    // basados en query parameters y el rol del usuario haciendo la petición.
     const [rows] = await connection.execute('SELECT * FROM resources ORDER BY uploadDate DESC;');
     
-    // El campo 'visibility' y 'category' son ENUM en la DB, se devuelven como strings.
-    // El campo 'uploadDate' es DATETIME, se devolverá como string ISO o similar por el driver.
-    // El frontend puede necesitar formatear 'uploadDate' y 'size' si se guarda INT para size.
     const resources = (rows as any[]).map(row => ({
       ...row,
-      // Aseguramos que los booleanos sean booleanos si aplica, o que los números sean números.
-      // Por ahora, la tabla está definida con VARCHAR y ENUMs que son strings.
     }));
 
     await connection.end();
     return NextResponse.json(resources);
   } catch (error: any) {
-    console.error('Error fetching resources:', error);
+    console.error('Error fetching resources from database:', error); // Log del error en el servidor
     await connection?.end();
+    // Mensaje de error más específico
     return NextResponse.json(
-      { message: 'Failed to fetch resources.', error: error.message },
+      { message: `Database error when fetching resources: ${error.message}`, errorDetails: error.code },
       { status: 500 }
     );
   }
 }
 
-// POST (para subir archivos) y DELETE (para eliminar) se implementarán en futuros "poquitos".
-// PUT (para actualizar metadata) también podría ser necesario.
