@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 
-interface User {
-  id: string;
+export interface User { // Exporting User interface for other components if needed
+  id: string; // API returns id as string from DB (users.id is INT, but mysql2/promise might return string for big numbers or by default)
   name: string; // Corresponds to fullName from API
   email: string;
   role: Role;
@@ -37,15 +37,15 @@ interface User {
   updatedAt?: string;
 }
 
-interface ApiUser {
-  id: string;
+interface ApiUser { // This matches the structure from /api/users
+  id: string; // Assuming API returns ID as string
   fullName: string;
   email: string;
   role: Role;
   status: 'active' | 'inactive';
-  avatarUrl?: string;
-  createdAt: string;
-  updatedAt: string;
+  avatarUrl?: string | null; // API might return null
+  createdAt: string; // ISO date string
+  updatedAt: string; // ISO date string
 }
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -160,13 +160,13 @@ export default function AdminUsersPage() {
       }
       const dataFromApi: ApiUser[] = await response.json();
       const mappedUsers: User[] = dataFromApi.map(apiUser => ({
-        id: apiUser.id,
+        id: String(apiUser.id), // Ensure ID is string for consistency
         name: apiUser.fullName,
         email: apiUser.email,
         role: apiUser.role,
         status: apiUser.status,
         avatarUrl: apiUser.avatarUrl || undefined,
-        joinDate: new Date(apiUser.createdAt).toISOString().split('T')[0],
+        joinDate: new Date(apiUser.createdAt).toISOString().split('T')[0], // Keep as ISO string for Date constructor
         createdAt: apiUser.createdAt,
         updatedAt: apiUser.updatedAt,
       }));
@@ -178,7 +178,7 @@ export default function AdminUsersPage() {
         title: 'Error al Cargar Usuarios',
         description: error.message || 'No se pudieron obtener los usuarios del servidor.',
       });
-      setUsers([]); // Clear users on API error to avoid showing stale data
+      setUsers([]); 
     } finally {
       setIsLoading(false);
     }
@@ -227,7 +227,7 @@ export default function AdminUsersPage() {
         title: "Usuario Eliminado",
         description: `El usuario "${userToModify.name}" ha sido eliminado.`,
       });
-      fetchUsers(); // Re-fetch users to update the list
+      fetchUsers(); 
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
     }
@@ -340,7 +340,7 @@ export default function AdminUsersPage() {
 
           {filteredUsers.length === 0 ? (
             <p className="py-8 text-center text-muted-foreground">
-              {searchTerm ? `No se encontraron usuarios para "${searchTerm}".` : "No hay usuarios registrados."}
+              {searchTerm ? `No se encontraron usuarios para "${searchTerm}".` : "No hay usuarios registrados en la base de datos."}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -399,3 +399,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+
