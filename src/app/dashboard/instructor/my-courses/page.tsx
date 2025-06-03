@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog'; // Added Dialog for enrolled students
+import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import {
   ChartContainer,
@@ -41,8 +41,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
 
 type CourseStatus = 'pending' | 'approved' | 'rejected';
 interface StatusInfo {
@@ -66,7 +66,6 @@ const studentProgressChartConfig = {
   },
 } satisfies ChartConfig;
 
-// Sample users for the enrolled students dialog
 const sampleEnrolledStudents = [
   { id: 'student1', name: 'Ana García' },
   { id: 'student2', name: 'Luis Fernández' },
@@ -106,7 +105,7 @@ const MemoizedInstructorCourseRow = React.memo(function InstructorCourseRow({ co
         </Badge>
       </TableCell>
       <TableCell className="hidden lg:table-cell">
-        {Math.floor(Math.random() * 200)} {/* Placeholder student count */}
+        {course.lessons?.length || 0} Lecciones {/* Placeholder, API should provide student count */}
       </TableCell>
       <TableCell className="text-right">
         <DropdownMenu>
@@ -158,9 +157,8 @@ export default function MyCoursesPage() {
   const [isEnrolledStudentsDialogOpen, setIsEnrolledStudentsDialogOpen] = useState(false);
   const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
 
-
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchInstructorCourses = async () => {
       if (currentSessionRole !== 'instructor' || !userProfile.name) {
         setIsLoading(false);
         setAllInstructorCourses([]);
@@ -170,34 +168,27 @@ export default function MyCoursesPage() {
       const initialSearch = searchParams.get('search') || '';
       setSearchTerm(initialSearch);
 
-      // TODO: API Call - GET /api/courses?instructorName=${userProfile.name}
       try {
-        const storedCourses = localStorage.getItem(COURSES_STORAGE_KEY);
-        let platformCourses: Course[] = [];
-        if (storedCourses) {
-          platformCourses = JSON.parse(storedCourses);
-        } else {
-          const initialSeedCoursesForInstructor: Course[] = [
-            { id: 'instrSeed1', title: 'Mi Primer Curso de Next.js (Ejemplo)', description: 'Aprende Next.js conmigo.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'nextjs seed', instructorName: userProfile.name || 'Instructor de Ejemplo', status: 'approved', lessons: [{id: 'l1-seed', title: 'Intro Seed'}] },
-            { id: 'instrSeed2', title: 'Diseño UX Avanzado (Ejemplo)', description: 'Técnicas de UX.', thumbnailUrl: 'https://placehold.co/150x84.png', dataAiHint: 'ux seed', instructorName: userProfile.name || 'Instructor de Ejemplo', status: 'pending', lessons: [{id: 'l1-seed2', title: 'Intro UX Seed'}] },
-          ];
-          platformCourses = initialSeedCoursesForInstructor; 
-          localStorage.setItem(COURSES_STORAGE_KEY, JSON.stringify(initialSeedCoursesForInstructor));
+        const response = await fetch('/api/courses');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
+          throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
         }
-        
-        const filteredForInstructor = platformCourses.filter(course => course.instructorName === userProfile.name);
+        const allPlatformCourses: Course[] = await response.json();
+        const filteredForInstructor = allPlatformCourses.filter(
+          course => course.instructorName === userProfile.name
+        );
         setAllInstructorCourses(filteredForInstructor);
-
-      } catch (error) {
-        console.error("Error cargando cursos:", error);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: "No se pudieron cargar tus cursos." });
+      } catch (error: any) {
+        console.error("Error cargando cursos del instructor desde API:", error);
+        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
         setAllInstructorCourses([]);
       } finally {
         setIsLoading(false);
       }
     };
-    fetchCourses();
-  }, [toast, userProfile.name, currentSessionRole]);
+    fetchInstructorCourses();
+  }, [userProfile.name, currentSessionRole, toast]); // Removed searchParams as it was handled by another useEffect
 
    useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -210,7 +201,7 @@ export default function MyCoursesPage() {
       router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, router]); // Added router to dependency array
+  }, [searchTerm, router]);
 
   const getStatusInfo = (status: CourseStatus): StatusInfo => {
     switch (status) {
@@ -284,13 +275,13 @@ export default function MyCoursesPage() {
 
 
   const renderCourseTable = (coursesToRender: Course[], emptyMessage: string) => {
-    if (isLoading) {
-      return (
-        <div className="flex justify-center items-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="ml-3 text-muted-foreground">Cargando cursos...</p>
-        </div>
-      );
+    if (isLoading && allInstructorCourses.length === 0 && !searchTerm) {
+        return (
+            <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Cargando cursos...</p>
+            </div>
+        );
     }
     if (coursesToRender.length === 0) {
       return <p className="py-8 text-center text-muted-foreground">{searchTerm ? `No se encontraron cursos para "${searchTerm}".` : emptyMessage}</p>;
@@ -303,7 +294,7 @@ export default function MyCoursesPage() {
               <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
               <TableHead>Título</TableHead>
               <TableHead className="hidden sm:table-cell">Estado</TableHead>
-              <TableHead className="hidden lg:table-cell">Estudiantes</TableHead>
+              <TableHead className="hidden lg:table-cell">Lecciones</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -370,7 +361,7 @@ export default function MyCoursesPage() {
                 className="pl-10 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading && allInstructorCourses.length === 0}
               />
             </div>
         </CardContent>
@@ -378,11 +369,11 @@ export default function MyCoursesPage() {
 
       <Tabs defaultValue="all">
         <TabsList className="grid w-full grid-cols-2 mb-4">
-          <TabsTrigger value="all" disabled={isLoading}>
-            Todos Mis Cursos ({isLoading ? '...' : filteredCourses.length})
+          <TabsTrigger value="all" disabled={isLoading && allInstructorCourses.length === 0}>
+            Todos Mis Cursos ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : filteredCourses.length})
           </TabsTrigger>
-          <TabsTrigger value="published" disabled={isLoading}>
-            Publicados ({isLoading ? '...' : publishedCourses.length})
+          <TabsTrigger value="published" disabled={isLoading && allInstructorCourses.length === 0}>
+            Publicados ({isLoading && allInstructorCourses.length === 0 && !searchTerm ? '...' : publishedCourses.length})
           </TabsTrigger>
         </TabsList>
 
@@ -496,7 +487,6 @@ export default function MyCoursesPage() {
                             {sampleEnrolledStudents.map((student) => (
                                 <li key={student.id} className="flex items-center justify-between p-2 border rounded-md bg-muted/50">
                                     <span className="text-sm font-medium">{student.name}</span>
-                                    {/* Podríamos añadir más info como correo si la tuviéramos */}
                                 </li>
                             ))}
                         </ul>
