@@ -148,8 +148,10 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({message: "Error desconocido del servidor."}));
-          throw new Error(errorData.message || `Error ${response.status} al crear metadatos.`);
+          const errorData = await response.json().catch(() => ({message: "Error desconocido del servidor al intentar registrar el archivo."}));
+          // Intenta acceder a errors si está presente, sino usa message.
+          const detailedMessage = errorData.errors ? JSON.stringify(errorData.errors) : errorData.message;
+          throw new Error(detailedMessage || `Error ${response.status} al crear metadatos.`);
         }
         
         const result: { message: string; resource: ApiResource } = await response.json();
@@ -181,7 +183,11 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
             } : f
           )
         );
-        toast({ variant: "destructive", title: `Error al Registrar ${uploadedFile.file.name}`, description: apiError.message });
+        toast({ 
+            variant: "destructive", 
+            title: `Error al Registrar ${uploadedFile.file.name}`, 
+            description: apiError.message || 'No se pudo conectar con el servidor o hubo un error en la respuesta.' 
+        });
       }
     }
     setIsSimulatingUpload(false);
@@ -384,4 +390,3 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
     </Card>
   );
 }
-

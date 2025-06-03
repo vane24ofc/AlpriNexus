@@ -34,6 +34,10 @@ export async function GET(request: NextRequest) {
     
     const resources = (rows as any[]).map(row => ({
       ...row,
+      // Ensure dates are consistently formatted if needed, or handle on client
+      // uploadDate: row.uploadDate ? new Date(row.uploadDate).toISOString() : null,
+      // createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
+      // updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
     }));
 
     await connection.end();
@@ -41,6 +45,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching resources from database:', error); 
     await connection?.end();
+    // Provide more specific error details back to the client for database errors
     return NextResponse.json(
       { message: `Database error when fetching resources: ${error.message}`, errorDetails: error.code },
       { status: 500 }
@@ -64,7 +69,9 @@ export async function POST(request: NextRequest) {
     const { name, type, size, visibility, category, uploaderUserId } = validationResult.data;
     const id = randomUUID();
     const uploadDate = new Date(); 
-    const url = `#placeholder-url-for-${id}`; // Placeholder URL
+    // En una implementación real, la URL podría apuntar a un S3, GCS, o un endpoint de descarga del propio servidor.
+    // Por ahora, es un placeholder.
+    const url = `#placeholder-url-for-${id}`; 
 
     connection = await mysql.createConnection(dbConfig);
     await connection.execute(
@@ -95,8 +102,16 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     await connection?.end();
     console.error('Error creating resource metadata:', error);
+    // Check for specific MySQL errors or return a generic one
+    if (error.code) { // If it's a MySQL error (it usually has a code)
+      return NextResponse.json(
+        { message: 'Fallo al crear los metadatos del recurso en la base de datos.', error: error.message, code: error.code },
+        { status: 500 }
+      );
+    }
+    // Generic server error
     return NextResponse.json(
-      { message: 'Fallo al crear los metadatos del recurso.', error: error.message, code: error.code },
+      { message: 'Fallo al crear los metadatos del recurso debido a un error interno.', error: error.message },
       { status: 500 }
     );
   }
