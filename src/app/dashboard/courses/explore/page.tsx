@@ -14,19 +14,18 @@ import { useToast } from '@/hooks/use-toast';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses'; // No longer needed for course data
-const LOCAL_STORAGE_ENROLLED_KEY = 'simulatedEnrolledCourseIds';
-
-// initialSeedCoursesForExplore removed, data will come from API
+// LOCAL_STORAGE_ENROLLED_KEY ya no se usará para la lógica principal de inscripción
+// pero lo mantenemos por si hay alguna lógica residual o para una transición.
 
 interface CourseCardProps {
   course: Course;
   isEnrolled: boolean;
   onEnroll: (courseId: string, courseTitle: string) => void;
-  showAdminActions?: boolean; 
+  showAdminActions?: boolean;
+  enrollmentInProgress?: boolean; // Para deshabilitar el botón mientras se inscribe
 }
 
-const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, onEnroll, showAdminActions = false }: CourseCardProps) {
+const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, onEnroll, showAdminActions = false, enrollmentInProgress = false }: CourseCardProps) {
   const router = useRouter();
   return (
     <Card className="overflow-hidden shadow-md hover:shadow-primary/20 transition-shadow flex flex-col">
@@ -61,8 +60,9 @@ const MemoizedCourseCard = React.memo(function CourseCard({ course, isEnrolled, 
               <CheckCircle className="mr-2 h-4 w-4" /> Ya Inscrito
             </Button>
           ) : (
-            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="flex-1 bg-primary hover:bg-primary/90">
-              <CheckCircle className="mr-2 h-4 w-4" /> Inscribirme
+            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="flex-1 bg-primary hover:bg-primary/90" disabled={enrollmentInProgress}>
+              {enrollmentInProgress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+              {enrollmentInProgress ? 'Inscribiendo...' : 'Inscribirme'}
             </Button>
           )}
         </div>
@@ -76,10 +76,11 @@ interface CourseListItemProps {
   course: Course;
   isEnrolled: boolean;
   onEnroll: (courseId: string, courseTitle: string) => void;
-  showAdminActions?: boolean; 
+  showAdminActions?: boolean;
+  enrollmentInProgress?: boolean; // Para deshabilitar el botón mientras se inscribe
 }
 
-const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEnrolled, onEnroll, showAdminActions = false }: CourseListItemProps) {
+const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEnrolled, onEnroll, showAdminActions = false, enrollmentInProgress = false }: CourseListItemProps) {
   const router = useRouter();
   return (
     <Card className="shadow-md hover:shadow-primary/20 transition-shadow">
@@ -114,8 +115,9 @@ const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEn
               <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Ya Inscrito
             </Button>
           ) : (
-            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="bg-primary hover:bg-primary/90">
-              <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" /> Inscribirme
+            <Button size="sm" onClick={() => onEnroll(course.id, course.title)} className="bg-primary hover:bg-primary/90" disabled={enrollmentInProgress}>
+              {enrollmentInProgress ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-1 h-4 w-4 sm:mr-2" />}
+              {enrollmentInProgress ? 'Inscribiendo...' : 'Inscribirme'}
             </Button>
           )}
         </div>
@@ -125,54 +127,76 @@ const MemoizedCourseListItem = React.memo(function CourseListItem({ course, isEn
 });
 MemoizedCourseListItem.displayName = 'MemoizedCourseListItem';
 
+const SIMULATED_STUDENT_USER_ID = 3; // Asumimos que el ID del estudiante es 3
+
 export default function ExploreCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { currentSessionRole, userProfile } = useSessionRole();
 
-  const [allCoursesFromApi, setAllCoursesFromApi] = useState<Course[]>([]); // Renamed to avoid confusion
+  const [allCoursesFromApi, setAllCoursesFromApi] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [enrolledCourseIds, setEnrolledCourseIds] = useState<Set<string>>(new Set());
+  const [enrollmentInProgressFor, setEnrollmentInProgressFor] = useState<string | null>(null);
+
+
+  const fetchAllCourses = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/courses');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+        throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
+      }
+      const coursesFromApi: Course[] = await response.json();
+      setAllCoursesFromApi(coursesFromApi);
+    } catch (error: any) {
+      console.error("Error cargando cursos desde API:", error);
+      setAllCoursesFromApi([]);
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
+    }
+    setIsLoading(false);
+  }, [toast]);
+
+  const fetchUserEnrollments = useCallback(async (userId: number) => {
+    // No establecer isLoading aquí, para que la carga de cursos y la de inscripciones no se pisen
+    try {
+      const response = await fetch(`/api/enrollments/user/${userId}`);
+      if (!response.ok) {
+        // No mostrar error si es 404 (sin inscripciones), pero sí para otros errores
+        if (response.status !== 404) {
+            const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+            throw new Error(errorData.message || `Error al cargar inscripciones: ${response.status}`);
+        }
+        setEnrolledCourseIds(new Set()); // Usuario no inscrito en nada o error 404
+        return;
+      }
+      const enrollments: { courseId: string }[] = await response.json();
+      setEnrolledCourseIds(new Set(enrollments.map(e => e.courseId)));
+    } catch (error: any) {
+      console.error("Error cargando inscripciones del usuario:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Inscripciones", description: error.message });
+      setEnrolledCourseIds(new Set()); // Limpiar en caso de error
+    }
+  }, [toast]);
+
 
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      const initialUrlSearchTerm = searchParams.get('search') || '';
-      setSearchTerm(initialUrlSearchTerm);
+    const initialUrlSearchTerm = searchParams.get('search') || '';
+    setSearchTerm(initialUrlSearchTerm);
+    
+    fetchAllCourses();
+    if (currentSessionRole === 'estudiante') {
+      fetchUserEnrollments(SIMULATED_STUDENT_USER_ID);
+    } else {
+      // Para admin/instructor, no cargamos inscripciones específicas de un estudiante aquí
+      setEnrolledCourseIds(new Set());
+    }
+  }, [searchParams, fetchAllCourses, fetchUserEnrollments, currentSessionRole]);
 
-      try {
-        const response = await fetch('/api/courses');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
-          throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
-        }
-        const coursesFromApi: Course[] = await response.json();
-        setAllCoursesFromApi(coursesFromApi);
-      } catch (error: any) {
-        console.error("Error cargando cursos desde API:", error);
-        setAllCoursesFromApi([]);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
-      }
-
-      try {
-        const storedEnrolledIds = localStorage.getItem(LOCAL_STORAGE_ENROLLED_KEY);
-        if (storedEnrolledIds) {
-          const parsedIds = JSON.parse(storedEnrolledIds);
-          if (Array.isArray(parsedIds)) {
-            setEnrolledCourseIds(new Set(parsedIds));
-          }
-        }
-      } catch (error) {
-        console.error("Error al parsear IDs de cursos inscritos desde localStorage:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadInitialData();
-  }, [searchParams, toast]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -215,18 +239,45 @@ export default function ExploreCoursesPage() {
 
 
   const handleEnroll = useCallback(async (courseId: string, courseTitle: string) => {
-    // TODO: Reemplazar con llamada a API POST /api/enrollments { courseId, userId }
-    setEnrolledCourseIds(prevIds => {
-      const newIds = new Set(prevIds);
-      newIds.add(courseId);
-      localStorage.setItem(LOCAL_STORAGE_ENROLLED_KEY, JSON.stringify(Array.from(newIds)));
-      return newIds;
-    });
-    toast({
-      title: "¡Inscripción Exitosa! (Simulada)",
-      description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
-    });
-  }, [toast]);
+    if (currentSessionRole !== 'estudiante') {
+        toast({ variant: "destructive", title: "Acción no permitida", description: "Solo los estudiantes pueden inscribirse a cursos."});
+        return;
+    }
+    setEnrollmentInProgressFor(courseId);
+    try {
+      const response = await fetch('/api/enrollments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: SIMULATED_STUDENT_USER_ID, courseId }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Error ${response.status} al inscribirse.`);
+      }
+      
+      // const result = await response.json(); // Contiene el objeto de inscripción
+      setEnrolledCourseIds(prevIds => {
+        const newIds = new Set(prevIds);
+        newIds.add(courseId);
+        return newIds;
+      });
+      toast({
+        title: "¡Inscripción Exitosa!",
+        description: `Te has inscrito correctamente en el curso "${courseTitle}".`,
+      });
+
+    } catch (error: any) {
+      console.error('Error en la inscripción:', error);
+      toast({
+        variant: "destructive",
+        title: "Error de Inscripción",
+        description: error.message || "No se pudo completar la inscripción.",
+      });
+    } finally {
+        setEnrollmentInProgressFor(null);
+    }
+  }, [toast, currentSessionRole]);
 
   const renderCourseList = (coursesToRender: Course[], showAdminActionsView: boolean) => {
     if (isLoading && allCoursesFromApi.length === 0 && !searchTerm) {
@@ -254,6 +305,7 @@ export default function ExploreCoursesPage() {
               isEnrolled={enrolledCourseIds.has(course.id)}
               onEnroll={handleEnroll}
               showAdminActions={showAdminActionsView}
+              enrollmentInProgress={enrollmentInProgressFor === course.id}
             />
           ))}
         </div>
@@ -268,6 +320,7 @@ export default function ExploreCoursesPage() {
              isEnrolled={enrolledCourseIds.has(course.id)}
              onEnroll={handleEnroll}
              showAdminActions={showAdminActionsView}
+             enrollmentInProgress={enrollmentInProgressFor === course.id}
            />
         ))}
       </div>
