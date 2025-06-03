@@ -32,11 +32,11 @@ interface ResourceFile {
   name: string;
   type: string;
   size: string;
-  uploadDate: string; // Viene como string ISO de la BD
+  uploadDate: string;
   url?: string;
   visibility: FileVisibility;
   category: FileCategory;
-  uploaderUserId?: number; // Opcional, puede ser string o number dependiendo de tu API
+  uploaderUserId?: number; 
   createdAt?: string;
   updatedAt?: string;
 }
@@ -55,31 +55,33 @@ export default function ResourcesPage() {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [resourceToDelete, setResourceToDelete] = useState<ResourceFile | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const canUploadAndManage = useMemo(() => currentSessionRole === 'administrador' || currentSessionRole === 'instructor', [currentSessionRole]);
 
-  useEffect(() => {
-    const loadResources = async () => {
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/resources');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
-          throw new Error(errorData.message || 'No se pudieron cargar los recursos.');
-        }
-        const apiData: ResourceFile[] = await response.json();
-        setAllResourcesFromApi(apiData);
-      } catch (error: any) {
-        console.error("Error fetching resources from API:", error);
-        toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
-        setAllResourcesFromApi([]); // Limpiar en caso de error
-      } finally {
-        setIsLoading(false);
+  const fetchResources = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/resources');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+        throw new Error(errorData.message || 'No se pudieron cargar los recursos.');
       }
-    };
-    loadResources();
+      const apiData: ResourceFile[] = await response.json();
+      setAllResourcesFromApi(apiData);
+    } catch (error: any) {
+      console.error("Error fetching resources from API:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
+      setAllResourcesFromApi([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [toast]);
+
+  useEffect(() => {
+    fetchResources();
+  }, [fetchResources]);
 
   const filterFilesByVisibilityAndCategory = (files: ResourceFile[], role: Role | null) => {
     if (!role) return { company: [], learning: [] };
@@ -123,21 +125,34 @@ export default function ResourcesPage() {
 
   const confirmDeleteResource = async () => {
     if (!resourceToDelete) return;
-
-    // TODO: Implement API Call - DELETE /api/resources/:resourceId
-    // Por ahora, solo actualiza el estado local para simular la eliminación.
-    await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
-
-    setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
-
-    toast({
-      title: "Recurso Eliminado (Simulado)",
-      description: `El archivo "${resourceToDelete.name}" ha sido eliminado de la vista. La eliminación real requiere API.`,
-      variant: "destructive",
-    });
-    
-    setResourceToDelete(null);
-    setIsDeleteDialogOpen(false);
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/resources/${resourceToDelete.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `Error ${response.status} al eliminar.`}));
+        throw new Error(errorData.message || 'No se pudo eliminar el recurso.');
+      }
+      toast({
+        title: "Recurso Eliminado",
+        description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
+      });
+      // Actualizar la lista de recursos localmente o volver a cargar desde la API
+      setAllResourcesFromApi(prev => prev.filter(r => r.id !== resourceToDelete.id));
+      // Opcionalmente, para asegurar consistencia completa:
+      // fetchResources(); 
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error al Eliminar",
+        description: error.message,
+      });
+    } finally {
+      setResourceToDelete(null);
+      setIsDeleteDialogOpen(false);
+      setIsDeleting(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -158,7 +173,11 @@ export default function ResourcesPage() {
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {files.length > 0 ? (
+        {isLoading && files.length === 0 ? (
+             <div className="flex justify-center items-center py-8">
+                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             </div>
+        ) : files.length > 0 ? (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -211,8 +230,9 @@ export default function ResourcesPage() {
                               className="text-destructive hover:text-destructive hover:bg-destructive/10"
                               onClick={() => openDeleteDialog(file)}
                               title="Eliminar Recurso"
+                              disabled={isDeleting && resourceToDelete?.id === file.id}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {isDeleting && resourceToDelete?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                             </Button>
                           )}
                         </div>
@@ -232,7 +252,7 @@ export default function ResourcesPage() {
     </Card>
   );
 
-  if (isLoading) {
+  if (isLoading && allResourcesFromApi.length === 0) {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -260,13 +280,14 @@ export default function ResourcesPage() {
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="max-w-sm"
+                    disabled={isLoading}
                 />
             </div>
         </CardContent>
       </Card>
 
       {canUploadAndManage && (
-        <FileUploader /> // La subida real se implementará después
+        <FileUploader />
       )}
 
       {renderResourceTable(
@@ -289,12 +310,13 @@ export default function ResourcesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirmar Eliminación</AlertDialogTitle>
               <AlertDialogDescription>
-                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer (simulado).
+                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => { setResourceToDelete(null); setIsDeleteDialogOpen(false); }}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90">
+              <AlertDialogCancel onClick={() => { setResourceToDelete(null); setIsDeleteDialogOpen(false); }} disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 Eliminar
               </AlertDialogAction>
             </AlertDialogFooter>
