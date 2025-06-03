@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { BookOpen, Zap, Award, CheckCircle, Loader2 } from 'lucide-react';
-import type { Course } from '@/types/course';
+import type { Course } from '@/types/course'; // Course type can be used for the nested course object
 import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
@@ -31,7 +31,7 @@ interface ApiEnrolledCourse {
   enrolledAt: string;
   completedAt: string | null;
   progressPercent: number;
-  course: {
+  course: { // This structure must match what /api/enrollments/user/[userId] returns
     id: string;
     title: string;
     description: string;
@@ -39,14 +39,23 @@ interface ApiEnrolledCourse {
     instructorName: string;
     status: 'pending' | 'approved' | 'rejected';
     dataAiHint?: string;
-    lessons?: any[]; // Lessons aren't strictly needed for this card display but API might send them
+    lessons?: any[]; 
   };
 }
 
-interface EnrolledCourseDisplay extends Course {
-  progress: number;
-  isCompleted: boolean;
-  enrollmentId?: string; // Optional, might be useful later
+// This will be the type for the state `enrolledCourses`
+interface EnrolledCourseDisplay {
+  id: string; // courseId
+  title: string;
+  description: string;
+  thumbnailUrl: string;
+  instructorName: string;
+  status: 'pending' | 'approved' | 'rejected'; // course status
+  lessons: any[]; // Can be simplified if not used extensively in card
+  dataAiHint?: string;
+  progress: number; // from enrollment.progressPercent
+  isCompleted: boolean; // derived from enrollment.completedAt or progressPercent === 100
+  enrollmentId?: string; // from enrollment.enrollmentId
 }
 
 interface EnrolledCourseCardProps {
@@ -122,19 +131,21 @@ export default function MyEnrolledCoursesPage() {
         }
         const apiEnrollments: ApiEnrolledCourse[] = await response.json();
         
-        const coursesToDisplay: EnrolledCourseDisplay[] = apiEnrollments.map(enrollment => ({
-          id: enrollment.course.id,
-          title: enrollment.course.title,
-          description: enrollment.course.description,
-          thumbnailUrl: enrollment.course.thumbnailUrl,
-          instructorName: enrollment.course.instructorName,
-          status: enrollment.course.status, // Should be 'approved' based on API logic
-          lessons: enrollment.course.lessons || [],
-          dataAiHint: enrollment.course.dataAiHint,
-          progress: enrollment.progressPercent,
-          isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
-          enrollmentId: enrollment.enrollmentId,
-        }));
+        const coursesToDisplay: EnrolledCourseDisplay[] = apiEnrollments
+          .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') // Ensure course exists and is approved
+          .map(enrollment => ({
+            id: enrollment.course.id,
+            title: enrollment.course.title,
+            description: enrollment.course.description,
+            thumbnailUrl: enrollment.course.thumbnailUrl,
+            instructorName: enrollment.course.instructorName,
+            status: enrollment.course.status,
+            lessons: enrollment.course.lessons || [],
+            dataAiHint: enrollment.course.dataAiHint,
+            progress: enrollment.progressPercent,
+            isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
+            enrollmentId: enrollment.enrollmentId,
+          }));
 
         setEnrolledCourses(coursesToDisplay);
 
@@ -145,7 +156,7 @@ export default function MyEnrolledCoursesPage() {
           title: "Error al Cargar Cursos",
           description: error.message || "No se pudieron cargar tus cursos inscritos.",
         });
-        setEnrolledCourses([]); // Clear courses on error
+        setEnrolledCourses([]); 
       } finally {
         setIsLoading(false);
       }
@@ -175,6 +186,11 @@ export default function MyEnrolledCoursesPage() {
           <BookOpen className="mr-3 h-8 w-8 text-primary" />
           Mis Cursos Inscritos
         </h1>
+         <Button variant="outline" asChild>
+            <Link href="/dashboard/courses/explore">
+                Explorar Más Cursos
+            </Link>
+        </Button>
       </div>
 
       {enrolledCourses.length === 0 ? (
