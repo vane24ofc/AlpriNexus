@@ -23,10 +23,10 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, // Ensure AlertDialog (root) is imported
+  AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent as ConfirmDialogContent, // This is okay as an alias
+  AlertDialogContent as ConfirmDialogContent,
   AlertDialogDescription as ConfirmDialogDescription,
   AlertDialogFooter as ConfirmDialogFooter,
   AlertDialogHeader as ConfirmDialogHeader,
@@ -65,7 +65,7 @@ interface ApiResource {
   uploaderUserId?: number;
   createdAt?: string;
   updatedAt?: string;
-  actingUserRole?: Role; 
+  actingUserRole?: Role;
 }
 
 const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
@@ -84,8 +84,8 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
 const getFileIcon = (fileType: string): React.ElementType => {
   const type = fileType.toLowerCase();
   if (type.includes('pdf')) return FileText;
-  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText; // Could use ImageIcon from lucide if specific icons are needed
-  if (type.includes('video')) return FileText; // Could use VideoIcon
+  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText;
+  if (type.includes('video')) return FileText;
   if (type.includes('documento') || type.includes('doc') || type.includes('word')) return FileText;
   return FileText;
 };
@@ -105,7 +105,7 @@ export default function ResourcesPage() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<ResourceFile | null>(null);
-  
+
   const [editFormName, setEditFormName] = useState('');
   const [editFormVisibility, setEditFormVisibility] = useState<FileVisibility>('public');
   const [editFormCategory, setEditFormCategory] = useState<FileCategory>('learning');
@@ -118,8 +118,27 @@ export default function ResourcesPage() {
 
   const fetchResources = useCallback(async () => {
     setIsLoading(true);
+    if (!currentSessionRole) {
+        toast({ variant: "destructive", title: "Error de Sesión", description: "No se pudo determinar tu rol. Intenta recargar la página." });
+        setIsLoading(false);
+        setAllResourcesFromApi([]);
+        return;
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
+    if (!token) {
+        toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado. Por favor, inicia sesión de nuevo." });
+        setIsLoading(false);
+        setAllResourcesFromApi([]);
+        // Consider redirecting to login if critical: router.push('/login');
+        return;
+    }
+
     try {
-      const response = await fetch('/api/resources');
+      const response = await fetch(`/api/resources?actingUserRole=${currentSessionRole}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: `Error ${response.status}` }));
         throw new Error(errorData.message || `Fallo al cargar recursos (status: ${response.status})`);
@@ -133,7 +152,7 @@ export default function ResourcesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, currentSessionRole]);
 
   useEffect(() => {
     fetchResources();
@@ -153,17 +172,14 @@ export default function ResourcesPage() {
       const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase()) || file.type.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategoryFilter = filterCategory === 'all' || file.category === filterCategory;
       
-      let isVisibleToCurrentUser = false;
-      if (currentSessionRole === 'administrador') {
-        isVisibleToCurrentUser = true;
-      } else if (currentSessionRole === 'instructor') {
-        isVisibleToCurrentUser = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-      } else { 
-        isVisibleToCurrentUser = file.visibility === 'public';
-      }
-
-      const matchesVisibilityFilter = filterVisibility === 'all' || file.visibility === filterVisibility;
-      return matchesSearch && matchesCategoryFilter && isVisibleToCurrentUser && (currentSessionRole === 'administrador' ? matchesVisibilityFilter : true) ;
+      // La visibilidad principal ya está filtrada por la API.
+      // Aquí solo aplicamos el filtro de visibilidad si es administrador y ha seleccionado uno.
+      const matchesVisibilityFilterForAdmin = 
+        currentSessionRole === 'administrador' ? 
+        (filterVisibility === 'all' || file.visibility === filterVisibility) 
+        : true;
+      
+      return matchesSearch && matchesCategoryFilter && matchesVisibilityFilterForAdmin;
     });
   }, [allResourcesFromApi, searchTerm, filterCategory, filterVisibility, currentSessionRole]);
 
@@ -231,9 +247,9 @@ export default function ResourcesPage() {
     }
 
     setIsSavingEdit(true);
-    const payload = { 
-      name: editFormName.trim(), 
-      visibility: editFormVisibility, 
+    const payload = {
+      name: editFormName.trim(),
+      visibility: editFormVisibility,
       category: editFormCategory,
       actingUserRole: currentSessionRole,
     };
@@ -241,7 +257,7 @@ export default function ResourcesPage() {
     try {
       const response = await fetch(`/api/resources/${editingResource.id}`, {
         method: 'PUT',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
@@ -524,16 +540,13 @@ export default function ResourcesPage() {
         </Dialog>
       )}
 
-      <AlertDialog open={isDeleteDialogOpen && !!resourceToDelete} onOpenChange={(open) => {
-        if (!open) {
-          setIsDeleteDialogOpen(false);
-          setResourceToDelete(null);
-        } else {
-          // This part might be redundant if openDeleteDialog always sets resourceToDelete
-          if(resourceToDelete) setIsDeleteDialogOpen(true); 
-        }
-      }}>
-        {resourceToDelete && (
+      {resourceToDelete && (
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+         if (!open) {
+           setIsDeleteDialogOpen(false);
+           setResourceToDelete(null);
+         }
+       }}>
           <ConfirmDialogContent>
             <ConfirmDialogHeader>
               <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
@@ -548,10 +561,8 @@ export default function ResourcesPage() {
               </AlertDialogAction>
             </ConfirmDialogFooter>
           </ConfirmDialogContent>
-        )}
-      </AlertDialog>
+        </AlertDialog>
+      )}
     </div>
   );
 }
-
-    
