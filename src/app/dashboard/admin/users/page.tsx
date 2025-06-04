@@ -25,27 +25,27 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
 
-export interface User { // Exporting User interface for other components if needed
-  id: string; // API returns id as string from DB (users.id is INT, but mysql2/promise might return string for big numbers or by default)
-  name: string; // Corresponds to fullName from API
+export interface User { 
+  id: string; 
+  name: string; 
   email: string;
   role: Role;
-  joinDate: string; // Derived from createdAt from API
+  joinDate: string; 
   avatarUrl?: string;
   status: 'active' | 'inactive';
   createdAt?: string; 
   updatedAt?: string;
 }
 
-interface ApiUser { // This matches the structure from /api/users
-  id: string; // Assuming API returns ID as string
+interface ApiUser { 
+  id: string; 
   fullName: string;
   email: string;
   role: Role;
   status: 'active' | 'inactive';
-  avatarUrl?: string | null; // API might return null
-  createdAt: string; // ISO date string
-  updatedAt: string; // ISO date string
+  avatarUrl?: string | null; 
+  createdAt: string; 
+  updatedAt: string; 
 }
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
@@ -53,6 +53,8 @@ const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; ba
   instructor: { label: "Instructor", icon: BookUser, badgeClass: "bg-accent text-accent-foreground" },
   estudiante: { label: "Estudiante", icon: GraduationCap, badgeClass: "bg-secondary text-secondary-foreground" },
 };
+
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
 
 interface UserRowProps {
     user: User;
@@ -153,21 +155,44 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
+    let token: string | null = null;
+    if (typeof window !== 'undefined') {
+      token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
+    }
+
+    if (!token) {
+      toast({ variant: 'destructive', title: 'No Autorizado', description: 'No se encontró token de autenticación. Por favor, inicie sesión.' });
+      router.push('/login');
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch('/api/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
+        if (response.status === 401) {
+          toast({ variant: 'destructive', title: 'Sesión Expirada o Inválida', description: 'Por favor, inicie sesión de nuevo.' });
+          localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY); // Limpiar token inválido
+          router.push('/login');
+          setIsLoading(false);
+          return;
+        }
         const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
       const dataFromApi: ApiUser[] = await response.json();
       const mappedUsers: User[] = dataFromApi.map(apiUser => ({
-        id: String(apiUser.id), // Ensure ID is string for consistency
+        id: String(apiUser.id), 
         name: apiUser.fullName,
         email: apiUser.email,
         role: apiUser.role,
         status: apiUser.status,
         avatarUrl: apiUser.avatarUrl || undefined,
-        joinDate: new Date(apiUser.createdAt).toISOString(), // Keep as ISO string for Date constructor
+        joinDate: new Date(apiUser.createdAt).toISOString(),
         createdAt: apiUser.createdAt,
         updatedAt: apiUser.updatedAt,
       }));
@@ -183,7 +208,7 @@ export default function AdminUsersPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, router]);
 
   useEffect(() => {
     const initialSearch = searchParams.get('search') || '';
@@ -215,12 +240,32 @@ export default function AdminUsersPage() {
     setActionType(null);
     setNewRoleForChange(null);
   };
+  
+  const getAuthHeaders = (): HeadersInit | undefined => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
+      if (token) {
+        return {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        };
+      }
+    }
+    // En caso de no encontrar token, el endpoint de API debería rechazar la petición
+    // Pero para ser explícitos, podríamos forzar un error o manejarlo aquí.
+    // Por ahora, si no hay token, la llamada fallará en el backend.
+    return { 'Content-Type': 'application/json' };
+  };
+
 
   const handleDeleteUser = async () => {
     if (!userToModify) return;
     setIsActionLoading(true);
     try {
-      const response = await fetch(`/api/users/${userToModify.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/users/${userToModify.id}`, { 
+        method: 'DELETE',
+        headers: getAuthHeaders(), // Añadir cabeceras de autenticación
+      });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Error al eliminar el usuario.');
@@ -229,7 +274,7 @@ export default function AdminUsersPage() {
         title: "Usuario Eliminado",
         description: `El usuario "${userToModify.name}" ha sido eliminado.`,
       });
-      fetchUsers(); // Refresh the list
+      fetchUsers(); 
       closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
@@ -245,7 +290,7 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ role: newRoleForChange }),
       });
       if (!response.ok) {
@@ -256,7 +301,7 @@ export default function AdminUsersPage() {
         title: "Rol de Usuario Actualizado",
         description: `El rol de "${userToModify.name}" ha sido cambiado a ${roleDisplayInfo[newRoleForChange].label}.`,
       });
-      fetchUsers(); // Refresh the list
+      fetchUsers(); 
       closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Actualización de Rol", description: error.message });
@@ -273,7 +318,7 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
        if (!response.ok) {
@@ -284,7 +329,7 @@ export default function AdminUsersPage() {
         title: `Usuario ${newStatus === 'active' ? 'Activado' : 'Desactivado'}`,
         description: `El usuario "${userToModify.name}" ha sido ${newStatus === 'active' ? 'activado' : 'desactivado'}.`,
       });
-      fetchUsers(); // Refresh the list
+      fetchUsers(); 
       closeDialog();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error al Cambiar Estado", description: error.message });
@@ -414,6 +459,3 @@ export default function AdminUsersPage() {
     </div>
   );
 }
-
-
-    

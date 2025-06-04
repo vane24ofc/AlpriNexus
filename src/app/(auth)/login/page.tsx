@@ -26,7 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
-  password: z.string().min(1, { message: 'La contraseña es requerida.' }), // Min 1, as actual length check is on server for creation
+  password: z.string().min(1, { message: 'La contraseña es requerida.' }),
   rememberMe: z.boolean().optional(),
 });
 
@@ -38,6 +38,9 @@ interface UserApiResponse {
     status: 'active' | 'inactive';
     avatarUrl?: string | null;
 }
+
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
+const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,7 +77,8 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('sessionRole', user.role);
         localStorage.setItem('nexusAlpriUserProfile', JSON.stringify({ name: user.fullName, email: user.email }));
-        // En un futuro, también guardaríamos el token: localStorage.setItem('authToken', responseData.token);
+        localStorage.setItem(SIMULATED_AUTH_TOKEN_KEY, DUMMY_TOKEN_VALUE); // Guardar token simulado
+        
         if (values.rememberMe) {
           localStorage.setItem('rememberUser', 'true');
         } else {
@@ -84,11 +88,11 @@ export default function LoginPage() {
       
       toast({ title: "Inicio de Sesión Exitoso", description: `¡Bienvenido de nuevo, ${user.fullName}!` });
       router.push('/dashboard');
-      router.refresh(); // Ensure layout re-evaluates role and redirects if necessary
+      router.refresh(); 
 
     } catch (error: any) {
       console.error("Login error:", error);
-      toast({ variant: "destructive", title: "Error de Inicio de Sesión", description: error.message || "Ocurrió un error inesperado." });
+      toast({ variant: "destructive", title: "Error de Inicio de Sesión", description: error.message || "Credenciales incorrectas o error del servidor." });
     } finally {
       setIsSubmitting(false);
     }

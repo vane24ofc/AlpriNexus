@@ -25,8 +25,16 @@ const userSchema = z.object({
   avatarUrl: z.string().url().optional().or(z.literal('')), // Optional and can be an empty string
 });
 
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
+const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
+
 // GET handler to fetch all users
 export async function GET(request: NextRequest) {
+  const authorizationHeader = request.headers.get('Authorization');
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  }
+
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
@@ -46,6 +54,16 @@ export async function GET(request: NextRequest) {
 
 // POST handler to create a new user
 export async function POST(request: NextRequest) {
+   const authorizationHeader = request.headers.get('Authorization');
+   // Basic check, in real app, verify token properly (e.g. JWT)
+   if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    //  Allowing POST /api/users without auth only if it's from specific internal logic or if we add other checks later
+    //  For now, let's assume if an admin is creating a user, they are "authorized" via their session on the frontend
+    //  This needs more robust protection if used as a general user creation endpoint.
+    //  For strictness, uncomment:
+    //  return NextResponse.json({ message: 'No autorizado para crear usuario.' }, { status: 401 });
+   }
+
   let connection;
   try {
     const body = await request.json();
@@ -63,6 +81,16 @@ export async function POST(request: NextRequest) {
 
     connection = await mysql.createConnection(dbConfig);
 
+    // Check if email already exists (moved from register to here as well for admin creation)
+    const [existingUsers] = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
+    if ((existingUsers as any[]).length > 0) {
+      await connection.end();
+      return NextResponse.json(
+        { message: 'Este correo electrónico ya está registrado.' },
+        { status: 409 } // 409 Conflict
+      );
+    }
+
     // Hash the password before saving
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -76,8 +104,19 @@ export async function POST(request: NextRequest) {
 
     const insertResult = result as mysql.ResultSetHeader;
     if (insertResult.insertId) {
+      // Return the created user's data (excluding password)
+      const newUser = {
+        id: insertResult.insertId.toString(),
+        fullName,
+        email,
+        role,
+        status,
+        avatarUrl: avatarUrl || null,
+        createdAt: new Date().toISOString(), // Approximate
+        updatedAt: new Date().toISOString(), // Approximate
+      };
       return NextResponse.json(
-        { message: 'User created successfully.', userId: insertResult.insertId },
+        { message: 'User created successfully.', user: newUser },
         { status: 201 }
       );
     } else {
@@ -87,11 +126,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     await connection?.end();
     console.error('Error creating user:', error);
-    // Handle potential duplicate email error (MySQL error code 1062)
     if (error.code === 'ER_DUP_ENTRY') {
       return NextResponse.json(
         { message: 'Failed to create user. Email already exists.', error: error.message },
-        { status: 409 } // 409 Conflict
+        { status: 409 } 
       );
     }
     return NextResponse.json(

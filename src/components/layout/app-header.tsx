@@ -33,6 +33,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
+
 export function AppHeader() {
   const router = useRouter();
   const { toast } = useToast();
@@ -65,21 +67,21 @@ export function AppHeader() {
     switch (currentSessionRole) {
       case 'administrador':
         determinedRoleDisplay = 'Administrador';
-        determinedProfileLink = '/dashboard';
+        determinedProfileLink = '/dashboard'; // Admin might go to general admin dashboard
         determinedDashboardPath = '/dashboard';
         determinedSearchPlaceholder = 'Buscar usuarios, cursos...';
         avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "A";
         break;
       case 'instructor':
         determinedRoleDisplay = 'Instructor';
-        determinedProfileLink = '/dashboard';
+        determinedProfileLink = '/dashboard'; // Instructor might go to general instructor dashboard
         determinedDashboardPath = '/dashboard';
         determinedSearchPlaceholder = 'Buscar en mis cursos...';
         avatarInitial = userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "I";
         break;
       case 'estudiante':
       default:
-        determinedProfileLink = "/dashboard/student/profile"; // Keep specific profile link for student
+        // Profile link and avatar initial are already set for student
         break;
     }
     setRoleDisplay(determinedRoleDisplay);
@@ -92,15 +94,13 @@ export function AppHeader() {
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
-      // Llama al endpoint de logout (aunque sea simulado por ahora)
-      const response = await fetch('/api/auth/logout', { method: 'POST' });
-      // No es necesario verificar response.ok para esta simulación,
-      // pero en una implementación real, lo harías.
+      await fetch('/api/auth/logout', { method: 'POST' });
+      // No necesitamos verificar la respuesta aquí ya que el endpoint es muy simple.
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('sessionRole');
         localStorage.removeItem('nexusAlpriUserProfile');
-        // En un futuro, también limpiarías el token: localStorage.removeItem('authToken');
+        localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY); // Limpiar token simulado
       }
       toast({ title: "Cierre de Sesión Exitoso", description: "Has cerrado tu sesión." });
       router.push('/login');
@@ -111,6 +111,7 @@ export function AppHeader() {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('sessionRole');
         localStorage.removeItem('nexusAlpriUserProfile');
+        localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY);
       }
       router.push('/login'); 
     } finally {
@@ -126,10 +127,12 @@ export function AppHeader() {
     const encodedSearchTerm = encodeURIComponent(searchTerm.trim());
 
     if (currentSessionRole === 'administrador') {
+      // Podríamos querer que la búsqueda del admin sea más global o específica
+      // Por ahora, lo dirigimos a la búsqueda de usuarios como ejemplo.
       router.push(`/dashboard/admin/users?search=${encodedSearchTerm}`);
     } else if (currentSessionRole === 'instructor') {
       router.push(`/dashboard/instructor/my-courses?search=${encodedSearchTerm}`);
-    } else {
+    } else { // Estudiante
       router.push(`/dashboard/courses/explore?search=${encodedSearchTerm}`);
     }
   };
@@ -147,6 +150,7 @@ export function AppHeader() {
     }
   };
 
+  // Render skeleton or minimal header if role/profile is still loading
   if (!hasMounted || isLoadingRole || !currentSessionRole) {
     return (
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
