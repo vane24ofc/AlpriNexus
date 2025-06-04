@@ -23,10 +23,10 @@ import {
   DialogClose
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
+  AlertDialog, // Ensure AlertDialog (root) is imported
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent as ConfirmDialogContent,
+  AlertDialogContent as ConfirmDialogContent, // This is okay as an alias
   AlertDialogDescription as ConfirmDialogDescription,
   AlertDialogFooter as ConfirmDialogFooter,
   AlertDialogHeader as ConfirmDialogHeader,
@@ -35,7 +35,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-// Image import removed as it's not directly used.
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -66,6 +65,7 @@ interface ApiResource {
   uploaderUserId?: number;
   createdAt?: string;
   updatedAt?: string;
+  actingUserRole?: Role; 
 }
 
 const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
@@ -84,8 +84,8 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
 const getFileIcon = (fileType: string): React.ElementType => {
   const type = fileType.toLowerCase();
   if (type.includes('pdf')) return FileText;
-  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText;
-  if (type.includes('video')) return FileText;
+  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText; // Could use ImageIcon from lucide if specific icons are needed
+  if (type.includes('video')) return FileText; // Could use VideoIcon
   if (type.includes('documento') || type.includes('doc') || type.includes('word')) return FileText;
   return FileText;
 };
@@ -157,20 +157,12 @@ export default function ResourcesPage() {
       if (currentSessionRole === 'administrador') {
         isVisibleToCurrentUser = true;
       } else if (currentSessionRole === 'instructor') {
-        // Instructors see public, their own private learning files, and 'instructors' visibility files.
-        // This logic assumes 'uploaderUserId' would be checked against current user ID for 'private'.
-        // For simplicity in prototype, instructor sees public and 'instructors' files.
-        // And private 'learning' files regardless of uploader (could be refined)
         isVisibleToCurrentUser = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-      } else { // Estudiante
+      } else { 
         isVisibleToCurrentUser = file.visibility === 'public';
       }
 
       const matchesVisibilityFilter = filterVisibility === 'all' || file.visibility === filterVisibility;
-      
-      // Admin's filter applies to all files they can see.
-      // Other roles' visibility is determined by isVisibleToCurrentUser, then search/category filters.
-      // The visibility filter dropdown is only shown to admin anyway.
       return matchesSearch && matchesCategoryFilter && isVisibleToCurrentUser && (currentSessionRole === 'administrador' ? matchesVisibilityFilter : true) ;
     });
   }, [allResourcesFromApi, searchTerm, filterCategory, filterVisibility, currentSessionRole]);
@@ -532,22 +524,32 @@ export default function ResourcesPage() {
         </Dialog>
       )}
 
-      {resourceToDelete && (
-        <ConfirmDialogContent open={isDeleteDialogOpen} onOpenChange={(open) => { if (!open) { setIsDeleteDialogOpen(false); setResourceToDelete(null); }}}>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              ¿Seguro que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setResourceToDelete(null);}} disabled={isDeleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Eliminar
-            </AlertDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      )}
+      <AlertDialog open={isDeleteDialogOpen && !!resourceToDelete} onOpenChange={(open) => {
+        if (!open) {
+          setIsDeleteDialogOpen(false);
+          setResourceToDelete(null);
+        } else {
+          // This part might be redundant if openDeleteDialog always sets resourceToDelete
+          if(resourceToDelete) setIsDeleteDialogOpen(true); 
+        }
+      }}>
+        {resourceToDelete && (
+          <ConfirmDialogContent>
+            <ConfirmDialogHeader>
+              <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
+              <ConfirmDialogDescription>
+                ¿Seguro que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
+              </ConfirmDialogDescription>
+            </ConfirmDialogHeader>
+            <ConfirmDialogFooter>
+              <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setResourceToDelete(null);}} disabled={isDeleting}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Eliminar
+              </AlertDialogAction>
+            </ConfirmDialogFooter>
+          </ConfirmDialogContent>
+        )}
+      </AlertDialog>
     </div>
   );
 }
