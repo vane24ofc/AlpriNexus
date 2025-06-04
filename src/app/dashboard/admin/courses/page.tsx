@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button'; // Importado buttonVariants
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -27,16 +27,17 @@ import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent as ConfirmDialogContent, // Renamed to avoid conflict
+  AlertDialogContent as ConfirmDialogContent,
   AlertDialogDescription as ConfirmDialogDescription,
   AlertDialogFooter as ConfirmDialogFooter,
   AlertDialogHeader as ConfirmDialogHeader,
   AlertDialogTitle as ConfirmDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
-import type { User } from '@/app/dashboard/admin/users/page'; // Assuming User type is exported for API User
+import type { User } from '@/app/dashboard/admin/users/page'; 
+import { cn } from '@/lib/utils';
 
-interface ApiUser { // Simplified user type for this context
+interface ApiUser { 
   id: string;
   fullName: string;
   role: string;
@@ -68,10 +69,10 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, 
         <Badge variant={
           course.status === 'approved' ? 'default' :
           course.status === 'pending' ? 'secondary' : 'destructive'
-        } className={
+        } className={cn(
           course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' :
-          course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
-        }>
+          course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' : ''
+        )}>
           {course.status === 'approved' && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
           {course.status === 'pending' && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
           {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />}
@@ -249,7 +250,7 @@ export default function AdminCoursesPage() {
     setEnrolledStudentsList([]);
 
     try {
-      // Simulate API call delay
+      
       await new Promise(resolve => setTimeout(resolve, 1000));
       const response = await fetch('/api/users');
       if (!response.ok) {
@@ -261,8 +262,8 @@ export default function AdminCoursesPage() {
       if (studentUsers.length === 0) {
         setEnrolledStudentsList([]);
       } else {
-        // Simulate a random subset of students enrolled in this course
-        const maxSimulated = Math.min(studentUsers.length, 5); // Show up to 5 simulated students
+        
+        const maxSimulated = Math.min(studentUsers.length, 5); 
         const shuffledStudents = studentUsers.sort(() => 0.5 - Math.random());
         const simulatedEnrolled = shuffledStudents.slice(0, maxSimulated).map(u => ({ id: u.id, name: u.fullName }));
         setEnrolledStudentsList(simulatedEnrolled);
@@ -270,7 +271,7 @@ export default function AdminCoursesPage() {
     } catch (error: any) {
       console.error("Error simulando lista de inscritos:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo cargar la lista simulada de estudiantes inscritos." });
-      setEnrolledStudentsList([]); // Clear on error
+      setEnrolledStudentsList([]); 
     } finally {
       setIsLoadingEnrolledStudents(false);
     }
@@ -434,10 +435,14 @@ export default function AdminCoursesPage() {
                   if (actionType === 'reject') handleCourseAction(courseToModify.id, 'rejected');
                   if (actionType === 'delete') handleDeleteCourse(courseToModify.id);
                 }}
-                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'approve' ? 'bg-green-500 hover:bg-green-600 text-white' : '')}
+                className={cn(
+                    actionType === 'approve' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : '',
+                    actionType === 'reject' ? buttonVariants({ variant: "destructive" }) : '',
+                    actionType === 'delete' ? buttonVariants({ variant: "destructive" }) : ''
+                )}
               >
                 {actionType === 'approve' && 'Aprobar'}
-                {actionType === 'reject' && 'Rechazar'}
+                {actionType === 'reject' && 'Rechazar Curso'}
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
               </AlertDialogAction>
             </ConfirmDialogFooter>
