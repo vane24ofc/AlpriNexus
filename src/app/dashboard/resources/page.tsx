@@ -5,10 +5,10 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3, Briefcase } from 'lucide-react'; // <--- Briefcase añadido aquí
+import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3, Briefcase, Grid, List, PlusCircle, Search as SearchIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
-import { FileUploader } from "@/components/uploads/file-uploader";
+import { FileUploader } from "@/components/uploads/file-uploader"; // Asumiendo que este componente existe
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +19,9 @@ import {
   DialogFooter,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog"; // DialogClose no se usa directamente aquí
+  DialogTrigger,
+  DialogClose
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,8 +33,9 @@ import {
   AlertDialogTitle as ConfirmDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import Image from 'next/image';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -40,17 +43,18 @@ type FileCategory = 'company' | 'learning';
 interface ResourceFile {
   id: string;
   name: string;
-  type: string;
-  size: string;
-  uploadDate: string;
-  url?: string;
+  type: string; // Tipo de archivo (ej. 'PDF', 'Imagen', 'Video')
+  size: string; // Tamaño del archivo (ej. '1.2MB')
+  uploadDate: string; // Fecha de subida en formato ISO string
+  url?: string; // URL para visualizar/descargar (puede ser placeholder)
   visibility: FileVisibility;
   category: FileCategory;
   uploaderUserId?: number;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: string; // Fecha de creación del registro en BD
+  updatedAt?: string; // Fecha de última actualización del registro en BD
 }
 
+// Para la respuesta de la API al registrar un nuevo recurso
 interface ApiResource {
   id: string;
   name: string;
@@ -66,9 +70,9 @@ interface ApiResource {
 }
 
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType; badgeClass?: string }[] = [
-  { value: 'public', label: 'Todos (Público)', icon: Globe, badgeClass: 'bg-blue-100 text-blue-700 border-blue-300' },
-  { value: 'instructors', label: 'Instructores y Admins', icon: Users, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300' },
-  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300' },
+  { value: 'public', label: 'Todos (Público)', icon: Globe, badgeClass: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' },
+  { value: 'instructors', label: 'Instructores y Admins', icon: Users, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' },
+  { value: 'private', label: 'Solo para mí (Privado)', icon: Eye, badgeClass: 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-700/50 dark:text-gray-300 dark:border-gray-600' },
 ];
 
 const categoryOptions: { value: FileCategory; label: string; icon: React.ElementType }[] = [
@@ -76,6 +80,14 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
   { value: 'company', label: 'Recursos de la Empresa', icon: Briefcase },
 ];
 
+const getFileIcon = (fileType: string): React.ElementType => {
+  const type = fileType.toLowerCase();
+  if (type.includes('pdf')) return FileText;
+  if (type.includes('imagen')) return FileText; // Podríamos usar ImageIcon de lucide si tuvieramos tipos más granulares
+  if (type.includes('video')) return FileText; // Podríamos usar VideoIcon
+  if (type.includes('documento')) return FileText;
+  return FileText; // Icono por defecto
+};
 
 export default function ResourcesPage() {
   const { currentSessionRole } = useSessionRole();
@@ -83,18 +95,24 @@ export default function ResourcesPage() {
   const [allResourcesFromApi, setAllResourcesFromApi] = useState<ResourceFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list'); // Default to list view
 
   const [resourceToDelete, setResourceToDelete] = useState<ResourceFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<ResourceFile | null>(null);
+  
+  // Form state for editing
   const [editFormName, setEditFormName] = useState('');
   const [editFormVisibility, setEditFormVisibility] = useState<FileVisibility>('public');
   const [editFormCategory, setEditFormCategory] = useState<FileCategory>('learning');
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+  const [filterCategory, setFilterCategory] = useState<FileCategory | 'all'>('all');
+  const [filterVisibility, setFilterVisibility] = useState<FileVisibility | 'all'>('all');
 
   const canUploadAndManage = useMemo(() => currentSessionRole === 'administrador' || currentSessionRole === 'instructor', [currentSessionRole]);
 
@@ -103,19 +121,14 @@ export default function ResourcesPage() {
     try {
       const response = await fetch('/api/resources');
       if (!response.ok) {
-        let errorData = { message: `HTTP error! status: ${response.status}` };
-        try {
-            errorData = await response.json();
-        } catch (jsonError) {
-            console.error("Could not parse error response as JSON:", jsonError);
-        }
-        throw new Error(errorData.message || `Failed to fetch resources (status: ${response.status})`);
+        const errorData = await response.json().catch(() => ({ message: `Error ${response.status}` }));
+        throw new Error(errorData.message || `Fallo al cargar recursos (status: ${response.status})`);
       }
       const apiData: ResourceFile[] = await response.json();
       setAllResourcesFromApi(apiData);
     } catch (error: any) {
-      console.error("Full error object in fetchResources catch block:", error);
-      toast({ variant: "destructive", title: "Error al Cargar Recursos", description: `Detalle: ${error.message || 'Error desconocido.'}` });
+      console.error("Error cargando recursos:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Recursos", description: error.message });
       setAllResourcesFromApi([]);
     } finally {
       setIsLoading(false);
@@ -131,43 +144,32 @@ export default function ResourcesPage() {
       title: "Recurso Registrado",
       description: `El recurso "${newResource.name}" fue añadido. Actualizando lista...`,
     });
-    fetchResources();
+    setIsUploadModalOpen(false); // Cerrar modal después de registrar
+    fetchResources(); // Refrescar la lista
   }, [fetchResources, toast]);
 
-  const filterFilesByVisibilityAndCategory = (files: ResourceFile[], role: Role | null) => {
-    if (!role) return { company: [], learning: [] };
-    const lowerSearchTerm = searchTerm.toLowerCase();
-
-    const company: ResourceFile[] = [];
-    const learning: ResourceFile[] = [];
-
-    files.forEach(file => {
-      const matchesSearch = file.name.toLowerCase().includes(lowerSearchTerm) || file.type.toLowerCase().includes(lowerSearchTerm);
-      if (!matchesSearch && searchTerm.trim() !== '') return; // Only apply search filter if search term is not empty
-
-      let isVisible = false;
-      if (role === 'administrador') {
-        isVisible = true;
-      } else if (role === 'instructor') {
-        isVisible = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
+  const filteredResources = useMemo(() => {
+    return allResourcesFromApi.filter(file => {
+      const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase()) || file.type.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || file.category === filterCategory;
+      
+      let matchesVisibility = false;
+      if (currentSessionRole === 'administrador') {
+        matchesVisibility = filterVisibility === 'all' || file.visibility === filterVisibility;
+      } else if (currentSessionRole === 'instructor') {
+        matchesVisibility = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
+        if (filterVisibility !== 'all') { // Instructors can filter by what they can see
+          matchesVisibility = matchesVisibility && file.visibility === filterVisibility;
+        }
       } else { // Estudiante
-        isVisible = file.visibility === 'public';
-      }
-
-      if (isVisible) {
-        if (file.category === 'company') {
-          company.push(file);
-        } else if (file.category === 'learning') {
-          learning.push(file);
+        matchesVisibility = file.visibility === 'public';
+         if (filterVisibility !== 'all') { // Students can only filter public, effectively no-op or show only public if they try
+          matchesVisibility = matchesVisibility && file.visibility === 'public';
         }
       }
+      return matchesSearch && matchesCategory && matchesVisibility;
     });
-    return { company, learning };
-  };
-
-  const { company: companyResourcesForRole, learning: learningResourcesForRole } = useMemo(() => {
-    return filterFilesByVisibilityAndCategory(allResourcesFromApi, currentSessionRole);
-  }, [allResourcesFromApi, currentSessionRole, searchTerm]);
+  }, [allResourcesFromApi, searchTerm, filterCategory, filterVisibility, currentSessionRole]);
 
   const openDeleteDialog = (resource: ResourceFile) => {
     setResourceToDelete(resource);
@@ -178,24 +180,15 @@ export default function ResourcesPage() {
     if (!resourceToDelete) return;
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/resources/${resourceToDelete.id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(`/api/resources/${resourceToDelete.id}`, { method: 'DELETE' });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Error ${response.status} al eliminar.`}));
+        const errorData = await response.json().catch(() => ({ message: 'Error al eliminar' }));
         throw new Error(errorData.message || 'No se pudo eliminar el recurso.');
       }
-      toast({
-        title: "Recurso Eliminado",
-        description: `El archivo "${resourceToDelete.name}" ha sido eliminado exitosamente.`,
-      });
+      toast({ title: "Recurso Eliminado", description: `El archivo "${resourceToDelete.name}" ha sido eliminado.` });
       fetchResources();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error al Eliminar",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: "Error al Eliminar", description: error.message });
     } finally {
       setResourceToDelete(null);
       setIsDeleteDialogOpen(false);
@@ -203,33 +196,21 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleOpenEditDialog = (resource: ResourceFile) => {
+  const handleOpenEditModal = (resource: ResourceFile) => {
     setEditingResource(resource);
     setEditFormName(resource.name);
     setEditFormVisibility(resource.visibility);
     setEditFormCategory(resource.category);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleCloseEditDialog = () => {
-    setIsEditDialogOpen(false);
-    setEditingResource(null);
-    setEditFormName('');
+    setIsEditModalOpen(true);
   };
 
   const handleSaveEditedResource = async () => {
     if (!editingResource || !editFormName.trim()) {
-      toast({ variant: "destructive", title: "Error de Validación", description: "El nombre del recurso no puede estar vacío."});
+      toast({ variant: "destructive", title: "Validación Fallida", description: "El nombre del recurso es obligatorio." });
       return;
     }
     setIsSavingEdit(true);
-
-    const payload = {
-      name: editFormName.trim(),
-      visibility: editFormVisibility,
-      category: editFormCategory,
-    };
-
+    const payload = { name: editFormName.trim(), visibility: editFormVisibility, category: editFormCategory };
     try {
       const response = await fetch(`/api/resources/${editingResource.id}`, {
         method: 'PUT',
@@ -237,259 +218,277 @@ export default function ResourcesPage() {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `Error ${response.status} al actualizar.`}));
+        const errorData = await response.json().catch(() => ({ message: 'Error al actualizar' }));
         throw new Error(errorData.message || 'No se pudo actualizar el recurso.');
       }
-      toast({
-        title: "Recurso Actualizado",
-        description: `Los metadatos del recurso "${editingResource.name}" han sido actualizados.`,
-      });
+      toast({ title: "Recurso Actualizado", description: "Los metadatos del recurso han sido actualizados." });
       fetchResources();
-      handleCloseEditDialog();
+      setIsEditModalOpen(false);
+      setEditingResource(null);
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error al Actualizar",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
     } finally {
       setIsSavingEdit(false);
     }
   };
 
-  const formatDate = (dateString?: string) => {
+  const formatDateDisplay = (dateString?: string) => {
     if (!dateString) return 'Fecha desconocida';
-    try {
-      return format(parseISO(dateString), 'dd MMM yyyy, HH:mm', { locale: es });
-    } catch (error) {
-      return dateString; 
-    }
+    const date = parseISO(dateString);
+    return isValid(date) ? format(date, "dd MMM yyyy, HH:mm", { locale: es }) : dateString;
   };
 
+  const renderResourceItem = (file: ResourceFile) => {
+    const FileIcon = getFileIcon(file.type);
+    const visibilityInfo = visibilityOptions.find(opt => opt.value === file.visibility);
+    const CategoryIcon = categoryOptions.find(opt => opt.value === file.category)?.icon || FileText;
 
-  const renderResourceTable = (files: ResourceFile[], title: string, description: string, icon: React.ElementType) => (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          {React.createElement(icon, { className: "mr-2 h-6 w-6 text-primary" })}
-          {title}
-        </CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading && files.length === 0 && allResourcesFromApi.length === 0 ? (
-             <div className="flex justify-center items-center py-8">
-                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
-             </div>
-        ) : files.length > 0 ? (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[50px] hidden md:table-cell"></TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead className="hidden sm:table-cell">Tipo</TableHead>
-                  <TableHead className="hidden md:table-cell">Visibilidad</TableHead>
-                  <TableHead className="hidden lg:table-cell">Fecha de Subida</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {files.map((file) => {
-                  const displayInfo = visibilityOptions.find(opt => opt.value === file.visibility);
-                  const VisibilityIcon = displayInfo?.icon;
+    if (viewMode === 'grid') {
+      return (
+        <Card key={file.id} className="shadow-md hover:shadow-lg transition-shadow flex flex-col">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between mb-2">
+              <FileIcon className="h-8 w-8 text-primary" />
+              {canUploadAndManage && (
+                <div className="flex space-x-1">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditModal(file)} title="Editar">
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <CardTitle className="text-md leading-tight line-clamp-2" title={file.name}>{file.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs text-muted-foreground flex-grow space-y-1.5">
+            <p>Tipo: {file.type}</p>
+            <p>Tamaño: {file.size}</p>
+            <p>Subido: {formatDateDisplay(file.uploadDate)}</p>
+            <div className="flex items-center gap-1.5">
+              <CategoryIcon className="h-3.5 w-3.5" /> {categoryOptions.find(opt => opt.value === file.category)?.label}
+            </div>
+            {visibilityInfo && (
+              <Badge variant="outline" className={`text-xs ${visibilityInfo.badgeClass || ''}`}>
+                <visibilityInfo.icon className="mr-1 h-3 w-3" />
+                {visibilityInfo.label}
+              </Badge>
+            )}
+          </CardContent>
+          <CardFooter className="border-t pt-3">
+            <Button variant="outline" size="sm" asChild className="w-full">
+              <a href={file.url || '#'} target="_blank" rel="noopener noreferrer" download={file.name}>
+                <Download className="mr-2 h-4 w-4" /> Descargar
+              </a>
+            </Button>
+          </CardFooter>
+        </Card>
+      );
+    }
 
-                  return (
-                    <TableRow key={file.id}>
-                      <TableCell className="hidden md:table-cell">
-                        <FileText className="h-6 w-6 text-muted-foreground" />
-                      </TableCell>
-                      <TableCell className="font-medium max-w-xs truncate" title={file.name}>{file.name}</TableCell>
-                      <TableCell className="hidden sm:table-cell">{file.type}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {displayInfo && VisibilityIcon && (
-                          <Badge variant="outline" className={`text-xs ${displayInfo.badgeClass || ''}`}>
-                            <VisibilityIcon className="mr-1 h-3 w-3" />
-                            {displayInfo.label}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell">{formatDate(file.uploadDate)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end items-center space-x-1 sm:space-x-2">
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={file.url || '#'} target="_blank" rel="noopener noreferrer" title="Visualizar (abrir en nueva pestaña)">
-                              <Eye className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Visualizar</span>
-                            </a>
-                          </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <a href={file.url || '#'} download={file.name} title="Descargar archivo">
-                              <Download className="mr-1 h-4 w-4" /> <span className="hidden sm:inline">Descargar</span>
-                            </a>
-                          </Button>
-                          {canUploadAndManage && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-muted-foreground hover:text-primary h-8 w-8"
-                                onClick={() => handleOpenEditDialog(file)}
-                                title="Editar Metadatos"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
-                                onClick={() => openDeleteDialog(file)}
-                                title="Eliminar Recurso"
-                                disabled={isDeleting && resourceToDelete?.id === file.id}
-                              >
-                                {isDeleting && resourceToDelete?.id === file.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+    // List View Item
+    return (
+      <TableRow key={file.id}>
+        <TableCell className="hidden md:table-cell"><FileIcon className="h-6 w-6 text-muted-foreground" /></TableCell>
+        <TableCell className="font-medium max-w-xs truncate" title={file.name}>{file.name}</TableCell>
+        <TableCell className="hidden sm:table-cell">{file.type}</TableCell>
+        <TableCell className="hidden md:table-cell">
+          {visibilityInfo && (
+            <Badge variant="outline" className={`text-xs ${visibilityInfo.badgeClass || ''}`}>
+              <visibilityInfo.icon className="mr-1 h-3 w-3" />
+              {visibilityInfo.label}
+            </Badge>
+          )}
+        </TableCell>
+        <TableCell className="hidden lg:table-cell">{categoryOptions.find(opt => opt.value === file.category)?.label}</TableCell>
+        <TableCell className="hidden lg:table-cell">{formatDateDisplay(file.uploadDate)}</TableCell>
+        <TableCell className="text-right">
+          <div className="flex justify-end items-center space-x-1">
+            <Button variant="outline" size="sm" asChild>
+              <a href={file.url || '#'} target="_blank" rel="noopener noreferrer" download={file.name} title="Descargar">
+                <Download className="mr-1 h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Descargar</span>
+              </a>
+            </Button>
+            {canUploadAndManage && (
+              <>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(file)} title="Editar">
+                  <Edit3 className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </div>
-        ) : (
-          <p className="text-muted-foreground text-center py-8">
-             {searchTerm ? `No se encontraron archivos para "${searchTerm}" en esta sección.` : "No hay archivos disponibles en esta sección para tu rol actual."}
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  );
+        </TableCell>
+      </TableRow>
+    );
+  };
 
   if (isLoading && allResourcesFromApi.length === 0) {
     return (
-      <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
+      <div className="flex h-[calc(100vh-200px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg text-muted-foreground">Cargando recursos desde la base de datos...</p>
+        <p className="text-lg text-muted-foreground">Cargando recursos...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold tracking-tight">Gestión de Recursos</CardTitle>
-          <CardDescription>
-            {canUploadAndManage
-              ? "Sube y gestiona los materiales de tu curso, documentos y otros recursos. Controla la visibilidad para cada categoría."
-              : "Visualiza y descarga los archivos y recursos disponibles."}
-          </CardDescription>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h1 className="text-3xl font-bold tracking-tight flex items-center">
+          <Briefcase className="mr-3 h-8 w-8 text-primary" />
+          Gestión de Recursos
+        </h1>
+        {canUploadAndManage && (
+          <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <PlusCircle className="mr-2 h-5 w-5" /> Añadir Recurso
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Subir Nuevos Recursos</DialogTitle>
+                <DialogDescription>
+                  Arrastra y suelta archivos o selecciónalos. Los metadatos se guardarán en la base de datos.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 max-h-[70vh] overflow-y-auto">
+                <FileUploader onResourceRegistered={handleResourceRegistered} />
+              </div>
+              {/* Footer can be added to FileUploader or here if needed */}
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      <Card className="shadow-md">
+        <CardHeader className="pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          <div>
+            <CardTitle className="text-lg">Biblioteca de Recursos</CardTitle>
+            <CardDescription>Explora, busca y gestiona los recursos disponibles.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2 self-start md:self-center">
+            <Button variant={viewMode === 'list' ? 'default' : 'outline'} size="icon" onClick={() => setViewMode('list')} title="Vista de Lista">
+              <List className="h-5 w-5" />
+            </Button>
+            <Button variant={viewMode === 'grid' ? 'default' : 'outline'} size="icon" onClick={() => setViewMode('grid')} title="Vista de Cuadrícula">
+              <Grid className="h-5 w-5" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-            <div className="mb-6">
+          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="search-resources">Buscar por nombre o tipo</Label>
+              <div className="relative">
+                <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                    type="search"
-                    placeholder="Buscar archivos por nombre o tipo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
-                    disabled={isLoading && allResourcesFromApi.length === 0}
+                  id="search-resources"
+                  type="search"
+                  placeholder="Buscar..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  disabled={isLoading}
                 />
+              </div>
             </div>
+            {canUploadAndManage && (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="filter-category">Categoría</Label>
+                  <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value as FileCategory | 'all')}>
+                    <SelectTrigger id="filter-category"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las Categorías</SelectItem>
+                      {categoryOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="filter-visibility">Visibilidad</Label>
+                  <Select value={filterVisibility} onValueChange={(value) => setFilterVisibility(value as FileVisibility | 'all')}>
+                    <SelectTrigger id="filter-visibility"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todas las Visibilidades</SelectItem>
+                      {visibilityOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+          </div>
+
+          {isLoading && filteredResources.length === 0 ? (
+            <div className="text-center py-10"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
+          ) : filteredResources.length === 0 ? (
+            <p className="py-10 text-center text-muted-foreground">
+              {searchTerm || filterCategory !== 'all' || filterVisibility !== 'all' ? 'No se encontraron recursos con los filtros aplicados.' : 'No hay recursos disponibles.'}
+            </p>
+          ) : viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {filteredResources.map(renderResourceItem)}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="hidden md:table-cell w-[50px]"></TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead className="hidden sm:table-cell">Tipo</TableHead>
+                    <TableHead className="hidden md:table-cell">Visibilidad</TableHead>
+                    <TableHead className="hidden lg:table-cell">Categoría</TableHead>
+                    <TableHead className="hidden lg:table-cell">Fecha Subida</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>{filteredResources.map(renderResourceItem)}</TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {canUploadAndManage && (
-        <FileUploader onResourceRegistered={handleResourceRegistered} />
-      )}
-
-      {renderResourceTable(
-        companyResourcesForRole,
-        "Recursos de la Empresa",
-        "Documentos y archivos importantes de la organización.",
-        Shield
-      )}
-
-      {renderResourceTable(
-        learningResourcesForRole,
-        "Archivos de Aprendizaje",
-        "Materiales de estudio, videos, y documentos para los cursos.",
-        BookOpen
-      )}
-
       {editingResource && (
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Editar Metadatos del Recurso</DialogTitle>
-              <DialogDescription>
-                Actualiza la información del archivo "{editingResource.name}".
-              </DialogDescription>
+              <DialogDescription>Actualiza la información de "{editingResource.name}".</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-1">
-                <Label htmlFor="edit-resource-name">Nombre del Archivo</Label>
-                <Input
-                  id="edit-resource-name"
-                  value={editFormName}
-                  onChange={(e) => setEditFormName(e.target.value)}
-                  disabled={isSavingEdit}
-                />
+                <Label htmlFor="edit-name">Nombre del Archivo</Label>
+                <Input id="edit-name" value={editFormName} onChange={(e) => setEditFormName(e.target.value)} disabled={isSavingEdit} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-resource-category">Categoría</Label>
-                <Select
-                  value={editFormCategory}
-                  onValueChange={(value) => setEditFormCategory(value as FileCategory)}
-                  disabled={isSavingEdit}
-                >
-                  <SelectTrigger id="edit-resource-category">
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
+                <Label htmlFor="edit-category">Categoría</Label>
+                <Select value={editFormCategory} onValueChange={(v) => setEditFormCategory(v as FileCategory)} disabled={isSavingEdit}>
+                  <SelectTrigger id="edit-category"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {categoryOptions.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center">
-                          <opt.icon className="w-4 h-4 mr-2" />
-                          {opt.label}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {categoryOptions.map(opt => <SelectItem key={opt.value} value={opt.value}><div className="flex items-center"><opt.icon className="w-4 h-4 mr-2" />{opt.label}</div></SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="edit-resource-visibility">Visibilidad</Label>
-                <Select
-                  value={editFormVisibility}
-                  onValueChange={(value) => setEditFormVisibility(value as FileVisibility)}
-                  disabled={isSavingEdit}
-                >
-                  <SelectTrigger id="edit-resource-visibility">
-                    <SelectValue placeholder="Seleccionar visibilidad" />
-                  </SelectTrigger>
+                <Label htmlFor="edit-visibility">Visibilidad</Label>
+                <Select value={editFormVisibility} onValueChange={(v) => setEditFormVisibility(v as FileVisibility)} disabled={isSavingEdit}>
+                  <SelectTrigger id="edit-visibility"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {visibilityOptions.map(opt => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center">
-                          <opt.icon className="w-4 h-4 mr-2" />
-                          {opt.label}
-                        </div>
-                      </SelectItem>
-                    ))}
+                    {visibilityOptions.map(opt => <SelectItem key={opt.value} value={opt.value}><div className="flex items-center"><opt.icon className="w-4 h-4 mr-2" />{opt.label}</div></SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={handleCloseEditDialog} disabled={isSavingEdit}>
-                Cancelar
-              </Button>
+              <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSavingEdit}>Cancelar</Button>
               <Button onClick={handleSaveEditedResource} disabled={isSavingEdit || !editFormName.trim()}>
-                {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar Cambios
+                {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -497,23 +496,19 @@ export default function ResourcesPage() {
       )}
 
       {resourceToDelete && (
-        <ConfirmDialogContent
-            onOpenChange={setIsDeleteDialogOpen} // Cierra el diálogo si se hace clic fuera o se presiona Esc
-            open={isDeleteDialogOpen}
-        >
-            <ConfirmDialogHeader>
-              <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
-              <ConfirmDialogDescription>
-                ¿Estás seguro de que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
-              </ConfirmDialogDescription>
-            </ConfirmDialogHeader>
-            <ConfirmDialogFooter>
-              <AlertDialogCancel onClick={() => { setResourceToDelete(null); setIsDeleteDialogOpen(false); }} disabled={isDeleting}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Eliminar
-              </AlertDialogAction>
-            </ConfirmDialogFooter>
+        <ConfirmDialogContent open={isDeleteDialogOpen} onOpenChange={(open) => { if (!open) { setIsDeleteDialogOpen(false); setResourceToDelete(null); }}}>
+          <ConfirmDialogHeader>
+            <ConfirmDialogTitle>Confirmar Eliminación</ConfirmDialogTitle>
+            <ConfirmDialogDescription>
+              ¿Seguro que quieres eliminar el archivo "{resourceToDelete.name}"? Esta acción no se puede deshacer.
+            </ConfirmDialogDescription>
+          </ConfirmDialogHeader>
+          <ConfirmDialogFooter>
+            <AlertDialogCancel onClick={() => { setIsDeleteDialogOpen(false); setResourceToDelete(null);}} disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteResource} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Eliminar
+            </AlertDialogAction>
+          </ConfirmDialogFooter>
         </ConfirmDialogContent>
       )}
     </div>
