@@ -66,7 +66,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email: values.email, password: values.password }),
       });
 
-      const responseData = await response.json();
+      const responseData = await response.json(); // Leer el cuerpo aquí, sea cual sea el status.
+
+      console.log('LOGIN PAGE: API Response Status:', response.status); 
+      console.log('LOGIN PAGE: API Response Data:', responseData); 
 
       if (!response.ok) {
         throw new Error(responseData.message || `Error ${response.status} en el inicio de sesión.`);
@@ -77,7 +80,7 @@ export default function LoginPage() {
       if (typeof window !== 'undefined') {
         localStorage.setItem('sessionRole', user.role);
         localStorage.setItem('nexusAlpriUserProfile', JSON.stringify({ name: user.fullName, email: user.email }));
-        localStorage.setItem(SIMULATED_AUTH_TOKEN_KEY, DUMMY_TOKEN_VALUE); // Guardar token simulado
+        localStorage.setItem(SIMULATED_AUTH_TOKEN_KEY, DUMMY_TOKEN_VALUE); 
         
         if (values.rememberMe) {
           localStorage.setItem('rememberUser', 'true');
@@ -91,7 +94,7 @@ export default function LoginPage() {
       router.refresh(); 
 
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("Login error:", error); 
       toast({ variant: "destructive", title: "Error de Inicio de Sesión", description: error.message || "Credenciales incorrectas o error del servidor." });
     } finally {
       setIsSubmitting(false);
