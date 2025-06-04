@@ -15,6 +15,9 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
+// DUMMY_TOKEN_VALUE - Usaremos el mismo que en /api/users, idealmente estaría en un .env o config central
+const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
+
 // Zod schema for validating new resource input
 const CreateResourceSchema = z.object({
   name: z.string().min(1, { message: "El nombre del archivo es requerido." }).max(255),
@@ -22,7 +25,11 @@ const CreateResourceSchema = z.object({
   size: z.string().min(1, { message: "El tamaño del archivo es requerido." }).max(50),
   visibility: z.enum(['private', 'instructors', 'public']),
   category: z.enum(['company', 'learning']),
-  uploaderUserId: z.number().int().positive().optional().nullable(), // Opcional
+  uploaderUserId: z.number().int().positive().optional().nullable(),
+  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], {
+    required_error: "El rol del usuario que realiza la acción es requerido.",
+    invalid_type_error: "Rol de usuario inválido."
+  }),
   // url will be placeholder or null initially
 });
 
@@ -34,10 +41,6 @@ export async function GET(request: NextRequest) {
     
     const resources = (rows as any[]).map(row => ({
       ...row,
-      // Ensure dates are consistently formatted if needed, or handle on client
-      // uploadDate: row.uploadDate ? new Date(row.uploadDate).toISOString() : null,
-      // createdAt: row.createdAt ? new Date(row.createdAt).toISOString() : null,
-      // updatedAt: row.updatedAt ? new Date(row.updatedAt).toISOString() : null,
     }));
 
     await connection.end();
@@ -45,7 +48,6 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error fetching resources from database:', error); 
     await connection?.end();
-    // Provide more specific error details back to the client for database errors
     return NextResponse.json(
       { message: `Database error when fetching resources: ${error.message}`, errorDetails: error.code },
       { status: 500 }
@@ -54,6 +56,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // 1. Verificar autenticación (token)
+  const authorizationHeader = request.headers.get('Authorization');
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  }
+
   let connection;
   try {
     const body = await request.json();
@@ -66,11 +74,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, type, size, visibility, category, uploaderUserId } = validationResult.data;
+    const { name, type, size, visibility, category, uploaderUserId, actingUserRole } = validationResult.data;
+
+    // 2. Verificar autorización (rol)
+    if (actingUserRole !== 'administrador' && actingUserRole !== 'instructor') {
+      return NextResponse.json(
+        { message: 'Acción no permitida. Solo administradores o instructores pueden crear recursos.' },
+        { status: 403 } // 403 Forbidden
+      );
+    }
+
     const id = randomUUID();
     const uploadDate = new Date(); 
-    // En una implementación real, la URL podría apuntar a un S3, GCS, o un endpoint de descarga del propio servidor.
-    // Por ahora, es un placeholder.
     const url = `#placeholder-url-for-${id}`; 
 
     connection = await mysql.createConnection(dbConfig);
@@ -90,8 +105,9 @@ export async function POST(request: NextRequest) {
       visibility,
       category,
       uploaderUserId: uploaderUserId || null,
-      createdAt: uploadDate.toISOString(), // Approximate
-      updatedAt: uploadDate.toISOString(), // Approximate
+      createdAt: uploadDate.toISOString(), 
+      updatedAt: uploadDate.toISOString(), 
+      actingUserRole, // Incluirlo en la respuesta si es útil para depuración o logs
     };
 
     return NextResponse.json(
@@ -102,14 +118,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     await connection?.end();
     console.error('Error creating resource metadata:', error);
-    // Check for specific MySQL errors or return a generic one
-    if (error.code) { // If it's a MySQL error (it usually has a code)
+    if (error.code) { 
       return NextResponse.json(
         { message: 'Fallo al crear los metadatos del recurso en la base de datos.', error: error.message, code: error.code },
         { status: 500 }
       );
     }
-    // Generic server error
     return NextResponse.json(
       { message: 'Fallo al crear los metadatos del recurso debido a un error interno.', error: error.message },
       { status: 500 }

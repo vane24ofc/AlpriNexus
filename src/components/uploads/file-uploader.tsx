@@ -11,7 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useSessionRole } from '@/app/dashboard/layout';
+import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 
 type FileVisibility = 'private' | 'instructors' | 'public';
@@ -40,6 +40,7 @@ interface ApiResource {
   uploaderUserId?: number;
   createdAt?: string;
   updatedAt?: string;
+  actingUserRole?: Role; // Añadido para coincidir con la respuesta de la API
 }
 
 
@@ -59,6 +60,7 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
 ];
 
 const SIMULATED_UPLOADER_USER_ID = 1;
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken'; // Para enviar el token
 
 export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
   const { currentSessionRole } = useSessionRole();
@@ -79,16 +81,20 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
   }, [isInstructor]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
+    if (!currentSessionRole) {
+        toast({ variant: "destructive", title: "Error de Sesión", description: "No se pudo determinar tu rol. Intenta recargar la página."});
+        return;
+    }
     const newFiles: UploadedFile[] = acceptedFiles.map(file => ({
       file,
       id: crypto.randomUUID(),
       progress: 0,
       status: 'pending',
       visibility: selectedVisibility,
-      category: isAdmin ? selectedCategory : 'learning',
+      category: isAdmin ? selectedCategory : 'learning', // Instructores siempre suben a 'learning'
     }));
     setFiles(prevFiles => [...prevFiles, ...newFiles]);
-  }, [selectedVisibility, selectedCategory, isAdmin]);
+  }, [selectedVisibility, selectedCategory, isAdmin, currentSessionRole, toast]);
 
   const formatBytes = (bytes: number, decimals = 2) => {
     if (bytes === 0) return '0 Bytes';
@@ -112,6 +118,10 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
   };
 
   const handleSimulateUploadAll = async () => {
+    if (!currentSessionRole) {
+      toast({ variant: "destructive", title: "Error de Sesión", description: "No se pudo determinar tu rol para la subida." });
+      return;
+    }
     const pendingFiles = files.filter(f => f.status === 'pending' || (f.status === 'error' && !f.apiResourceId));
     if (pendingFiles.length === 0) {
         toast({ title: "No hay archivos para subir", description: "Por favor, añade algunos archivos primero o asegúrate de que no hayan fallado previamente." });
@@ -119,6 +129,13 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
     }
     setIsSimulatingUpload(true);
     toast({ title: "Subida Iniciada", description: "Los archivos seleccionados están siendo procesados." });
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
+    if (!token) {
+      toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado. No se pueden registrar archivos." });
+      setIsSimulatingUpload(false);
+      return;
+    }
 
     for (const uploadedFile of pendingFiles) {
       setFiles(prev => prev.map(f => f.id === uploadedFile.id ? { ...f, status: 'uploading', progress: 0, error: undefined } : f));
@@ -138,20 +155,23 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
         visibility: uploadedFile.visibility,
         category: uploadedFile.category,
         uploaderUserId: canUpload ? SIMULATED_UPLOADER_USER_ID : undefined,
+        actingUserRole: currentSessionRole, // Enviar el rol del usuario actual
       };
 
       try {
         const response = await fetch('/api/resources', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`, // Incluir el token
+          },
           body: JSON.stringify(resourcePayload),
         });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({message: "Error desconocido del servidor al intentar registrar el archivo."}));
-          // Intenta acceder a errors si está presente, sino usa message.
-          const detailedMessage = errorData.errors ? JSON.stringify(errorData.errors) : errorData.message;
-          throw new Error(detailedMessage || `Error ${response.status} al crear metadatos.`);
+          const detailedMessage = errorData.message || (errorData.errors ? JSON.stringify(errorData.errors) : `Error ${response.status}`);
+          throw new Error(detailedMessage);
         }
         
         const result: { message: string; resource: ApiResource } = await response.json();
@@ -204,7 +224,7 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
       'application/vnd.ms-powerpoint': ['.ppt'],
       'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
     },
-    disabled: isSimulatingUpload,
+    disabled: isSimulatingUpload || !canUpload,
   });
 
   const removeFile = (id: string) => {
@@ -305,7 +325,7 @@ export function FileUploader({ onResourceRegistered }: FileUploaderProps) {
           {...getRootProps()}
           className={`flex flex-col items-center justify-center w-full p-8 border-2 border-dashed rounded-lg cursor-pointer transition-colors
             ${isDragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/70 hover:bg-muted/50'}
-            ${isSimulatingUpload ? 'cursor-not-allowed opacity-60' : ''}`}
+            ${isSimulatingUpload || !canUpload ? 'cursor-not-allowed opacity-60' : ''}`}
         >
           <input {...getInputProps()} />
           <UploadCloud className={`w-16 h-16 mb-4 ${isDragActive ? 'text-primary' : 'text-muted-foreground'}`} />
