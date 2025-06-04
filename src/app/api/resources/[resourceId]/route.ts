@@ -37,6 +37,11 @@ export async function GET(
         return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
     }
 
+    const authorizationHeader = request.headers.get('Authorization');
+    if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+      return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+    }
+
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
@@ -50,6 +55,9 @@ export async function GET(
         if (resources.length === 0) {
             return NextResponse.json({ message: 'Recurso no encontrado.' }, { status: 404 });
         }
+        // Aquí podríamos añadir una capa extra de seguridad para verificar si el rol actual
+        // (que tendríamos que pasar o decodificar del token) tiene permiso para ver este recurso específico,
+        // pero por ahora, si está autenticado y conoce el ID, lo permitimos. La API GET /api/resources ya hace el filtro principal.
         return NextResponse.json(resources[0]);
     } catch (error: any) {
         console.error(`Error obteniendo recurso ${resourceId}:`, error);
@@ -203,3 +211,4 @@ export async function DELETE(
     );
   }
 }
+
