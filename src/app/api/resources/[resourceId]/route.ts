@@ -14,11 +14,18 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
+// DUMMY_TOKEN_VALUE - Usaremos el mismo que en otros endpoints
+const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
+
 // Zod schema for validating resource updates
 const UpdateResourceSchema = z.object({
   name: z.string().min(1, { message: "El nombre del archivo es requerido." }).max(255).optional(),
   visibility: z.enum(['private', 'instructors', 'public']).optional(),
   category: z.enum(['company', 'learning']).optional(),
+  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], { // Añadido para verificación
+    required_error: "El rol del usuario que realiza la acción es requerido.",
+    invalid_type_error: "Rol de usuario inválido."
+  }).optional(), // Opcional aquí porque en un sistema real vendría del token
   // url and size are typically not updated this way, type might change if file is replaced
 });
 
@@ -65,9 +72,16 @@ export async function PUT(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
+  // 1. Verificar autenticación (token)
+  const authorizationHeader = request.headers.get('Authorization');
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  }
+
   let connection;
   try {
     const body = await request.json();
+    // Añadimos actingUserRole al cuerpo de la solicitud para la validación
     const validationResult = UpdateResourceSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -77,7 +91,15 @@ export async function PUT(
       );
     }
 
-    const { name, visibility, category } = validationResult.data;
+    const { name, visibility, category, actingUserRole } = validationResult.data;
+
+    // 2. Verificar autorización (rol)
+    if (!actingUserRole || (actingUserRole !== 'administrador' && actingUserRole !== 'instructor')) {
+      return NextResponse.json(
+        { message: 'Acción no permitida. Solo administradores o instructores pueden actualizar recursos.' },
+        { status: 403 } // 403 Forbidden
+      );
+    }
 
     if (!name && !visibility && !category) {
       return NextResponse.json({ message: 'No se proporcionaron campos para actualizar.' }, { status: 400 });
@@ -144,6 +166,9 @@ export async function DELETE(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
+  // TODO: Añadir la misma lógica de autenticación y autorización que en PUT
+  // Por ahora, lo dejamos sin asegurar para enfocarnos en PUT primero.
+
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
@@ -168,3 +193,4 @@ export async function DELETE(
     );
   }
 }
+
