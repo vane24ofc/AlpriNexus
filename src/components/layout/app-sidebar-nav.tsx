@@ -21,6 +21,7 @@ import {
   Library,
   PlusCircle,
   Video as VideoIcon,
+  SlidersHorizontal, // Nuevo ícono para Herramientas
 } from 'lucide-react';
 import {
   Sidebar,
@@ -50,43 +51,86 @@ export interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { id: 'nav-panel-principal', href: '/dashboard', label: 'Panel Principal', icon: LayoutDashboard, roles: ['administrador', 'instructor', 'estudiante'] },
+  // 1. Panel Principal (Todos)
   {
-    id: 'nav-gestion-group',
-    label: 'Gestión',
+    id: 'nav-dashboard-main',
+    href: '/dashboard',
+    label: 'Panel Principal',
+    icon: LayoutDashboard,
+    roles: ['administrador', 'instructor', 'estudiante'],
+  },
+
+  // 2. Plataforma (Admin)
+  {
+    id: 'nav-admin-platform-group',
+    label: 'Plataforma',
     icon: Shield,
     roles: ['administrador'],
     children: [
       { id: 'nav-admin-users', href: '/dashboard/admin/users', label: 'Gestión de Usuarios', icon: Users, roles: ['administrador'] },
-      { id: 'nav-admin-courses', href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen, roles: ['administrador'] },
+      { id: 'nav-admin-courses-manage', href: '/dashboard/admin/courses', label: 'Gestión de Cursos', icon: BookOpen, roles: ['administrador'] },
+      { id: 'nav-admin-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador'] },
       { id: 'nav-admin-metrics', href: '/dashboard/admin/metrics', label: 'Métricas e Informes', icon: BarChartBig, roles: ['administrador'] },
     ],
   },
+
+  // 3. Mis Contenidos (Instructor)
   {
-    id: 'nav-instructor-tools-group',
-    label: 'Herramientas de Instructor',
-    icon: BookOpen,
+    id: 'nav-instructor-content-group',
+    label: 'Mis Contenidos',
+    icon: Library, 
     roles: ['instructor'],
     children: [
       { id: 'nav-instructor-my-courses', href: '/dashboard/instructor/my-courses', label: 'Mis Cursos Creados', icon: BookOpen, roles: ['instructor'] },
+      { id: 'nav-instructor-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['instructor'] },
     ],
   },
+
+  // 4. Mi Aprendizaje (Estudiante)
   {
-    id: 'nav-student-portal-group',
-    label: 'Portal del Estudiante',
+    id: 'nav-student-learning-group',
+    label: 'Mi Aprendizaje',
     icon: GraduationCap,
     roles: ['estudiante'],
     children: [
-      { id: 'nav-student-profile', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
       { id: 'nav-student-my-courses', href: '/dashboard/student/my-courses', label: 'Mis Cursos Inscritos', icon: BookOpen, roles: ['estudiante'] },
+      { id: 'nav-student-explore-courses', href: '/dashboard/courses/explore', label: 'Catálogo de Cursos', icon: Library, roles: ['estudiante'] },
     ],
   },
-  { id: 'nav-create-course', href: '/dashboard/courses/new', label: 'Crear Curso', icon: PlusCircle, roles: ['administrador', 'instructor'] },
-  { id: 'nav-catalog-courses', href: '/dashboard/courses/explore', label: 'Catálogo de Cursos', icon: Library, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-virtual-sessions', href: '/dashboard/virtual-sessions', label: 'Sesiones Virtuales', icon: VideoIcon, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
-  { id: 'nav-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
+
+  // 5. Catálogo General (Admin, Instructor)
+  {
+    id: 'nav-catalog-general',
+    href: '/dashboard/courses/explore',
+    label: 'Catálogo de Cursos',
+    icon: Library,
+    roles: ['administrador', 'instructor'],
+  },
+
+  // 6. Herramientas (Todos)
+  {
+    id: 'nav-tools-group',
+    label: 'Herramientas',
+    icon: SlidersHorizontal, 
+    roles: ['administrador', 'instructor', 'estudiante'],
+    children: [
+      { id: 'nav-tools-virtual-sessions', href: '/dashboard/virtual-sessions', label: 'Sesiones Virtuales', icon: VideoIcon, roles: ['administrador', 'instructor', 'estudiante'] },
+      { id: 'nav-tools-calendar', href: '/dashboard/calendar', label: 'Calendario', icon: CalendarDays, roles: ['administrador', 'instructor', 'estudiante'] },
+      { id: 'nav-tools-resources', href: '/dashboard/resources', label: 'Recursos', icon: FolderArchive, roles: ['administrador', 'instructor', 'estudiante'] },
+    ],
+  },
+
+  // 7. Mi Cuenta (Todos)
+  {
+    id: 'nav-my-account-group',
+    label: 'Mi Cuenta',
+    icon: UserIconLucide,
+    roles: ['administrador', 'instructor', 'estudiante'],
+    children: [
+      { id: 'nav-account-profile-student', href: '/dashboard/student/profile', label: 'Mi Perfil', icon: UserIconLucide, roles: ['estudiante'] },
+      { id: 'nav-account-settings', href: '/dashboard/settings', label: 'Configuración', icon: Settings, roles: ['administrador', 'instructor', 'estudiante'] },
+    ],
+  },
 ];
 
 
@@ -118,13 +162,9 @@ export function AppSidebarNav() {
     }, [] as NavItem[]);
   }, [currentSessionRole, isLoadingRole]);
 
-  // useEffect para gestionar la apertura/cierre de submenús basados en la ruta activa
   useEffect(() => {
-    // Si no está montado en el cliente, o el rol está cargando, o no hay rol,
-    // o no hay elementos filtrados, reseteamos los submenús abiertos.
     if (!hasMounted || isLoadingRole || !currentSessionRole || filteredNavItems.length === 0) {
       setOpenSubmenus(currentOpen => {
-        // Solo actualiza si no está ya vacío para evitar un bucle si este efecto se dispara innecesariamente
         if (Object.keys(currentOpen).length > 0) return {};
         return currentOpen;
       });
@@ -150,8 +190,6 @@ export function AppSidebarNav() {
 
     const newCalculatedOpenState = calculateNewOpenState();
 
-    // Usamos la forma funcional de setOpenSubmenus para comparar con el estado previo
-    // y evitar añadir openSubmenus al array de dependencias directamente.
     setOpenSubmenus(prevOpenSubmenus => {
       const currentKeys = Object.keys(prevOpenSubmenus);
       const newKeys = Object.keys(newCalculatedOpenState);
@@ -169,7 +207,7 @@ export function AppSidebarNav() {
       if (needsUpdate) {
         return newCalculatedOpenState;
       }
-      return prevOpenSubmenus; // No actual change needed, return the previous state
+      return prevOpenSubmenus;
     });
 
   }, [pathname, filteredNavItems, hasMounted, isLoadingRole, currentSessionRole]);
@@ -190,8 +228,6 @@ export function AppSidebarNav() {
         const isOpen = openSubmenus[item.id] || false;
         const isGroupActive = item.children.some(child => child.href && (pathname === child.href || pathname.startsWith(child.href + '/')));
         
-        // Un grupo se considera activo para el botón si su href (si existe) está activo O si alguno de sus hijos está activo.
-        // Si no tiene href directo, solo se considera activo si un hijo lo está.
         const isActiveForButton = (effectiveHref && effectiveHref !== `#${item.id}` && (pathname === effectiveHref || pathname.startsWith(effectiveHref + '/'))) ? true : isGroupActive;
         
         return (
@@ -213,7 +249,6 @@ export function AppSidebarNav() {
       let isActive = false;
       if (effectiveHref) {
         isActive = pathname === effectiveHref || pathname.startsWith(effectiveHref + '/');
-         // Excepción para el panel principal: solo activo si es exactamente /dashboard
         if (effectiveHref === "/dashboard" && pathname !== "/dashboard") {
             isActive = false;
         }
