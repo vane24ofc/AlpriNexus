@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
 import { Users, MoreHorizontal, Edit, Trash2, ShieldCheck, BookUser, GraduationCap, UserPlus, Search, Loader2, EyeOff, Eye as EyeIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 export interface User { 
   id: string; 
@@ -50,7 +51,7 @@ interface ApiUser {
 
 const roleDisplayInfo: Record<Role, { label: string; icon: React.ElementType; badgeClass: string }> = {
   administrador: { label: "Administrador", icon: ShieldCheck, badgeClass: "bg-primary text-primary-foreground" },
-  instructor: { label: "Instructor", icon: BookUser, badgeClass: "bg-accent text-accent-foreground" },
+  instructor: { label: "Instructor", icon: BookUser, badgeClass: "bg-secondary text-secondary-foreground" }, // Cambiado de accent a secondary
   estudiante: { label: "Estudiante", icon: GraduationCap, badgeClass: "bg-secondary text-secondary-foreground" },
 };
 
@@ -87,7 +88,7 @@ const MemoizedUserRow = React.memo(function UserRow({ user, onOpenDialog }: User
             </TableCell>
             <TableCell className="hidden lg:table-cell whitespace-nowrap">{user.joinDate ? new Date(user.joinDate).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}</TableCell>
             <TableCell className="hidden md:table-cell">
-            <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-green-500 hover:bg-green-600 text-white' : ''}>
+            <Badge variant={user.status === 'active' ? 'default' : 'destructive'} className={user.status === 'active' ? 'bg-accent hover:bg-accent/90 text-accent-foreground' : ''}>
                 {user.status === 'active' ? 'Activo' : 'Inactivo'}
             </Badge>
             </TableCell>
@@ -251,9 +252,6 @@ export default function AdminUsersPage() {
         };
       }
     }
-    // En caso de no encontrar token, el endpoint de API debería rechazar la petición
-    // Pero para ser explícitos, podríamos forzar un error o manejarlo aquí.
-    // Por ahora, si no hay token, la llamada fallará en el backend.
     return { 'Content-Type': 'application/json' };
   };
 
@@ -264,7 +262,7 @@ export default function AdminUsersPage() {
     try {
       const response = await fetch(`/api/users/${userToModify.id}`, { 
         method: 'DELETE',
-        headers: getAuthHeaders(), // Añadir cabeceras de autenticación
+        headers: getAuthHeaders(), 
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -445,7 +443,13 @@ export default function AdminUsersPage() {
                   if (actionType === 'toggleStatus') handleToggleUserStatus();
                 }}
                 disabled={isActionLoading}
-                className={actionType === 'delete' ? 'bg-destructive hover:bg-destructive/90' : (actionType === 'toggleStatus' && userToModify.status === 'active' ? 'bg-orange-500 hover:bg-orange-600 text-white' : (actionType === 'toggleStatus' && userToModify.status === 'inactive' ? 'bg-green-500 hover:bg-green-600 text-white': ''))}
+                className={cn(
+                  actionType === 'toggleStatus' && userToModify.status === 'inactive' // Activating
+                    ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                    : (actionType === 'delete' || (actionType === 'toggleStatus' && userToModify.status === 'active')) // Deleting or Deactivating
+                    ? buttonVariants({ variant: 'destructive' })
+                    : '' // Default for other actions (e.g., change role confirmation)
+                )}
               >
                 {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
