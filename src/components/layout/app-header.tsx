@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon, Check } from 'lucide-react'; // Added Check for AlertDialog
+import { LogOut, Search, Settings, User as UserIconLucide, Shield, BookOpen, GraduationCap, Bell as BellIcon, Loader2 } from 'lucide-react';
 import { Logo } from '@/components/common/logo';
 import { NotificationIcon } from '@/components/notifications/notification-icon';
 import { SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
@@ -30,11 +30,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useToast } from '@/hooks/use-toast';
 
 export function AppHeader() {
   const router = useRouter();
+  const { toast } = useToast();
   const { isMobile } = useSidebar();
   const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole();
   const [searchTerm, setSearchTerm] = useState('');
@@ -44,6 +45,7 @@ export function AppHeader() {
   const [dashboardPath, setDashboardPath] = useState("/dashboard");
   const [userAvatar, setUserAvatar] = useState("https://placehold.co/100x100.png");
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -87,13 +89,34 @@ export function AppHeader() {
     setUserAvatar(`https://placehold.co/100x100.png?text=${avatarInitial}`);
   }, [currentSessionRole, userProfile.name, hasMounted, isLoadingRole]);
 
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sessionRole');
-      localStorage.removeItem('nexusAlpriUserProfile');
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      // Llama al endpoint de logout (aunque sea simulado por ahora)
+      const response = await fetch('/api/auth/logout', { method: 'POST' });
+      // No es necesario verificar response.ok para esta simulación,
+      // pero en una implementación real, lo harías.
+      
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sessionRole');
+        localStorage.removeItem('nexusAlpriUserProfile');
+        // En un futuro, también limpiarías el token: localStorage.removeItem('authToken');
+      }
+      toast({ title: "Cierre de Sesión Exitoso", description: "Has cerrado tu sesión." });
+      router.push('/login');
+    } catch (error) {
+      console.error("Error durante el cierre de sesión:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo cerrar la sesión correctamente. Intenta de nuevo." });
+      // Incluso si la API falla, intentar limpiar localStorage y redirigir
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sessionRole');
+        localStorage.removeItem('nexusAlpriUserProfile');
+      }
+      router.push('/login'); 
+    } finally {
+      setIsLoggingOut(false);
+      setIsLogoutConfirmOpen(false);
     }
-    router.push('/login');
-    setIsLogoutConfirmOpen(false);
   };
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -128,7 +151,6 @@ export function AppHeader() {
     return (
       <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
         {isMobile && <SidebarTrigger />}
-        {/* No logo skeleton if logo is removed */}
         <div className="ml-auto flex items-center gap-2">
           <Skeleton className="h-8 w-[200px] lg:w-[300px]" />
           <Skeleton className="h-10 w-10 rounded-full" />
@@ -141,7 +163,6 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md md:px-6">
       {isMobile && <SidebarTrigger />}
-      {/* Logo removed from here */}
       <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
         <form className="ml-auto flex-1 sm:flex-initial" onSubmit={handleSearchSubmit}>
           <div className="relative">
@@ -152,13 +173,14 @@ export function AppHeader() {
               className="pl-8 sm:w-[300px] md:w-[200px] lg:w-[300px] bg-input"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              disabled={isLoggingOut}
             />
           </div>
         </form>
         <NotificationIcon />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full" disabled={isLoggingOut}>
               <Avatar className="h-9 w-9">
                 <AvatarImage src={userAvatar} alt={userProfile.name} data-ai-hint="profile avatar"/>
                 <AvatarFallback>{userProfile.name ? userProfile.name.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
@@ -175,20 +197,21 @@ export function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push(profileLinkPath)}>
+             <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push(profileLinkPath)} disabled={isLoggingOut}>
                 {getRoleIcon(roleDisplay)}
                 <span>
                   {currentSessionRole === 'estudiante' ? 'Mi Perfil' : `Panel de ${roleDisplay}`}
                 </span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/settings')}>
+            <DropdownMenuItem className="cursor-pointer" onSelect={() => router.push('/dashboard/settings')} disabled={isLoggingOut}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Configuración</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem 
               className="cursor-pointer text-red-500 hover:!text-red-500 hover:!bg-red-500/10 focus:text-red-500 focus:bg-red-500/10" 
-              onSelect={() => setIsLogoutConfirmOpen(true)}
+              onSelect={() => { if(!isLoggingOut) setIsLogoutConfirmOpen(true);}}
+              disabled={isLoggingOut}
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Cerrar Sesión</span>
@@ -205,9 +228,10 @@ export function AppHeader() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setIsLogoutConfirmOpen(false)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout} className="bg-destructive hover:bg-destructive/90">
-              Sí, Cerrar Sesión
+            <AlertDialogCancel onClick={() => setIsLogoutConfirmOpen(false)} disabled={isLoggingOut}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout} className="bg-destructive hover:bg-destructive/90" disabled={isLoggingOut}>
+              {isLoggingOut && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoggingOut ? 'Cerrando...' : 'Sí, Cerrar Sesión'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
