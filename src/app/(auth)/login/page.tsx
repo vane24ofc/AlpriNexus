@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -18,9 +19,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Logo } from '@/components/common/logo';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import type { Role } from '@/app/dashboard/layout';
 import React, { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
@@ -30,7 +32,9 @@ const formSchema = z.object({
 
 export default function LoginPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -41,26 +45,66 @@ export default function LoginPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // "Remember Me" logic that interacted with localStorage has been removed.
-    // The values.rememberMe is still available if you want to implement
-    // a server-side "remember me" token in the future.
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      // Simulación de llamada a API
+      // En un futuro, esto sería:
+      // const response = await fetch('/api/auth/login', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ email: values.email, password: values.password }),
+      // });
+      // if (!response.ok) {
+      //   const errorData = await response.json();
+      //   throw new Error(errorData.message || 'Error en el inicio de sesión');
+      // }
+      // const data = await response.json(); // data contendría { token: '...', user: { role: '...', name: '...' email: '...' } }
+      
+      // Simulación de respuesta exitosa de API
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular delay de red
 
-    let roleToStore: Role = 'estudiante'; 
+      let roleFromApi: Role = 'estudiante'; 
+      let userNameFromApi = 'Estudiante Ejemplo';
+      const emailFromApi = values.email;
 
-    if (values.email === 'admin@example.com') {
-      roleToStore = 'administrador';
-    } else if (values.email === 'instructor@example.com') {
-      roleToStore = 'instructor';
-    } else if (values.email === 'student@example.com' || values.email === 'estudiante@example.com') { 
-      roleToStore = 'estudiante';
+      // Lógica de roles basada en email (simulación, esto vendría del backend)
+      if (values.email === 'admin@example.com' && values.password === 'password') {
+        roleFromApi = 'administrador';
+        userNameFromApi = 'Admin Nexus';
+      } else if (values.email === 'instructor@example.com' && values.password === 'password') {
+        roleFromApi = 'instructor';
+        userNameFromApi = 'Instructor Pro';
+      } else if ((values.email === 'student@example.com' || values.email === 'estudiante@example.com') && values.password === 'password') {
+        roleFromApi = 'estudiante';
+        userNameFromApi = `Estudiante ${values.email.split('@')[0]}`;
+      } else {
+        // Simular credenciales incorrectas
+        throw new Error('Credenciales incorrectas. Inténtalo de nuevo.');
+      }
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sessionRole', roleFromApi);
+        localStorage.setItem('nexusAlpriUserProfile', JSON.stringify({ name: userNameFromApi, email: emailFromApi }));
+        // En un futuro, también guardaríamos el token: localStorage.setItem('authToken', data.token);
+        if (values.rememberMe) {
+          // La lógica de "Remember Me" podría ser más compleja, por ahora solo se registra el valor.
+          // El backend usualmente manejaría esto con tokens de mayor duración.
+          localStorage.setItem('rememberUser', 'true');
+        } else {
+          localStorage.removeItem('rememberUser');
+        }
+      }
+      
+      toast({ title: "Inicio de Sesión Exitoso", description: `¡Bienvenido de nuevo, ${userNameFromApi}!` });
+      router.push('/dashboard');
+
+    } catch (error: any) {
+      console.error("Login error:", error);
+      toast({ variant: "destructive", title: "Error de Inicio de Sesión", description: error.message || "Ocurrió un error inesperado." });
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sessionRole', roleToStore);
-    }
-    router.push('/dashboard');
   }
 
   return (
@@ -83,7 +127,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Correo Electrónico <span className="text-primary">*</span></FormLabel>
                     <FormControl>
-                      <Input placeholder="tu@ejemplo.com" {...field} />
+                      <Input placeholder="tu@ejemplo.com" {...field} disabled={isSubmitting} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -102,6 +146,7 @@ export default function LoginPage() {
                           placeholder="Ingresa tu contraseña" 
                           {...field} 
                           className="pr-10"
+                          disabled={isSubmitting}
                         />
                         <Button 
                           type="button" 
@@ -110,6 +155,7 @@ export default function LoginPage() {
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowPassword(!showPassword)}
                           tabIndex={-1}
+                          disabled={isSubmitting}
                         >
                           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                           <span className="sr-only">{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</span>
@@ -130,6 +176,7 @@ export default function LoginPage() {
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
+                          disabled={isSubmitting}
                         />
                       </FormControl>
                       <FormLabel className="text-sm font-normal text-muted-foreground">
@@ -142,8 +189,11 @@ export default function LoginPage() {
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
-              <Button type="submit" className="w-full text-base font-semibold">
-                Iniciar Sesión
+              <Button type="submit" className="w-full text-base font-semibold" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : null}
+                {isSubmitting ? 'Iniciando Sesión...' : 'Iniciar Sesión'}
               </Button>
             </form>
           </Form>
