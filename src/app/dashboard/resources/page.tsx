@@ -2,13 +2,13 @@
 "use client";
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Download, FileText, Shield, BookOpen, Eye, Users, Globe, Loader2, Trash2, Edit3, Briefcase, Grid, List, PlusCircle, Search as SearchIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
-import { FileUploader } from "@/components/uploads/file-uploader"; // Asumiendo que este componente existe
+import { FileUploader } from "@/components/uploads/file-uploader";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,7 +35,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import Image from 'next/image';
+import Image from 'next/image'; // No se está usando Image directamente en este componente.
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -43,18 +43,17 @@ type FileCategory = 'company' | 'learning';
 interface ResourceFile {
   id: string;
   name: string;
-  type: string; // Tipo de archivo (ej. 'PDF', 'Imagen', 'Video')
-  size: string; // Tamaño del archivo (ej. '1.2MB')
-  uploadDate: string; // Fecha de subida en formato ISO string
-  url?: string; // URL para visualizar/descargar (puede ser placeholder)
+  type: string;
+  size: string;
+  uploadDate: string;
+  url?: string;
   visibility: FileVisibility;
   category: FileCategory;
   uploaderUserId?: number;
-  createdAt?: string; // Fecha de creación del registro en BD
-  updatedAt?: string; // Fecha de última actualización del registro en BD
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Para la respuesta de la API al registrar un nuevo recurso
 interface ApiResource {
   id: string;
   name: string;
@@ -69,6 +68,8 @@ interface ApiResource {
   updatedAt?: string;
 }
 
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
+
 const visibilityOptions: { value: FileVisibility; label: string; icon: React.ElementType; badgeClass?: string }[] = [
   { value: 'public', label: 'Todos (Público)', icon: Globe, badgeClass: 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700' },
   { value: 'instructors', label: 'Instructores y Admins', icon: Users, badgeClass: 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/50 dark:text-purple-300 dark:border-purple-700' },
@@ -82,10 +83,10 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
 
 const getFileIcon = (fileType: string): React.ElementType => {
   const type = fileType.toLowerCase();
-  if (type.includes('pdf')) return FileText;
-  if (type.includes('imagen')) return FileText; // Podríamos usar ImageIcon de lucide si tuvieramos tipos más granulares
+  if (type.includes('pdf')) return FileText; // Asumiendo que 'PDF' está en file.type
+  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText; // Podríamos usar ImageIcon de lucide si tuvieramos tipos más granulares
   if (type.includes('video')) return FileText; // Podríamos usar VideoIcon
-  if (type.includes('documento')) return FileText;
+  if (type.includes('documento') || type.includes('doc') || type.includes('word')) return FileText;
   return FileText; // Icono por defecto
 };
 
@@ -95,7 +96,7 @@ export default function ResourcesPage() {
   const [allResourcesFromApi, setAllResourcesFromApi] = useState<ResourceFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list'); // Default to list view
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   const [resourceToDelete, setResourceToDelete] = useState<ResourceFile | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -105,7 +106,6 @@ export default function ResourcesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<ResourceFile | null>(null);
   
-  // Form state for editing
   const [editFormName, setEditFormName] = useState('');
   const [editFormVisibility, setEditFormVisibility] = useState<FileVisibility>('public');
   const [editFormCategory, setEditFormCategory] = useState<FileCategory>('learning');
@@ -144,32 +144,30 @@ export default function ResourcesPage() {
       title: "Recurso Registrado",
       description: `El recurso "${newResource.name}" fue añadido. Actualizando lista...`,
     });
-    setIsUploadModalOpen(false); // Cerrar modal después de registrar
-    fetchResources(); // Refrescar la lista
+    setIsUploadModalOpen(false);
+    fetchResources();
   }, [fetchResources, toast]);
 
   const filteredResources = useMemo(() => {
     return allResourcesFromApi.filter(file => {
       const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase()) || file.type.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = filterCategory === 'all' || file.category === filterCategory;
+      const matchesCategoryFilter = filterCategory === 'all' || file.category === filterCategory;
       
-      let matchesVisibility = false;
+      let isVisibleToCurrentUser = false;
       if (currentSessionRole === 'administrador') {
-        matchesVisibility = filterVisibility === 'all' || file.visibility === filterVisibility;
+        isVisibleToCurrentUser = true; // Admin ve todo, el filtro de visibilidad se aplica aparte
       } else if (currentSessionRole === 'instructor') {
-        matchesVisibility = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
-        if (filterVisibility !== 'all') { // Instructors can filter by what they can see
-          matchesVisibility = matchesVisibility && file.visibility === filterVisibility;
-        }
+        isVisibleToCurrentUser = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Asumiendo que el uploaderUserId sería el del instructor
       } else { // Estudiante
-        matchesVisibility = file.visibility === 'public';
-         if (filterVisibility !== 'all') { // Students can only filter public, effectively no-op or show only public if they try
-          matchesVisibility = matchesVisibility && file.visibility === 'public';
-        }
+        isVisibleToCurrentUser = file.visibility === 'public';
       }
-      return matchesSearch && matchesCategory && matchesVisibility;
+
+      const matchesVisibilityFilter = filterVisibility === 'all' || file.visibility === filterVisibility;
+
+      return matchesSearch && matchesCategoryFilter && isVisibleToCurrentUser && (currentSessionRole === 'administrador' ? matchesVisibilityFilter : true) ;
     });
   }, [allResourcesFromApi, searchTerm, filterCategory, filterVisibility, currentSessionRole]);
+
 
   const openDeleteDialog = (resource: ResourceFile) => {
     setResourceToDelete(resource);
@@ -179,6 +177,7 @@ export default function ResourcesPage() {
   const confirmDeleteResource = async () => {
     if (!resourceToDelete) return;
     setIsDeleting(true);
+    // TODO: Añadir token de autenticación a la cabecera y posible rol si el backend lo requiere para DELETE
     try {
       const response = await fetch(`/api/resources/${resourceToDelete.id}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -209,17 +208,36 @@ export default function ResourcesPage() {
       toast({ variant: "destructive", title: "Validación Fallida", description: "El nombre del recurso es obligatorio." });
       return;
     }
+    if (!currentSessionRole) {
+      toast({ variant: "destructive", title: "Error de Sesión", description: "No se pudo determinar tu rol. Intenta recargar." });
+      return;
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
+    if (!token) {
+      toast({ variant: "destructive", title: "Error de Autenticación", description: "No se encontró token. No se puede actualizar." });
+      return;
+    }
+
     setIsSavingEdit(true);
-    const payload = { name: editFormName.trim(), visibility: editFormVisibility, category: editFormCategory };
+    const payload = { 
+      name: editFormName.trim(), 
+      visibility: editFormVisibility, 
+      category: editFormCategory,
+      actingUserRole: currentSessionRole, // Enviar el rol del usuario actual
+    };
+
     try {
       const response = await fetch(`/api/resources/${editingResource.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // Incluir el token
+        },
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Error al actualizar' }));
-        throw new Error(errorData.message || 'No se pudo actualizar el recurso.');
+        throw new Error(errorData.message || `No se pudo actualizar el recurso (status: ${response.status}).`);
       }
       toast({ title: "Recurso Actualizado", description: "Los metadatos del recurso han sido actualizados." });
       fetchResources();
@@ -245,16 +263,16 @@ export default function ResourcesPage() {
 
     if (viewMode === 'grid') {
       return (
-        <Card key={file.id} className="shadow-md hover:shadow-lg transition-shadow flex flex-col">
+        <Card key={file.id} className="shadow-md hover:shadow-lg transition-shadow flex flex-col bg-card">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between mb-2">
               <FileIcon className="h-8 w-8 text-primary" />
               {canUploadAndManage && (
                 <div className="flex space-x-1">
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenEditModal(file)} title="Editar">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditModal(file)} title="Editar Metadatos">
                     <Edit3 className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar Recurso">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
@@ -287,7 +305,6 @@ export default function ResourcesPage() {
       );
     }
 
-    // List View Item
     return (
       <TableRow key={file.id}>
         <TableCell className="hidden md:table-cell"><FileIcon className="h-6 w-6 text-muted-foreground" /></TableCell>
@@ -312,10 +329,10 @@ export default function ResourcesPage() {
             </Button>
             {canUploadAndManage && (
               <>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditModal(file)} title="Editar">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditModal(file)} title="Editar Metadatos">
                   <Edit3 className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar Recurso">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </>
@@ -359,7 +376,6 @@ export default function ResourcesPage() {
               <div className="py-4 max-h-[70vh] overflow-y-auto">
                 <FileUploader onResourceRegistered={handleResourceRegistered} />
               </div>
-              {/* Footer can be added to FileUploader or here if needed */}
             </DialogContent>
           </Dialog>
         )}
@@ -393,41 +409,39 @@ export default function ResourcesPage() {
                   className="pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  disabled={isLoading}
+                  disabled={isLoading && allResourcesFromApi.length === 0}
                 />
               </div>
             </div>
-            {canUploadAndManage && (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-category">Categoría</Label>
-                  <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value as FileCategory | 'all')}>
-                    <SelectTrigger id="filter-category"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las Categorías</SelectItem>
-                      {categoryOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-visibility">Visibilidad</Label>
-                  <Select value={filterVisibility} onValueChange={(value) => setFilterVisibility(value as FileVisibility | 'all')}>
-                    <SelectTrigger id="filter-visibility"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas las Visibilidades</SelectItem>
-                      {visibilityOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
+            <div className="space-y-1.5">
+                <Label htmlFor="filter-category">Categoría</Label>
+                <Select value={filterCategory} onValueChange={(value) => setFilterCategory(value as FileCategory | 'all')}>
+                <SelectTrigger id="filter-category"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Todas las Categorías</SelectItem>
+                    {categoryOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                </SelectContent>
+                </Select>
+            </div>
+            {(currentSessionRole === 'administrador') && (
+              <div className="space-y-1.5">
+                <Label htmlFor="filter-visibility">Visibilidad</Label>
+                <Select value={filterVisibility} onValueChange={(value) => setFilterVisibility(value as FileVisibility | 'all')}>
+                  <SelectTrigger id="filter-visibility"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las Visibilidades</SelectItem>
+                    {visibilityOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
 
-          {isLoading && filteredResources.length === 0 ? (
+          {isLoading && filteredResources.length === 0 && allResourcesFromApi.length > 0 ? (
             <div className="text-center py-10"><Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" /></div>
           ) : filteredResources.length === 0 ? (
             <p className="py-10 text-center text-muted-foreground">
-              {searchTerm || filterCategory !== 'all' || filterVisibility !== 'all' ? 'No se encontraron recursos con los filtros aplicados.' : 'No hay recursos disponibles.'}
+              {searchTerm || filterCategory !== 'all' || (filterVisibility !== 'all' && currentSessionRole === 'administrador') ? 'No se encontraron recursos con los filtros aplicados.' : 'No hay recursos disponibles que coincidan con tu rol y filtros.'}
             </p>
           ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -455,7 +469,10 @@ export default function ResourcesPage() {
       </Card>
 
       {editingResource && (
-        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <Dialog open={isEditModalOpen} onOpenChange={(open) => {
+            setIsEditModalOpen(open);
+            if (!open) setEditingResource(null);
+        }}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Editar Metadatos del Recurso</DialogTitle>
@@ -486,7 +503,7 @@ export default function ResourcesPage() {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditModalOpen(false)} disabled={isSavingEdit}>Cancelar</Button>
+              <Button variant="outline" onClick={() => {setIsEditModalOpen(false); setEditingResource(null);}} disabled={isSavingEdit}>Cancelar</Button>
               <Button onClick={handleSaveEditedResource} disabled={isSavingEdit || !editFormName.trim()}>
                 {isSavingEdit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar
               </Button>
@@ -515,4 +532,3 @@ export default function ResourcesPage() {
   );
 }
 
-    
