@@ -49,23 +49,28 @@ export default function InstructorDashboardPage() {
     fetchCoursesForInstructor();
   }, [userProfile.name, currentSessionRole, toast]);
 
-  const pendingReviewCount = useMemo(() => 
+  const pendingReviewCount = useMemo(() =>
     instructorCourses.filter(c => c.status === 'pending').length,
     [instructorCourses]
   );
 
   const stats = useMemo(() => [
     { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Estudiantes Totales (Simulado)", value: "350", icon: Users, link: "#" }, // Placeholder
+    { title: "Estudiantes Totales (Simulado)", value: (instructorCourses.length * (Math.floor(Math.random() * 20) + 5)).toLocaleString(), icon: Users, link: "#" }, // Simulación basada en cursos
     { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
-    { title: "Calificación Promedio (Simulado)", value: "4.7/5", icon: BarChartIcon, link: "#" }, // Placeholder
+    { title: "Calificación Promedio (Simulado)", value: instructorCourses.length > 0 ? `${(Math.random() * 1 + 4).toFixed(1)}/5` : "N/A", icon: BarChartIcon, link: "#" },
   ], [instructorCourses, pendingReviewCount]);
 
-  const recentFeedbacks = useMemo(() => [
-    { student: "Emily R.", course: instructorCourses[0]?.title || "Curso de Ejemplo", comment: "¡Excelente curso, muy detallado!", rating: 5, time: "hace 1h" },
-    { student: "John B.", course: instructorCourses[1]?.title || "Otro Curso de Ejemplo", comment: "Desafiante pero gratificante.", rating: 4, time: "hace 3h" },
-    { student: "Sarah K.", course: instructorCourses[2]?.title || "Tercer Curso de Ejemplo", comment: "Necesita más ejemplos en el capítulo 3.", rating: 3, time: "Ayer" },
-  ].filter(f => instructorCourses.length > 0), [instructorCourses]);
+  const recentFeedbacks = useMemo(() => {
+    if (instructorCourses.length === 0) return [];
+    return instructorCourses.slice(0, 3).map((course, index) => ({
+        student: `Estudiante ${String.fromCharCode(65 + index)}`, // Estudiante A, B, C
+        course: course.title,
+        comment: `Comentario de ejemplo para "${course.title.substring(0,20)}"...`,
+        rating: Math.floor(Math.random() * 3) + 3, // Rating entre 3 y 5
+        time: `hace ${index+1}h`
+    }));
+  }, [instructorCourses]);
 
 
   if (isLoading) {
@@ -87,7 +92,7 @@ export default function InstructorDashboardPage() {
           </Link>
         </Button>
       </div>
-      
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
@@ -118,23 +123,24 @@ export default function InstructorDashboardPage() {
                 </div>
             ) : instructorCourses.length > 0 ? (
               <ul className="space-y-4">
-                {instructorCourses.slice(0, 3).map((course) => { 
-                  const students = Math.floor(Math.random() * 200) + 50; 
-                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 50) + 50) : (course.status === 'pending' ? Math.floor(Math.random() * 30) : 0) ; 
+                {instructorCourses.slice(0, 3).map((course) => {
+                  const students = Math.floor(Math.random() * 150) + 20; // Simulación de estudiantes inscritos
+                  // Simulación de progreso, podría basarse en si está aprobado o no.
+                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 70) + 30) : (course.status === 'pending' ? Math.floor(Math.random() * 20) : 0) ;
                   return (
                   <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold text-lg line-clamp-1" title={course.title}>{course.title}</h3>
                         <p className="text-sm text-muted-foreground">{students} estudiantes inscritos (simulado)</p>
-                        <Badge 
+                        <Badge
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
                           className={`mt-1 text-xs ${
-                            course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
+                            course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' :
                             course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
                           }`}
                         >
-                          {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente' : 'Rechazado'}
+                          {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente de Revisión' : 'Rechazado'}
                         </Badge>
                       </div>
                       <Button variant="outline" size="sm" asChild>
@@ -176,10 +182,10 @@ export default function InstructorDashboardPage() {
                 {recentFeedbacks.map((feedback, index) => (
                   <li key={index} className="text-sm border-b border-border pb-2 last:border-b-0">
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold">{feedback.student} en <span className="text-primary">{feedback.course}</span></span>
+                      <span className="font-semibold">{feedback.student} en <span className="text-primary line-clamp-1" title={feedback.course}>{feedback.course.length > 20 ? feedback.course.substring(0,20) + "..." : feedback.course}</span></span>
                       <span className="text-xs text-muted-foreground">{feedback.time}</span>
                     </div>
-                    <p className="text-muted-foreground mt-1">&quot;{feedback.comment}&quot;</p>
+                    <p className="text-muted-foreground mt-1 line-clamp-2">&quot;{feedback.comment}&quot;</p>
                     <div className="flex items-center mt-1">
                       {Array(5).fill(0).map((_, i) => (
                         <Star key={i} className={`h-3.5 w-3.5 ${i < feedback.rating ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
