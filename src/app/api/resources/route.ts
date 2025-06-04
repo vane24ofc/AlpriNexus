@@ -15,7 +15,6 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
-// DUMMY_TOKEN_VALUE - Usaremos el mismo que en /api/users, idealmente estaría en un .env o config central
 const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
 
 // Zod schema for validating new resource input
@@ -30,14 +29,40 @@ const CreateResourceSchema = z.object({
     required_error: "El rol del usuario que realiza la acción es requerido.",
     invalid_type_error: "Rol de usuario inválido."
   }),
-  // url will be placeholder or null initially
 });
 
 export async function GET(request: NextRequest) {
+  const authorizationHeader = request.headers.get('Authorization');
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  }
+
+  const actingUserRole = request.nextUrl.searchParams.get('actingUserRole') as 'administrador' | 'instructor' | 'estudiante' | null;
+
+  if (!actingUserRole || !['administrador', 'instructor', 'estudiante'].includes(actingUserRole)) {
+    return NextResponse.json({ message: 'Rol de usuario no proporcionado o inválido en la consulta.' }, { status: 400 });
+  }
+
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
-    const [rows] = await connection.execute('SELECT * FROM resources ORDER BY uploadDate DESC;');
+    let query = 'SELECT * FROM resources';
+    const queryParams: string[] = [];
+
+    if (actingUserRole === 'estudiante') {
+      query += ' WHERE visibility = ?';
+      queryParams.push('public');
+    } else if (actingUserRole === 'instructor') {
+      // Instructores ven 'public' y 'instructors'. 
+      // Podríamos añadir lógica para 'private' si el uploaderUserId coincide, pero lo mantenemos simple por ahora.
+      query += ' WHERE visibility IN (?, ?)';
+      queryParams.push('public', 'instructors');
+    }
+    // Administradores ven todo, no se añade cláusula WHERE.
+
+    query += ' ORDER BY uploadDate DESC;';
+    
+    const [rows] = await connection.execute(query, queryParams);
     
     const resources = (rows as any[]).map(row => ({
       ...row,
@@ -56,7 +81,6 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  // 1. Verificar autenticación (token)
   const authorizationHeader = request.headers.get('Authorization');
   if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
     return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
@@ -76,11 +100,10 @@ export async function POST(request: NextRequest) {
 
     const { name, type, size, visibility, category, uploaderUserId, actingUserRole } = validationResult.data;
 
-    // 2. Verificar autorización (rol)
     if (actingUserRole !== 'administrador' && actingUserRole !== 'instructor') {
       return NextResponse.json(
         { message: 'Acción no permitida. Solo administradores o instructores pueden crear recursos.' },
-        { status: 403 } // 403 Forbidden
+        { status: 403 } 
       );
     }
 
@@ -105,9 +128,7 @@ export async function POST(request: NextRequest) {
       visibility,
       category,
       uploaderUserId: uploaderUserId || null,
-      createdAt: uploadDate.toISOString(), 
-      updatedAt: uploadDate.toISOString(), 
-      actingUserRole, // Incluirlo en la respuesta si es útil para depuración o logs
+      actingUserRole, 
     };
 
     return NextResponse.json(
