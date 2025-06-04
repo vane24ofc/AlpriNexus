@@ -26,9 +26,18 @@ import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Dirección de correo inválida.' }),
-  password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
+  password: z.string().min(1, { message: 'La contraseña es requerida.' }), // Min 1, as actual length check is on server for creation
   rememberMe: z.boolean().optional(),
 });
+
+interface UserApiResponse {
+    id: string;
+    fullName: string;
+    email: string;
+    role: Role;
+    status: 'active' | 'inactive';
+    avatarUrl?: string | null;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -48,56 +57,34 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // Simulación de llamada a API
-      // En un futuro, esto sería:
-      // const response = await fetch('/api/auth/login', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email: values.email, password: values.password }),
-      // });
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.message || 'Error en el inicio de sesión');
-      // }
-      // const data = await response.json(); // data contendría { token: '...', user: { role: '...', name: '...' email: '...' } }
-      
-      // Simulación de respuesta exitosa de API
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular delay de red
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: values.email, password: values.password }),
+      });
 
-      let roleFromApi: Role = 'estudiante'; 
-      let userNameFromApi = 'Estudiante Ejemplo';
-      const emailFromApi = values.email;
+      const responseData = await response.json();
 
-      // Lógica de roles basada en email (simulación, esto vendría del backend)
-      if (values.email === 'admin@example.com' && values.password === 'password') {
-        roleFromApi = 'administrador';
-        userNameFromApi = 'Admin Nexus';
-      } else if (values.email === 'instructor@example.com' && values.password === 'password') {
-        roleFromApi = 'instructor';
-        userNameFromApi = 'Instructor Pro';
-      } else if ((values.email === 'student@example.com' || values.email === 'estudiante@example.com') && values.password === 'password') {
-        roleFromApi = 'estudiante';
-        userNameFromApi = `Estudiante ${values.email.split('@')[0]}`;
-      } else {
-        // Simular credenciales incorrectas
-        throw new Error('Credenciales incorrectas. Inténtalo de nuevo.');
+      if (!response.ok) {
+        throw new Error(responseData.message || `Error ${response.status} en el inicio de sesión.`);
       }
+      
+      const { user } = responseData as { user: UserApiResponse };
 
       if (typeof window !== 'undefined') {
-        localStorage.setItem('sessionRole', roleFromApi);
-        localStorage.setItem('nexusAlpriUserProfile', JSON.stringify({ name: userNameFromApi, email: emailFromApi }));
-        // En un futuro, también guardaríamos el token: localStorage.setItem('authToken', data.token);
+        localStorage.setItem('sessionRole', user.role);
+        localStorage.setItem('nexusAlpriUserProfile', JSON.stringify({ name: user.fullName, email: user.email }));
+        // En un futuro, también guardaríamos el token: localStorage.setItem('authToken', responseData.token);
         if (values.rememberMe) {
-          // La lógica de "Remember Me" podría ser más compleja, por ahora solo se registra el valor.
-          // El backend usualmente manejaría esto con tokens de mayor duración.
           localStorage.setItem('rememberUser', 'true');
         } else {
           localStorage.removeItem('rememberUser');
         }
       }
       
-      toast({ title: "Inicio de Sesión Exitoso", description: `¡Bienvenido de nuevo, ${userNameFromApi}!` });
+      toast({ title: "Inicio de Sesión Exitoso", description: `¡Bienvenido de nuevo, ${user.fullName}!` });
       router.push('/dashboard');
+      router.refresh(); // Ensure layout re-evaluates role and redirects if necessary
 
     } catch (error: any) {
       console.error("Login error:", error);

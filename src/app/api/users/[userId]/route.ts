@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import * as z from 'zod';
+import bcrypt from 'bcryptjs';
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -27,6 +28,7 @@ const updateUserSchema = z.object({
 }).refine(data => {
   if (data.password && !data.confirmPassword) return false; // if password, confirmPassword is required
   if (data.password && data.confirmPassword && data.password !== data.confirmPassword) return false; // if both, they must match
+  // If password is provided, it must be min 6 chars (already handled by .min(6) on password field itself)
   return true;
 }, {
   message: "Passwords do not match or new password is too short. If not changing password, leave fields blank.",
@@ -47,6 +49,7 @@ export async function GET(
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
+    // Exclude password from being sent to the client
     const [rows] = await connection.execute(
       'SELECT id, fullName, email, role, status, avatarUrl, createdAt, updatedAt FROM users WHERE id = ?',
       [userId]
@@ -117,8 +120,8 @@ export async function PUT(
       values.push(avatarUrl || null);
     }
     if (password) {
-      // IMPORTANT: In a real app, hash the password before saving!
-      const hashedPassword = password; // Placeholder for actual hashing
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
       updateFields.push('password = ?');
       values.push(hashedPassword);
     }

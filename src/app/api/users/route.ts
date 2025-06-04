@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import * as z from 'zod';
+import bcrypt from 'bcryptjs';
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
   let connection;
   try {
     connection = await mysql.createConnection(dbConfig);
+    // Exclude password from being sent to the client
     const [rows] = await connection.execute('SELECT id, fullName, email, role, status, avatarUrl, createdAt, updatedAt FROM users ORDER BY createdAt DESC;');
     await connection.end();
     return NextResponse.json(rows);
@@ -61,9 +63,9 @@ export async function POST(request: NextRequest) {
 
     connection = await mysql.createConnection(dbConfig);
 
-    // TODO: In a real app, hash the password before saving!
-    // For this demo, we're storing it as plain text.
-    const hashedPassword = password; // Placeholder for actual hashing logic
+    // Hash the password before saving
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const [result] = await connection.execute(
       'INSERT INTO users (fullName, email, password, role, status, avatarUrl) VALUES (?, ?, ?, ?, ?, ?)',
