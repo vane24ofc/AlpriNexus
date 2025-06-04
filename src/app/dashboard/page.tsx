@@ -177,7 +177,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount
                 className="p-4 h-auto flex flex-col items-center text-center"
                 onClick={onOpenAnnouncementDialog} 
               >
-                <Bell className="h-8 w-8 mb-2 text-accent"/>
+                <Bell className="h-8 w-8 mb-2 text-foreground"/>
                 <span className="font-medium">Enviar Anuncio</span>
             </Button>
              <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
