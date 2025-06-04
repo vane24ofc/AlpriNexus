@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from 'next/navigation'; // Import useRouter
 
 import {
   Dialog,
@@ -54,26 +55,27 @@ import type { Course } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
 
 // Keys for localStorage
-const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers'; // Not used for primary data, but for reset
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses'; // Not used for primary data, but for reset
 const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
 const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
 const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
 const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
 const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
 const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
+const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
 
 
 interface User { 
   id: string;
-  fullName: string; // Changed from name to fullName to match API User
+  fullName: string; 
   email: string;
   role: Role;
   joinDate: string; 
   avatarUrl?: string;
   status: 'active' | 'inactive';
-  createdAt: string; // Added to match ApiUser
-  updatedAt: string; // Added to match ApiUser
+  createdAt: string; 
+  updatedAt: string; 
 }
 
 const initialSampleUsers: User[] = [
@@ -200,7 +202,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount
 
 // Instructor Dashboard Content
 interface InstructorDashboardContentProps {
-  instructorCourses: Course[]; // Now receives pre-filtered courses
+  instructorCourses: Course[]; 
 }
 
 const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ instructorCourses }) => {
@@ -523,10 +525,9 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrol
 interface AdminDashboardWrapperProps {
   userCount: number;
   activeCourseCount: number;
-  onOpenAnnouncementDialog: () => void; 
 }
 
-const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount, activeCourseCount, onOpenAnnouncementDialog }) => {
+const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount, activeCourseCount }) => {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
@@ -544,6 +545,7 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount
       });
       return;
     }
+    // TODO: Implement API call to send announcement
     console.log("Enviando anuncio (simulado):", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
     toast({
       title: "Anuncio Enviado (Simulado)",
@@ -679,14 +681,13 @@ const SIMULATED_STUDENT_USER_ID = 3;
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole(); 
   const { toast } = useToast(); 
+  const router = useRouter();
   
-  // States for data fetched from API
   const [apiUsers, setApiUsers] = useState<User[]>([]); 
   const [apiCourses, setApiCourses] = useState<Course[]>([]);
   const [studentEnrolledCourseDetails, setStudentEnrolledCourseDetails] = useState<StudentDashboardCourseDisplay[]>([]);
   const [instructorSpecificCourses, setInstructorSpecificCourses] = useState<Course[]>([]);
   
-  // Stats derived from API data
   const [adminTotalUsersCount, setAdminTotalUsersCount] = useState(0);
   const [adminActiveCoursesCount, setAdminActiveCoursesCount] = useState(0);
 
@@ -699,28 +700,54 @@ export default function DashboardHomePage() {
         return;
       }
       setIsLoadingDashboardData(true);
+      let token: string | null = null;
+      token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
+      
+      const headers: HeadersInit = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       try {
-        const coursesResponse = await fetch('/api/courses');
+        // Fetch courses (all roles might need this, students for their enrolled ones, admins/instructors for their views)
+        const coursesResponse = await fetch('/api/courses', { headers });
         if (!coursesResponse.ok) {
-            const errorData = await coursesResponse.json().catch(() => ({ message: `Error cargando cursos: ${coursesResponse.status}`}));
-            throw new Error(errorData.message);
+          if (coursesResponse.status === 401 && (currentSessionRole === 'administrador' || currentSessionRole === 'instructor')) {
+            toast({ variant: 'destructive', title: 'Sesión Inválida', description: 'Tu sesión ha expirado o el token es inválido. Serás redirigido al login.' });
+            router.push('/login');
+            return;
+          }
+          const errorData = await coursesResponse.json().catch(() => ({ message: `Error cargando cursos: ${coursesResponse.status}`}));
+          throw new Error(errorData.message);
         }
         const coursesDataFromApi: Course[] = await coursesResponse.json();
         setApiCourses(coursesDataFromApi);
 
         if (currentSessionRole === 'administrador') {
-          const usersResponse = await fetch('/api/users');
+          if (!token) { // If admin and no token, something is wrong with login flow
+            toast({ variant: 'destructive', title: 'Error de Autenticación', description: 'No se encontró token de autenticación para el administrador. Redirigiendo al login.' });
+            router.push('/login');
+            return;
+          }
+          const usersResponse = await fetch('/api/users', { headers }); // Protected endpoint
           if (!usersResponse.ok) {
+            if (usersResponse.status === 401) {
+              toast({ variant: 'destructive', title: 'Sesión Inválida', description: 'Tu sesión ha expirado o el token es inválido. Serás redirigido al login.' });
+              router.push('/login');
+              return;
+            }
             const errorData = await usersResponse.json().catch(() => ({ message: `Error cargando usuarios: ${usersResponse.status}`}));
             throw new Error(errorData.message);
           }
           const usersDataFromApi: User[] = await usersResponse.json();
-          setApiUsers(usersDataFromApi.map(u => ({...u, name: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
+          setApiUsers(usersDataFromApi.map(u => ({...u, fullName: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
           setAdminTotalUsersCount(usersDataFromApi.length);
           setAdminActiveCoursesCount(coursesDataFromApi.filter(c => c.status === 'approved').length);
         }
 
         if (currentSessionRole === 'instructor' && userProfile.name) {
+          // Instructor courses are filtered from all courses, which might be public or need token depending on API design
+          // For now, assuming /api/courses is generally accessible or the token is passed if needed
           const filteredInstructorCourses = coursesDataFromApi.filter(
             course => course.instructorName === userProfile.name
           );
@@ -728,7 +755,10 @@ export default function DashboardHomePage() {
         }
 
         if (currentSessionRole === 'estudiante') {
-          const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
+          // Student enrollments might or might not need a token depending on if user-specific data is token protected
+          // For now, assuming /api/enrollments/user/[userId] does not strictly need a token if it's for the "current" logged-in user
+          // (though in a real app, it absolutely would be protected)
+          const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`); // No headers passed here for now
           if (!enrollmentsResponse.ok) {
              if (enrollmentsResponse.status === 404) { 
                 setStudentEnrolledCourseDetails([]);
@@ -739,7 +769,7 @@ export default function DashboardHomePage() {
           } else {
             const apiEnrollments: StudentApiEnrollment[] = await enrollmentsResponse.json();
             const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments
-              .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') // Filter for approved courses
+              .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') 
               .map(enrollment => ({
                 id: enrollment.course.id,
                 title: enrollment.course.title,
@@ -761,6 +791,7 @@ export default function DashboardHomePage() {
             title: "Error al Cargar Datos del Panel",
             description: error.message || "No se pudieron cargar los datos del servidor. Se usarán valores de ejemplo si es posible."
         });
+        // Fallback to initial sample data in case of API failure
         if (apiCourses.length === 0) setApiCourses(initialSampleCourses);
         if (apiUsers.length === 0 && currentSessionRole === 'administrador') {
             setApiUsers(initialSampleUsers);
@@ -770,17 +801,21 @@ export default function DashboardHomePage() {
         if (instructorSpecificCourses.length === 0 && currentSessionRole === 'instructor'){
             setInstructorSpecificCourses(initialSampleCourses.filter(c => c.instructorName === userProfile.name));
         }
+      } finally {
+        setIsLoadingDashboardData(false);
       }
-      setIsLoadingDashboardData(false);
     };
 
     if (!isLoadingRole && currentSessionRole) { 
       loadData();
     } else if (!isLoadingRole && !currentSessionRole) {
+      // If role determination is done but no role (e.g., direct navigation to /dashboard without login)
+      // Redirect to login. DashboardLayout also has similar logic, but this is an extra check.
+      router.push('/login');
       setIsLoadingDashboardData(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingRole, currentSessionRole, userProfile.name]); 
+  }, [isLoadingRole, currentSessionRole, userProfile.name, router, toast]); 
 
 
   if (isLoadingRole || isLoadingDashboardData) { 
@@ -797,8 +832,11 @@ export default function DashboardHomePage() {
         <div className="flex h-screen flex-col items-center justify-center space-y-4">
             <p className="text-lg text-destructive">Error al determinar el rol. Por favor, intenta iniciar sesión de nuevo.</p>
             <Button onClick={() => {
-                if (typeof window !== 'undefined') localStorage.removeItem('sessionRole');
-                if (typeof window !== 'undefined') window.location.href = '/login';
+                if (typeof window !== 'undefined') {
+                  localStorage.removeItem('sessionRole');
+                  localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY);
+                }
+                router.push('/login');
             }}>Ir a Inicio de Sesión</Button>
         </div>
      );
@@ -812,6 +850,9 @@ export default function DashboardHomePage() {
     case 'estudiante':
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
     default: 
+      // Fallback to student dashboard if role is somehow unrecognized after loading.
+      // This case should ideally not be reached if role validation is robust.
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />; 
   }
 }
+
