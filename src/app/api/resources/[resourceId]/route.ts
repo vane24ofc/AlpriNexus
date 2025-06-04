@@ -22,11 +22,10 @@ const UpdateResourceSchema = z.object({
   name: z.string().min(1, { message: "El nombre del archivo es requerido." }).max(255).optional(),
   visibility: z.enum(['private', 'instructors', 'public']).optional(),
   category: z.enum(['company', 'learning']).optional(),
-  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], { // Añadido para verificación
+  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], {
     required_error: "El rol del usuario que realiza la acción es requerido.",
     invalid_type_error: "Rol de usuario inválido."
-  }).optional(), // Opcional aquí porque en un sistema real vendría del token
-  // url and size are typically not updated this way, type might change if file is replaced
+  }).optional(),
 });
 
 export async function GET(
@@ -72,7 +71,6 @@ export async function PUT(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
-  // 1. Verificar autenticación (token)
   const authorizationHeader = request.headers.get('Authorization');
   if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
     return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
@@ -81,7 +79,6 @@ export async function PUT(
   let connection;
   try {
     const body = await request.json();
-    // Añadimos actingUserRole al cuerpo de la solicitud para la validación
     const validationResult = UpdateResourceSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -93,11 +90,10 @@ export async function PUT(
 
     const { name, visibility, category, actingUserRole } = validationResult.data;
 
-    // 2. Verificar autorización (rol)
     if (!actingUserRole || (actingUserRole !== 'administrador' && actingUserRole !== 'instructor')) {
       return NextResponse.json(
         { message: 'Acción no permitida. Solo administradores o instructores pueden actualizar recursos.' },
-        { status: 403 } // 403 Forbidden
+        { status: 403 }
       );
     }
 
@@ -121,7 +117,7 @@ export async function PUT(
       values.push(category);
     }
 
-    values.push(resourceId); // For the WHERE clause
+    values.push(resourceId);
 
     connection = await mysql.createConnection(dbConfig);
     const query = `UPDATE resources SET ${updateFields.join(', ')}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
@@ -130,7 +126,6 @@ export async function PUT(
     
     const updateResult = result as mysql.ResultSetHeader;
     if (updateResult.affectedRows > 0) {
-      // Fetch the updated resource to return it
       const [updatedRows] = await connection.execute('SELECT * FROM resources WHERE id = ?', [resourceId]);
       await connection.end();
       const updatedResource = (updatedRows as any[])[0];
@@ -143,7 +138,7 @@ export async function PUT(
   } catch (error: any) {
     await connection?.end();
     console.error(`Error actualizando recurso ${resourceId}:`, error);
-    if (error.code === 'ER_DUP_ENTRY') { // Example: if name had a unique constraint
+    if (error.code === 'ER_DUP_ENTRY') {
         return NextResponse.json(
             { message: 'Fallo al actualizar. El nombre ya existe para otro recurso.', error: error.message, code: error.code },
             { status: 409 }
@@ -166,8 +161,23 @@ export async function DELETE(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
-  // TODO: Añadir la misma lógica de autenticación y autorización que en PUT
-  // Por ahora, lo dejamos sin asegurar para enfocarnos en PUT primero.
+  const authorizationHeader = request.headers.get('Authorization');
+  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
+    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  }
+
+  const actingUserRole = request.nextUrl.searchParams.get('actingUserRole');
+
+  if (!actingUserRole) {
+    return NextResponse.json({ message: 'El rol del usuario es requerido para esta acción.' }, { status: 400 });
+  }
+
+  if (actingUserRole !== 'administrador' && actingUserRole !== 'instructor') {
+    return NextResponse.json(
+      { message: 'Acción no permitida. Solo administradores o instructores pueden eliminar recursos.' },
+      { status: 403 }
+    );
+  }
 
   let connection;
   try {
@@ -193,4 +203,3 @@ export async function DELETE(
     );
   }
 }
-
