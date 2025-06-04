@@ -35,7 +35,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
-import Image from 'next/image'; // No se está usando Image directamente en este componente.
+// Image import removed as it's not directly used.
 
 type FileVisibility = 'private' | 'instructors' | 'public';
 type FileCategory = 'company' | 'learning';
@@ -83,11 +83,11 @@ const categoryOptions: { value: FileCategory; label: string; icon: React.Element
 
 const getFileIcon = (fileType: string): React.ElementType => {
   const type = fileType.toLowerCase();
-  if (type.includes('pdf')) return FileText; // Asumiendo que 'PDF' está en file.type
-  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText; // Podríamos usar ImageIcon de lucide si tuvieramos tipos más granulares
-  if (type.includes('video')) return FileText; // Podríamos usar VideoIcon
+  if (type.includes('pdf')) return FileText;
+  if (type.includes('imagen') || type.includes('image') || type.includes('jpg') || type.includes('png')) return FileText;
+  if (type.includes('video')) return FileText;
   if (type.includes('documento') || type.includes('doc') || type.includes('word')) return FileText;
-  return FileText; // Icono por defecto
+  return FileText;
 };
 
 export default function ResourcesPage() {
@@ -155,15 +155,22 @@ export default function ResourcesPage() {
       
       let isVisibleToCurrentUser = false;
       if (currentSessionRole === 'administrador') {
-        isVisibleToCurrentUser = true; // Admin ve todo, el filtro de visibilidad se aplica aparte
+        isVisibleToCurrentUser = true;
       } else if (currentSessionRole === 'instructor') {
-        isVisibleToCurrentUser = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning'); // Asumiendo que el uploaderUserId sería el del instructor
+        // Instructors see public, their own private learning files, and 'instructors' visibility files.
+        // This logic assumes 'uploaderUserId' would be checked against current user ID for 'private'.
+        // For simplicity in prototype, instructor sees public and 'instructors' files.
+        // And private 'learning' files regardless of uploader (could be refined)
+        isVisibleToCurrentUser = file.visibility === 'public' || file.visibility === 'instructors' || (file.visibility === 'private' && file.category === 'learning');
       } else { // Estudiante
         isVisibleToCurrentUser = file.visibility === 'public';
       }
 
       const matchesVisibilityFilter = filterVisibility === 'all' || file.visibility === filterVisibility;
-
+      
+      // Admin's filter applies to all files they can see.
+      // Other roles' visibility is determined by isVisibleToCurrentUser, then search/category filters.
+      // The visibility filter dropdown is only shown to admin anyway.
       return matchesSearch && matchesCategoryFilter && isVisibleToCurrentUser && (currentSessionRole === 'administrador' ? matchesVisibilityFilter : true) ;
     });
   }, [allResourcesFromApi, searchTerm, filterCategory, filterVisibility, currentSessionRole]);
@@ -175,11 +182,24 @@ export default function ResourcesPage() {
   };
 
   const confirmDeleteResource = async () => {
-    if (!resourceToDelete) return;
+    if (!resourceToDelete || !currentSessionRole) {
+      toast({ variant: "destructive", title: "Error", description: "No se puede eliminar el recurso sin datos o rol de usuario." });
+      return;
+    }
+    const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
+    if (!token) {
+      toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado. No se puede eliminar." });
+      return;
+    }
+
     setIsDeleting(true);
-    // TODO: Añadir token de autenticación a la cabecera y posible rol si el backend lo requiere para DELETE
     try {
-      const response = await fetch(`/api/resources/${resourceToDelete.id}`, { method: 'DELETE' });
+      const response = await fetch(`/api/resources/${resourceToDelete.id}?actingUserRole=${currentSessionRole}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: 'Error al eliminar' }));
         throw new Error(errorData.message || 'No se pudo eliminar el recurso.');
@@ -223,7 +243,7 @@ export default function ResourcesPage() {
       name: editFormName.trim(), 
       visibility: editFormVisibility, 
       category: editFormCategory,
-      actingUserRole: currentSessionRole, // Enviar el rol del usuario actual
+      actingUserRole: currentSessionRole,
     };
 
     try {
@@ -231,7 +251,7 @@ export default function ResourcesPage() {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`, // Incluir el token
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -332,8 +352,8 @@ export default function ResourcesPage() {
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleOpenEditModal(file)} title="Editar Metadatos">
                   <Edit3 className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar Recurso">
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive/70 hover:text-destructive" onClick={() => openDeleteDialog(file)} title="Eliminar Recurso" disabled={isDeleting && resourceToDelete?.id === file.id}>
+                  {(isDeleting && resourceToDelete?.id === file.id) ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 </Button>
               </>
             )}
@@ -532,3 +552,4 @@ export default function ResourcesPage() {
   );
 }
 
+    
