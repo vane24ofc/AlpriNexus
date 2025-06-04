@@ -17,14 +17,14 @@ const dbConfig = {
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Dirección de correo inválida." }),
-  password: z.string().min(1, { message: "La contraseña es requerida." }), // Min 1, as bcrypt will handle empty string comparison if needed.
+  password: z.string().min(1, { message: "La contraseña es requerida." }),
 });
 
 interface UserFromDB {
   id: string;
   fullName: string;
   email: string;
-  password?: string; // Password will be selected from DB
+  password?: string; 
   role: 'administrador' | 'instructor' | 'estudiante';
   status: 'active' | 'inactive';
   avatarUrl?: string | null;
@@ -67,30 +67,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Tu cuenta está inactiva. Contacta al administrador.' }, { status: 403 });
     }
 
-    // Ensure user.password is not undefined before comparing
-    if (!user.password) {
+    if (!user.password || user.password.trim() === '') {
         await connection.end();
-        console.error(`User ${user.email} found but has no password hash in DB.`);
-        return NextResponse.json({ message: 'Error interno del servidor.' }, { status: 500 });
+        console.error(`User ${user.email} found but has no valid password hash (null, empty, or whitespace) in DB.`);
+        return NextResponse.json({ message: 'Error interno del servidor. Contacte al administrador.' }, { status: 500 });
     }
 
     const passwordIsValid = await bcrypt.compare(providedPassword, user.password);
 
-    await connection.end();
-
     if (!passwordIsValid) {
+      await connection.end();
       return NextResponse.json({ message: 'Credenciales incorrectas. Inténtalo de nuevo.' }, { status: 401 });
     }
+    
+    // Si todo es válido:
+    await connection.end();
 
     // Do not send password back to client
     const { password: _, ...userWithoutPassword } = user;
 
-    // In a real app, generate and return a session token (JWT) here.
-    // For now, we return the user profile.
     return NextResponse.json({
       message: 'Inicio de sesión exitoso.',
       user: userWithoutPassword,
-      // token: "simulated-jwt-token-for-future-use" // Placeholder for token
     });
 
   } catch (error: any) {
