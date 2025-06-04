@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -17,8 +18,9 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Logo } from '@/components/common/logo';
-import { Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
 import React, { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   fullName: z.string().min(2, { message: 'El nombre completo debe tener al menos 2 caracteres.' }),
@@ -26,14 +28,16 @@ const formSchema = z.object({
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "Las contraseñas no coinciden",
-  path: ["confirmPassword"], // path of error
+  message: "Las contraseñas no coinciden.",
+  path: ["confirmPassword"], 
 });
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,11 +49,41 @@ export default function RegisterPage() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log(values);
-    // En una app real, aquí se registraría al usuario y luego se redirigiría.
-    // Por ahora, solo redirige a la página de login.
-    router.push('/login');
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: values.fullName,
+          email: values.email,
+          password: values.password,
+        }),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData.message || `Error ${response.status} en el registro.`);
+      }
+      
+      toast({
+        title: "Registro Exitoso",
+        description: responseData.message || "¡Tu cuenta ha sido creada! Ahora puedes iniciar sesión.",
+      });
+      router.push('/login');
+
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de Registro",
+        description: error.message || "No se pudo completar el registro. Inténtalo de nuevo.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -74,7 +108,7 @@ export default function RegisterPage() {
                     <FormControl>
                       <div className="relative">
                         <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="Juan Pérez" {...field} className="pl-10" />
+                        <Input placeholder="Juan Pérez" {...field} className="pl-10" disabled={isSubmitting} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -90,7 +124,7 @@ export default function RegisterPage() {
                     <FormControl>
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                        <Input placeholder="tu@ejemplo.com" {...field} className="pl-10" />
+                        <Input placeholder="tu@ejemplo.com" {...field} className="pl-10" disabled={isSubmitting} />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -108,9 +142,10 @@ export default function RegisterPage() {
                         <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                         <Input 
                           type={showPassword ? "text" : "password"} 
-                          placeholder="••••••••" 
+                          placeholder="Mínimo 6 caracteres" 
                           {...field} 
                           className="pl-10 pr-10" 
+                          disabled={isSubmitting}
                         />
                         <Button 
                           type="button" 
@@ -119,6 +154,7 @@ export default function RegisterPage() {
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowPassword(!showPassword)}
                           tabIndex={-1}
+                          disabled={isSubmitting}
                         >
                           {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                           <span className="sr-only">{showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</span>
@@ -140,9 +176,10 @@ export default function RegisterPage() {
                         <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                         <Input 
                           type={showConfirmPassword ? "text" : "password"} 
-                          placeholder="••••••••" 
+                          placeholder="Repite la contraseña" 
                           {...field} 
                           className="pl-10 pr-10" 
+                          disabled={isSubmitting}
                         />
                          <Button 
                           type="button" 
@@ -151,6 +188,7 @@ export default function RegisterPage() {
                           className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-primary"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           tabIndex={-1}
+                          disabled={isSubmitting}
                         >
                           {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                           <span className="sr-only">{showConfirmPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}</span>
@@ -161,8 +199,9 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full text-base font-semibold mt-6">
-                Registrarse
+              <Button type="submit" className="w-full text-base font-semibold mt-6" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                {isSubmitting ? 'Registrando...' : 'Registrarse'}
               </Button>
             </form>
           </Form>
