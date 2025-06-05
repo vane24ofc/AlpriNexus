@@ -8,7 +8,8 @@ import { AppHeader } from '@/components/layout/app-header';
 import { AppSidebarNav } from '@/components/layout/app-sidebar-nav';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { FullPageLoader } from '@/components/ui/loader';
-import { TooltipProvider } from "@/components/ui/tooltip";
+// TooltipProvider es importado pero ya no se usará directamente aquí, SidebarProvider lo maneja.
+// import { TooltipProvider } from "@/components/ui/tooltip"; 
 
 export type Role = 'administrador' | 'instructor' | 'estudiante';
 
@@ -197,26 +198,24 @@ export default function DashboardLayout({
 
   return (
     <SessionRoleContext.Provider value={contextValue}>
-      <TooltipProvider delayDuration={0}>
-        <SidebarProvider key={`sp-${String(currentSessionRole)}`} defaultOpen={true}>
-          <AppSidebarNav key={`asn-${String(currentSessionRole)}`} />
-          <SidebarInset key={`si-${String(currentSessionRole)}`}>
-            <AppHeader key={`ah-${String(currentSessionRole)}`} />
-            <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
-              {children}
-              <Image
-                src="/Logo-Manchas-SAS (2).png"
-                alt="Alprigrama S.A.S"
-                width={800}
-                height={742}
-                className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
-                data-ai-hint="brand watermark logo"
-              />
-            </main>
-          </SidebarInset>
-        </SidebarProvider>
-      </TooltipProvider>
+      {/* TooltipProvider fue eliminado de aquí, ya que SidebarProvider lo incluye */}
+      <SidebarProvider key={`sp-${String(currentSessionRole)}`} defaultOpen={true}>
+        <AppSidebarNav key={`asn-${String(currentSessionRole)}`} />
+        <SidebarInset key={`si-${String(currentSessionRole)}`}>
+          <AppHeader key={`ah-${String(currentSessionRole)}`} />
+          <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
+            {children}
+            <Image
+              src="/Logo-Manchas-SAS (2).png"
+              alt="Alprigrama S.A.S"
+              width={800}
+              height={742}
+              className="fixed bottom-5 right-5 z-0 h-auto w-20 opacity-30 pointer-events-none"
+              data-ai-hint="brand watermark logo"
+            />
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
     </SessionRoleContext.Provider>
   );
 }
-
