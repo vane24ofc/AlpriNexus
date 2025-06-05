@@ -13,13 +13,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2, Sparkles, FileText, Video, Puzzle } from 'lucide-react';
+import { ImageUp, PlusCircle, Trash2, Save, Send, Loader2, Sparkles, FileText, Video, Puzzle, Brain } from 'lucide-react';
 import Image from 'next/image';
 import type { Course, Lesson } from '@/types/course';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { generateCourseThumbnail, type GenerateCourseThumbnailInput } from '@/ai/flows/generate-course-thumbnail-flow';
+import { generateCourseOutline, type GenerateCourseOutlineInput, type GenerateCourseOutlineOutput } from '@/ai/flows/generate-course-outline-flow';
 import { generateLessonContent, type GenerateLessonContentInput } from '@/ai/flows/generate-lesson-content-flow';
 import {
   AlertDialog,
@@ -48,18 +49,14 @@ const lessonSchema = z.object({
   if (data.contentType === 'quiz') {
     const providedOptions = data.quizOptions?.filter(opt => opt && opt.trim() !== '').length || 0;
     if (providedOptions < 2) {
-      // This error will be associated with correctQuizOptionIndex as it's a cross-field validation
       return false; 
     }
-    // If options are provided, a correct one must be selected (unless all options are somehow empty again, which shouldn't happen if refine is done last)
     if (providedOptions > 0 && data.correctQuizOptionIndex === undefined) {
         return false;
     }
-    // If an index is selected, it must be valid for the *provided* options
     if (data.correctQuizOptionIndex !== undefined && (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= (data.quizOptions || []).length || !(data.quizOptions?.[data.correctQuizOptionIndex]?.trim())  )) {
-       // Check if the selected correct option actually has text
         if (data.quizOptions?.[data.correctQuizOptionIndex]?.trim() === '') {
-            return false; // Cannot select an empty option as correct
+            return false; 
         }
     }
   }
@@ -98,13 +95,17 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
   const { currentSessionRole } = useSessionRole();
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(initialData?.thumbnailUrl || null);
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
+  
   const [isAiGeneratingThumbnail, setIsAiGeneratingThumbnail] = useState(false);
+  const [isAiGeneratingOutline, setIsAiGeneratingOutline] = useState(false);
+  const [aiGeneratedOutline, setAiGeneratedOutline] = useState<string[] | null>(null);
+  const [showConfirmOutlineDialog, setShowConfirmOutlineDialog] = useState(false);
+
   const [aiGeneratingLessonContentFor, setAiGeneratingLessonContentFor] = useState<number | null>(null);
-
-  const [showConfirmReplaceDialog, setShowConfirmReplaceDialog] = useState(false);
-  const [aiContentToApply, setAiContentToApply] = useState<{ index: number; content: string } | null>(null);
-
-  const isAnyAiWorking = isAiGeneratingThumbnail || aiGeneratingLessonContentFor !== null;
+  const [showConfirmReplaceLessonContentDialog, setShowConfirmReplaceLessonContentDialog] = useState(false);
+  const [aiLessonContentToApply, setAiLessonContentToApply] = useState<{ index: number; content: string } | null>(null);
+  
+  const isAnyAiWorking = isAiGeneratingThumbnail || isAiGeneratingOutline || aiGeneratingLessonContentFor !== null;
 
   const form = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -126,7 +127,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "lessons",
   });
@@ -186,7 +187,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
-  const handleGenerateThumbnail = async () => {
+  const handleAiGenerateThumbnail = async () => {
     const title = form.getValues("title");
     const description = form.getValues("description");
 
@@ -229,6 +230,58 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     }
   };
 
+  const handleAiGenerateOutline = async () => {
+    const courseTitle = form.getValues("title");
+    const courseDescription = form.getValues("description");
+
+    if (!courseTitle.trim()) {
+      form.setError("title", { type: "manual", message: "El título del curso es necesario para generar el esquema." });
+      return;
+    }
+    if (!courseDescription.trim()) {
+      form.setError("description", { type: "manual", message: "La descripción del curso es necesaria para generar el esquema." });
+      return;
+    }
+    
+    setIsAiGeneratingOutline(true);
+    try {
+      const input: GenerateCourseOutlineInput = { courseTitle, courseDescription };
+      const result: GenerateCourseOutlineOutput = await generateCourseOutline(input);
+      
+      if (result.lessonTitles && result.lessonTitles.length > 0) {
+        setAiGeneratedOutline(result.lessonTitles);
+        if (fields.length > 0) {
+          setShowConfirmOutlineDialog(true);
+        } else {
+          applyAiGeneratedOutline(result.lessonTitles);
+          toast({ title: "Esquema Generado", description: "Se ha generado un esquema de lecciones con IA." });
+        }
+      } else {
+        toast({ variant: "destructive", title: "Error de IA", description: "No se pudo generar un esquema de lecciones." });
+      }
+    } catch (error) {
+      console.error("Error generando esquema con IA:", error);
+      toast({ variant: "destructive", title: "Error de IA", description: "Ocurrió un error al generar el esquema de lecciones." });
+    } finally {
+      setIsAiGeneratingOutline(false);
+    }
+  };
+
+  const applyAiGeneratedOutline = (lessonTitles: string[]) => {
+    const newLessons = lessonTitles.map(title => ({
+      title,
+      contentType: 'text' as 'text' | 'video' | 'quiz', // Default to text
+      content: '',
+      videoUrl: '',
+      quizPlaceholder: 'Pregunta de ejemplo',
+      quizOptions: ['', '', ''],
+      correctQuizOptionIndex: undefined,
+    }));
+    replace(newLessons);
+    setShowConfirmOutlineDialog(false);
+    setAiGeneratedOutline(null);
+  };
+
   const handleGenerateLessonContent = async (lessonIndex: number) => {
     const courseTitle = form.getValues("title");
     const courseDescription = form.getValues("description");
@@ -251,8 +304,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
       if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
         const currentContent = form.getValues(`lessons.${lessonIndex}.content`);
         if (currentContent && currentContent.trim() !== '') {
-          setAiContentToApply({ index: lessonIndex, content: result.generatedContent });
-          setShowConfirmReplaceDialog(true);
+          setAiLessonContentToApply({ index: lessonIndex, content: result.generatedContent });
+          setShowConfirmReplaceLessonContentDialog(true);
         } else {
           form.setValue(`lessons.${lessonIndex}.content`, result.generatedContent);
           toast({ title: "Contenido Generado por IA", description: `Se ha añadido un borrador de contenido para la Lección ${lessonIndex + 1}.` });
@@ -268,18 +321,18 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     }
   };
 
-  const confirmReplaceContent = () => {
-    if (aiContentToApply) {
-      form.setValue(`lessons.${aiContentToApply.index}.content`, aiContentToApply.content);
-      toast({ title: "Contenido Reemplazado", description: `El contenido de la Lección ${aiContentToApply.index + 1} ha sido actualizado con el borrador de la IA.` });
+  const confirmReplaceLessonContent = () => {
+    if (aiLessonContentToApply) {
+      form.setValue(`lessons.${aiLessonContentToApply.index}.content`, aiLessonContentToApply.content);
+      toast({ title: "Contenido Reemplazado", description: `El contenido de la Lección ${aiLessonContentToApply.index + 1} ha sido actualizado con el borrador de la IA.` });
     }
-    setShowConfirmReplaceDialog(false);
-    setAiContentToApply(null);
+    setShowConfirmReplaceLessonContentDialog(false);
+    setAiLessonContentToApply(null);
   };
 
-  const cancelReplaceContent = () => {
-    setShowConfirmReplaceDialog(false);
-    setAiContentToApply(null);
+  const cancelReplaceLessonContent = () => {
+    setShowConfirmReplaceLessonContentDialog(false);
+    setAiLessonContentToApply(null);
   };
 
   const processSubmit = async (data: CourseFormValues) => {
@@ -347,6 +400,17 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     </FormItem>
                   )}
                 />
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAiGenerateOutline}
+                    disabled={formDisabled || !form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10 }
+                    className="w-full"
+                    title={(!form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10) ? "Introduce título y descripción (mín. 10 caract.) del curso para activar IA" : "Generar esquema de lecciones con IA"}
+                >
+                  {isAiGeneratingOutline ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : <Brain className="mr-2 h-5 w-5" />}
+                  {isAiGeneratingOutline ? 'Generando Esquema...' : '✨ Generar Esquema de Lecciones con IA'}
+                </Button>
               </CardContent>
             </Card>
 
@@ -534,7 +598,6 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                                     disabled={formDisabled}
                                                   />
                                                 </FormControl>
-                                                {/* FormMessage for option text can be added here if specific validation is on the option text itself */}
                                               </FormItem>
                                             )}
                                           />
@@ -542,7 +605,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                       })}
                                     </RadioGroup>
                                   </FormControl>
-                                  <FormMessage /> {/* For correctQuizOptionIndex (RadioGroup itself for Zod refine errors) */}
+                                  <FormMessage /> 
                                 </FormItem>
                               )}
                             />
@@ -606,7 +669,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 <Button 
                     type="button" 
                     variant="outline" 
-                    onClick={handleGenerateThumbnail} 
+                    onClick={handleAiGenerateThumbnail} 
                     className="w-full" 
                     disabled={formDisabled || !form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10 }
                     title={(!form.watch("title") || !form.watch("description") || (form.watch("description") || "").length < 10) ? "Introduce título y descripción (mín. 10 caract.) del curso para activar IA" : "Generar miniatura con IA"}
@@ -651,19 +714,37 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         </div>
       </form>
 
-      {showConfirmReplaceDialog && aiContentToApply && (
-        <AlertDialog open={showConfirmReplaceDialog} onOpenChange={setShowConfirmReplaceDialog}>
+      {showConfirmOutlineDialog && aiGeneratedOutline && (
+        <AlertDialog open={showConfirmOutlineDialog} onOpenChange={setShowConfirmOutlineDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirmar Reemplazo de Lecciones</AlertDialogTitle>
+              <AlertDialogDescription>
+                La IA ha generado {aiGeneratedOutline.length} títulos de lecciones. ¿Deseas reemplazar las lecciones actuales con este nuevo esquema?
+                {fields.length > 0 && " Las lecciones existentes se perderán."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => { setShowConfirmOutlineDialog(false); setAiGeneratedOutline(null); }}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => applyAiGeneratedOutline(aiGeneratedOutline)}>Reemplazar Lecciones</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+
+      {showConfirmReplaceLessonContentDialog && aiLessonContentToApply && (
+        <AlertDialog open={showConfirmReplaceLessonContentDialog} onOpenChange={setShowConfirmReplaceLessonContentDialog}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>¿Reemplazar Contenido Existente?</AlertDialogTitle>
               <AlertDialogDescription>
-                La IA ha generado un borrador de contenido para la Lección {aiContentToApply.index + 1}.
+                La IA ha generado un borrador de contenido para la Lección {aiLessonContentToApply.index + 1}.
                 ¿Deseas reemplazar el texto que ya has escrito en esta lección?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelReplaceContent}>Cancelar</AlertDialogCancel>
-              <AlertDialogAction onClick={confirmReplaceContent}>Reemplazar</AlertDialogAction>
+              <AlertDialogCancel onClick={cancelReplaceLessonContent}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmReplaceLessonContent}>Reemplazar</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
