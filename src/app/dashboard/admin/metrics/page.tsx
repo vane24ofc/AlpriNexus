@@ -14,6 +14,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, ResponsiveContainer, Bar, BarChart as ReBarChart, LabelList } from 'recharts';
 import type { ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
+import { pdf } from '@react-pdf/renderer';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
@@ -21,6 +22,7 @@ import { generateReportSections, type GenerateReportSectionsInput, type Generate
 import type { User } from '@/app/dashboard/admin/users/page'; // Assuming User type is exported
 import type { Course } from '@/types/course';
 
+import ActivityReportDocument from '@/components/reports/ActivityReportDocument';
 const userGrowthData = [
   { month: "Ene", users: 65 },
   { month: "Feb", users: 59 },
@@ -190,12 +192,23 @@ export default function AdminMetricsPage() {
     }
   };
 
-  const handleDownloadSimulatedReport = () => {
-    setIsPreviewReportOpen(false);
+  const handleDownloadReportPdf = async () => {
+    if (!reportText) {
+      toast({
+        variant: "warning",
+        title: "Informe no generado",
+        description: "Por favor, genera el informe primero.",
+      });
+      return;
+    }
+
     toast({
-        title: "Descarga Iniciada (Simulada)",
-        description: "El informe 'Actividad_AlpriNexus_Q1_2024.pdf' ha comenzado a descargarse.",
+      title: "Preparando Descarga...",
+      description: "Generando el archivo PDF. Esto puede tomar un momento.",
     });
+
+    // Use the ActivityReportDocument component with React-PDF to create a blob
+    const blob = await pdf(<ActivityReportDocument reportText={reportText} />).toBlob();
   };
 
 
@@ -404,7 +417,7 @@ export default function AdminMetricsPage() {
           </DialogHeader>
           <div className="flex-grow overflow-y-auto overflow-x-auto p-6 sm:p-8 bg-card text-card-foreground">
             {isAiLoadingReportText && !reportText?.executiveSummary ? (
-              <div className="flex flex-col items-center justify-center h-full">
+              <div className="flex flex-col items-center justify-center h-full text-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground">Generando contenido del informe con IA...</p>
               </div>
@@ -518,7 +531,7 @@ export default function AdminMetricsPage() {
           </div>
           <DialogFooter className="p-6 pt-4 border-t">
             <Button variant="outline" onClick={() => setIsPreviewReportOpen(false)}>Cerrar Vista Previa</Button>
-            <Button onClick={handleDownloadSimulatedReport} disabled={isAiLoadingReportText}>
+            <Button onClick={handleDownloadReportPdf} disabled={isAiLoadingReportText || !reportText}>
                 <Download className="mr-2 h-4 w-4" />
                 Descargar PDF (Simulado)
             </Button>
