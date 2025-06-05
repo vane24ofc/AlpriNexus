@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     connection = await mysql.createConnection(dbConfig);
 
-    // 1. Get total number of users (active users only)
+    // 1. Get total number of active users
     const [userRows] = await connection.execute("SELECT COUNT(*) as totalUsers FROM users WHERE status = 'active'");
     const totalUsers = (userRows as any[])[0].totalUsers || 0;
 
@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
     const activeCourses = (courseRows as any[])[0].activeCourses || 0;
 
     // 3. Calculate Average Completion Rate
-    // Consider only enrollments for approved courses and active users
     const [completedEnrollmentsRows] = await connection.execute(`
       SELECT COUNT(ce.enrollmentId) as completedCount
       FROM course_enrollments ce
@@ -60,8 +59,16 @@ export async function GET(request: NextRequest) {
       completionRate = `${Math.round((completedCount / totalRelevantEnrollments) * 100)}%`;
     }
     
-    // Metric for new students monthly will be added in the next step
-    const newStudentsMonthly = 0; // Placeholder for now
+    // 4. Get number of new students registered in the last 30 days
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString().slice(0, 19).replace('T', ' '); // Format for MySQL DATETIME/TIMESTAMP
+
+    const [newStudentsRows] = await connection.execute(
+      "SELECT COUNT(*) as newStudentsMonthly FROM users WHERE role = 'estudiante' AND status = 'active' AND createdAt >= ?",
+      [thirtyDaysAgoISO]
+    );
+    const newStudentsMonthly = (newStudentsRows as any[])[0].newStudentsMonthly || 0;
 
     await connection.end();
 
@@ -69,7 +76,7 @@ export async function GET(request: NextRequest) {
       totalUsers,
       activeCourses,
       completionRate,
-      newStudentsMonthly, // Still a placeholder
+      newStudentsMonthly,
     });
 
   } catch (error: any) {
