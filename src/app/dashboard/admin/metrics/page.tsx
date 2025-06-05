@@ -67,12 +67,27 @@ const courseActivityChartConfig = {
 } satisfies ChartConfig;
 
 
+interface MetricsData {
+ totalUsers: number;
+ activeCourses: number;
+ completionRate: string;
+ newStudentsMonthly: number;
+}
+
+async function fetchMetrics(): Promise<MetricsData> {
+ const response = await fetch('/api/metrics'); // Assume this endpoint exists
+ if (!response.ok) {
+ throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+ }
+ return response.json();
+}
+
 export default function AdminMetricsPage() {
   const { toast } = useToast();
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isPreviewReportOpen, setIsPreviewReportOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
-  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null);
+  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null); // Corrected type
   const [isAiLoadingReportText, setIsAiLoadingReportText] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
@@ -130,16 +145,6 @@ export default function AdminMetricsPage() {
     fetchStats();
   }, [toast]);
 
-  const statsToDisplay = useMemo(() => [
-    { title: "Usuarios Totales", value: dynamicStats.totalUsers.toLocaleString(), icon: Users, trend: "+5% último mes", key: 'totalUsers' },
-    { title: "Cursos Activos", value: dynamicStats.activeCourses.toLocaleString(), icon: BookOpen, trend: "+3 esta semana", key: 'activeCourses' },
-    { title: "Tasa de Finalización Prom.", value: dynamicStats.completionRate, icon: Award, trend: "Estable", key: 'completionRate' },
-    { title: "Nuevos Estudiantes (Mes)", value: dynamicStats.newStudentsMonthly.toLocaleString(), icon: UserPlus, trend: "+12% vs mes anterior", key: 'newStudentsMonthly' },
-    { title: "Instructores Activos", value: dynamicStats.activeInstructors.toLocaleString(), icon: Users, trend: "+2 este mes", key: 'activeInstructors' }, 
-    { title: "Cursos en Revisión", value: dynamicStats.coursesInReview.toLocaleString(), icon: CheckSquare, trend: `Pendientes: ${dynamicStats.coursesInReview}`, key: 'coursesInReview' }, 
-  ], [dynamicStats]);
-
-
   const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
     setIsAiLoadingReportText(true);
@@ -151,48 +156,40 @@ export default function AdminMetricsPage() {
       description: "El informe de actividad de usuarios se está procesando. Esto puede tardar unos segundos.",
     });
 
-    const inputForAI: GenerateReportSectionsInput = {
-      totalUsers: dynamicStats.totalUsers,
-      activeCourses: dynamicStats.activeCourses,
-      completionRate: dynamicStats.completionRate,
-      newStudentsMonthly: dynamicStats.newStudentsMonthly,
-    };
-
     try {
+
+      toast({
+        title: "Generando Informe...",
+        description: "El informe de actividad de usuarios se está procesando con IA. Esto puede tardar unos segundos.",
+      });
+
+      // Fetch real metrics before generating the report
+      const realMetrics = await fetchMetrics();
+      const inputForAI: GenerateReportSectionsInput = {
+ totalUsers: realMetrics.totalUsers,
+ activeCourses: realMetrics.activeCourses,
+ completionRate: realMetrics.completionRate,
+ newStudentsMonthly: realMetrics.newStudentsMonthly,
+      };
+
       const aiGeneratedText = await generateReportSections(inputForAI);
       setReportText(aiGeneratedText);
     } catch (error) {
       console.error("Error generando texto del informe con IA:", error);
-      setReportText({
-        executiveSummary:
-          'A la fecha actual, la plataforma AlpriNexus cuenta con [Número de Usuarios Totales] usuarios registrados, lo que demuestra un interés continuo. Durante el último mes, se ha observado un incremento de [Número de Nuevos Estudiantes] estudiantes, indicando una adopción saludable. La tasa de finalización promedio de los cursos se sitúa en [Tasa de Finalización], un área que presenta oportunidades de mejora continua.',
-        keyHighlights: [
-          'Incremento significativo en la base de usuarios.',
-          'Amplia oferta de cursos activos disponibles.',
-        ],
-        conclusions: [
-          'El crecimiento en el número de nuevos estudiantes sugiere que las estrategias de captación están siendo efectivas.',
-          'La tasa de finalización general, aunque estable, podría beneficiarse de un análisis detallado por curso para identificar aquellos con menor rendimiento.',
-          'La cantidad de cursos activos proporciona una oferta diversa, pero se debe monitorear su relevancia y actualización.'
-        ],
-        recommendations: [
-          'Implementar un sistema de seguimiento para los cursos con tasas de finalización consistentemente bajas e investigar las causas.',
-          'Fomentar la creación de contenido interactivo y engageante para mejorar la retención de los estudiantes.',
-          'Realizar encuestas periódicas a los usuarios para identificar necesidades de nuevos cursos y áreas de mejora en la plataforma.'
-        ]
-      });
-      toast({
+      toast({ // Moved toast here inside catch block
         variant: "destructive",
-        title: "Error de IA",
-        description: "No se pudo generar el contenido del informe. Mostrando texto de ejemplo.",
+        title: "Error al generar informe",
+        description: "No se pudo generar el contenido del informe con IA. Inténtalo de nuevo.",
       });
+      // Close the dialog or show an error state in the dialog
+      setIsPreviewReportOpen(false); // Close dialog on error
     } finally {
       setIsAiLoadingReportText(false);
       setIsGeneratingReport(false);
     }
   };
 
-  const handleDownloadReportPdf = async () => {
+  const handleDownloadReportPdf = async () => { // Make function async
     if (!reportText) {
       toast({
         variant: "warning",
@@ -202,14 +199,38 @@ export default function AdminMetricsPage() {
       return;
     }
 
-    toast({
-      title: "Preparando Descarga...",
-      description: "Generando el archivo PDF. Esto puede tomar un momento.",
-    });
+    try {
+      toast({
+        title: "Preparando Descarga...",
+        description: "Generando el archivo PDF. Esto puede tomar un momento.",
+      });
 
-    // Use the ActivityReportDocument component with React-PDF to create a blob
-    const blob = await pdf(<ActivityReportDocument reportText={reportText} />).toBlob();
+      // Use the ActivityReportDocument component with React-PDF to create a blob
+      const blob = await pdf(<ActivityReportDocument reportText={reportText} />).toBlob();
+
+      // Create a URL for the blob and trigger download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_actividad_${new Date().toISOString().split('T')[0]}.pdf`; // Dynamic filename
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url); // Clean up the URL
+    } catch (error) {
+      console.error("Error al descargar el informe PDF:", error);
+      toast({ variant: "destructive", title: "Error de Descarga", description: "No se pudo generar o descargar el archivo PDF." });
+    }
   };
+
+ const statsToDisplay = useMemo(() => [
+    { title: "Usuarios Totales", value: dynamicStats.totalUsers.toLocaleString(), icon: Users, trend: "+5% último mes", key: 'totalUsers' },
+    { title: "Cursos Activos", value: dynamicStats.activeCourses.toLocaleString(), icon: BookOpen, trend: "+3 esta semana", key: 'activeCourses' },
+    { title: "Tasa de Finalización Prom.", value: dynamicStats.completionRate, icon: Award, trend: "Estable", key: 'completionRate' },
+    { title: "Nuevos Estudiantes (Mes)", value: dynamicStats.newStudentsMonthly.toLocaleString(), icon: UserPlus, trend: "+12% vs mes anterior", key: 'newStudentsMonthly' },
+    { title: "Instructores Activos", value: dynamicStats.activeInstructors.toLocaleString(), icon: Users, trend: "+2 este mes", key: 'activeInstructors' },
+    { title: "Cursos en Revisión", value: dynamicStats.coursesInReview.toLocaleString(), icon: CheckSquare, trend: `Pendientes: ${dynamicStats.coursesInReview}`, key: 'coursesInReview' },
+ ], [dynamicStats]);
 
 
   
@@ -418,7 +439,7 @@ export default function AdminMetricsPage() {
           <div className="flex-grow overflow-y-auto overflow-x-auto p-6 sm:p-8 bg-card text-card-foreground">
             {isAiLoadingReportText && !reportText?.executiveSummary ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> {/* Check for any reportText property */}
                 <p className="text-muted-foreground">Generando contenido del informe con IA...</p>
               </div>
             ) : (
@@ -439,14 +460,16 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">1. Resumen Ejecutivo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || "Esperando la generación del informe...")}
+                {isAiLoadingReportText && !reportText ? "Generando..." : (reportText?.executiveSummary || "Esperando la generación del informe...")}
             </p>
           </section>
 
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">2. Puntos Clave Destacados</h3>
-              {isAiLoadingReportText && !reportText?.keyHighlights ? (
+              {isAiLoadingReportText && !reportText ? (
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+              ) : (!reportText?.keyHighlights || reportText.keyHighlights.length === 0) ? (
+                 <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron puntos clave destacados para este período.</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
  (reportText?.keyHighlights || []).map((highlight, index) => (
@@ -458,7 +481,7 @@ export default function AdminMetricsPage() {
 
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">3. Métricas Clave de Usuarios</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
+              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4" data-ai-hint="Display real user metrics from dynamicStats">
                 <li>Usuarios Totales: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
                 {/* Using simulated stats for now */}
                 <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li> 
@@ -466,15 +489,15 @@ export default function AdminMetricsPage() {
                 <li>Distribución de Roles:
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
                     {/* Using simulated data for now */}
-                    {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value}</li>)}
+                    {/* NOTE: Replace roleDistributionData with real data from dynamicStats when available */}
+                    {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value.toLocaleString()}</li>)}
                   </ul>
                 </li>
               </ul>
             </section>
 
             <section className="mb-8">
-              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
+              <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4" data-ai-hint="Display real course activity metrics from dynamicStats">
                  <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
                 {/* Using simulated stats for now */}
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{dynamicStats.completionRate}</span> ({statsToDisplay.find(s => s.key === 'completionRate')?.trend})</li>
@@ -490,8 +513,10 @@ export default function AdminMetricsPage() {
 
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">5. Conclusiones</h3>
-              {isAiLoadingReportText && !reportText?.conclusions ? (
+              {isAiLoadingReportText && !reportText ? (
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+              ) : (!reportText?.conclusions || reportText.conclusions.length === 0) ? (
+                <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron conclusiones para este período.</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
  (reportText?.conclusions || []).map((conclusion, index) => (
@@ -503,8 +528,10 @@ export default function AdminMetricsPage() {
 
             <section className="mb-8">
                 <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">6. Recomendaciones</h3>
-                {isAiLoadingReportText && !reportText?.recommendations ? (
+                {isAiLoadingReportText && !reportText ? (
                     <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+                ) : (!reportText?.recommendations || reportText.recommendations.length === 0) ? (
+                    <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron recomendaciones para este período.</p>
                 ) : (
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
  (reportText?.recommendations || []).map((recommendation, index) => (
