@@ -379,7 +379,7 @@ export default function AdminMetricsPage() {
               Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación. El resumen y las conclusiones se generarán con IA.
             </p>
             <Button 
-              onClick={handleGenerateReport} 
+              onClick={handleGenerateReport}
               disabled={isGeneratingReport || isAiLoadingReportText || isLoadingStats}
               className="w-full sm:w-auto"
             >
@@ -403,7 +403,7 @@ export default function AdminMetricsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="flex-grow overflow-y-auto overflow-x-auto p-6 sm:p-8 bg-card text-card-foreground">
-            {isAiLoadingReportText && !reportText ? (
+            {isAiLoadingReportText && !reportText?.executiveSummary ? (
               <div className="flex flex-col items-center justify-center h-full">
                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
                 <p className="text-muted-foreground">Generando contenido del informe con IA...</p>
@@ -427,8 +427,8 @@ export default function AdminMetricsPage() {
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">1. Resumen Ejecutivo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
                 {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || "Esperando la generación del informe...")}
-              </p>
-            </section>
+            </p>
+          </section>
 
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">2. Puntos Clave Destacados</h3>
@@ -436,9 +436,9 @@ export default function AdminMetricsPage() {
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                  {(reportText?.keyHighlights || []).map((highlight, index) => (
-                    <li key={`highlight-${index}`}>{highlight}</li>
-                  ))}
+ (reportText?.keyHighlights || []).map((highlight, index) => (
+ <li key={`highlight-${index}`}>{highlight}</li>
+ ))}
                 </ul>
               )}
             </section>
@@ -481,9 +481,9 @@ export default function AdminMetricsPage() {
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                  {(reportText?.conclusions || []).map((conclusion, index) => (
-                    <li key={`conclusion-${index}`}>{conclusion}</li>
-                  ))}
+ (reportText?.conclusions || []).map((conclusion, index) => (
+ <li key={`conclusion-${index}`}>{conclusion}</li>
+ ))}
                 </ul>
               )}
             </section>
@@ -494,9 +494,9 @@ export default function AdminMetricsPage() {
                     <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
                 ) : (
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                    {(reportText?.recommendations || []).map((recommendation, index) => (
-                        <li key={`recommendation-${index}`}>{recommendation}</li>
-                    ))}
+ (reportText?.recommendations || []).map((recommendation, index) => (
+ <li key={`recommendation-${index}`}>{recommendation}</li>
+ ))}
                     </ul>
                 )}
             </section>
