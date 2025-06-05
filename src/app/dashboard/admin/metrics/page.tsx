@@ -198,28 +198,7 @@ export default function AdminMetricsPage() {
     });
   };
 
-  const defaultReportText: GenerateReportSectionsOutput = {
-    executiveSummary: 
-        `A la fecha actual, la plataforma AlpriNexus cuenta con ${dynamicStats.totalUsers.toLocaleString()} usuarios registrados, lo que demuestra un interés continuo. ` +
-        `Durante el último mes, se ha observado un incremento de ${dynamicStats.newStudentsMonthly.toLocaleString()} estudiantes, indicando una adopción saludable. ` +
-        `La tasa de finalización promedio de los cursos se sitúa en ${dynamicStats.completionRate}, un área que presenta oportunidades de mejora continua. ` +
-        `Con ${dynamicStats.activeCourses.toLocaleString()} cursos activos, la plataforma ofrece una base sólida para el desarrollo profesional.`,
-    keyHighlights: [
-        `Crecimiento notable en la base de usuarios con ${dynamicStats.newStudentsMonthly.toLocaleString()} nuevas incorporaciones este mes.`,
-        `Mantenimiento de una sólida oferta formativa con ${dynamicStats.activeCourses.toLocaleString()} cursos activos.`,
-        `Una tasa de finalización promedio del ${dynamicStats.completionRate} que indica un buen nivel de engagement general.`
-    ],
-    conclusions: [
-        `El crecimiento constante de ${dynamicStats.newStudentsMonthly.toLocaleString()} nuevos estudiantes al mes sugiere que las iniciativas de promoción y la utilidad percibida de AlpriNexus son efectivas.`,
-        `Una tasa de finalización promedio del ${dynamicStats.completionRate} es un indicador aceptable, pero un análisis más profundo por curso podría revelar variaciones significativas y oportunidades de mejora específicas.`,
-        `La existencia de ${dynamicStats.activeCourses.toLocaleString()} cursos activos es positiva, pero es crucial asegurar su continua relevancia y la satisfacción del estudiante con los mismos.`
-    ],
-    recommendations: [
-        'Identificar y analizar los cursos con tasas de finalización por debajo del promedio para implementar estrategias de mejora, como la actualización de contenido o la adición de elementos interactivos.',
-        'Desarrollar un programa de bienvenida y onboarding más robusto para los nuevos estudiantes, con el fin de maximizar su engagement temprano y familiarizarlos con los recursos disponibles.',
-        'Considerar la implementación de encuestas de satisfacción post-curso para recopilar feedback directo y guiar futuras decisiones de contenido y plataforma.'
-    ]
-  };
+
   
   const renderStatCards = (stats: typeof statsToDisplay) => {
     return stats.map((stat) => (
@@ -396,7 +375,7 @@ export default function AdminMetricsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <p className="text-muted-foreground flex-1">
+              <p className="text-sm text-muted-foreground flex-1">
               Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación. El resumen y las conclusiones se generarán con IA.
             </p>
             <Button 
@@ -447,7 +426,7 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">1. Resumen Ejecutivo</h3>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || defaultReportText.executiveSummary)}
+                {isAiLoadingReportText && !reportText?.executiveSummary ? "Generando..." : (reportText?.executiveSummary || "Esperando la generación del informe...")}
               </p>
             </section>
 
@@ -457,7 +436,7 @@ export default function AdminMetricsPage() {
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                  {(reportText?.keyHighlights || defaultReportText.keyHighlights).map((highlight, index) => (
+                  {(reportText?.keyHighlights || []).map((highlight, index) => (
                     <li key={`highlight-${index}`}>{highlight}</li>
                   ))}
                 </ul>
@@ -467,11 +446,13 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">3. Métricas Clave de Usuarios</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                <li>Usuarios Totales: <span className="font-semibold text-foreground">{dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
-                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li>
-                <li>Instructores Activos: <span className="font-semibold text-foreground">{dynamicStats.activeInstructors.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeInstructors')?.trend})</li>
+                <li>Usuarios Totales: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
+                {/* Using simulated stats for now */}
+                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li> 
+                <li>Instructores Activos: <span className="font-semibold text-foreground">{dynamicStats.activeInstructors.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeInstructors')?.trend})</li> 
                 <li>Distribución de Roles:
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
+                    {/* Using simulated data for now */}
                     {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value}</li>)}
                   </ul>
                 </li>
@@ -481,9 +462,11 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                <li>Cursos Activos: <span className="font-semibold text-foreground">{dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
+                 <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
+                {/* Using simulated stats for now */}
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{dynamicStats.completionRate}</span> ({statsToDisplay.find(s => s.key === 'completionRate')?.trend})</li>
-                <li>Cursos en Revisión: <span className="font-semibold text-foreground">{dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
+                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
+                {/* Using simulated data for now */}
                 <li>Cursos más populares (Inscritos / Completados):
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
                     {courseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)}
@@ -498,7 +481,7 @@ export default function AdminMetricsPage() {
                  <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                  {(reportText?.conclusions || defaultReportText.conclusions).map((conclusion, index) => (
+                  {(reportText?.conclusions || []).map((conclusion, index) => (
                     <li key={`conclusion-${index}`}>{conclusion}</li>
                   ))}
                 </ul>
@@ -511,7 +494,7 @@ export default function AdminMetricsPage() {
                     <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
                 ) : (
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
-                    {(reportText?.recommendations || defaultReportText.recommendations).map((recommendation, index) => (
+                    {(reportText?.recommendations || []).map((recommendation, index) => (
                         <li key={`recommendation-${index}`}>{recommendation}</li>
                     ))}
                     </ul>
