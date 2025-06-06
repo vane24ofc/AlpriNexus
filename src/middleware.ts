@@ -19,7 +19,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Si hay un token, verificarlo
-  const decodedToken = verifyToken(sessionToken);
+  const decodedToken = await verifyToken(sessionToken); // verifyToken ahora es async
 
   if (!decodedToken) {
     // Token inválido o expirado

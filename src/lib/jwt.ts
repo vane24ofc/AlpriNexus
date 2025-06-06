@@ -1,29 +1,41 @@
 
-import jwt from 'jsonwebtoken';
+import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import type { Role } from '@/app/dashboard/layout';
 
-interface TokenPayload {
+interface TokenPayload extends JWTPayload {
   userId: string;
   role: Role;
   // Puedes añadir más campos si los necesitas en el payload del token
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET_STRING = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = '1h'; // El token expira en 1 hora
 export const COOKIE_MAX_AGE = 60 * 60; // 1 hora en segundos para la cookie
 
-if (!JWT_SECRET) {
+if (!JWT_SECRET_STRING) {
   throw new Error('La variable de entorno JWT_SECRET no está definida. Por favor, añádela a tu archivo .env');
 }
 
-export function generateToken(payload: TokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET!, { expiresIn: JWT_EXPIRES_IN });
+// `jose` requiere que la clave secreta sea un Uint8Array
+const getSecretKey = () => {
+  return new TextEncoder().encode(JWT_SECRET_STRING);
+};
+
+export async function generateToken(payload: TokenPayload): Promise<string> {
+  const secretKey = getSecretKey();
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime(JWT_EXPIRES_IN)
+    .sign(secretKey);
+  return token;
 }
 
-export function verifyToken(token: string): TokenPayload | null {
+export async function verifyToken(token: string): Promise<TokenPayload | null> {
+  const secretKey = getSecretKey();
   try {
-    const decoded = jwt.verify(token, JWT_SECRET!) as TokenPayload;
-    return decoded;
+    const { payload } = await jwtVerify<TokenPayload>(token, secretKey);
+    return payload;
   } catch (error) {
     console.error('Error verificando el token JWT:', error);
     return null;

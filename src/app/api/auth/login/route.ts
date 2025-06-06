@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
 
     // Generar JWT
     const tokenPayload = { userId: String(user.id), role: user.role }; // Asegurarse que userId es string
-    const token = generateToken(tokenPayload);
+    const token = await generateToken(tokenPayload); // generateToken ahora es async
 
     // No enviar la contraseña de vuelta al cliente
     const { password: _, ...userWithoutPassword } = user;
