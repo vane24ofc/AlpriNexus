@@ -9,55 +9,55 @@ const styles = StyleSheet.create({
     paddingTop: 35,
     paddingBottom: 65, // Increased padding for footer
     paddingHorizontal: 35,
-    fontFamily: 'Helvetica', // Using a standard font
+    fontFamily: 'Helvetica', // Standard font
   },
   header: {
-    marginBottom: 20,
+    marginBottom: 25, // Increased bottom margin
     textAlign: 'center',
   },
   logo: {
-    width: 120, // Adjust size as needed
-    height: 'auto', // Maintain aspect ratio
-    marginBottom: 10,
+    width: 100, // Slightly smaller logo
+    height: 'auto',
+    marginBottom: 15, // Increased space after logo
     alignSelf: 'center',
   },
   title: {
-    fontSize: 22, // Slightly smaller
+    fontSize: 20, // Slightly reduced for better balance
     textAlign: 'center',
-    marginBottom: 10,
-    color: '#333333', // Darker text
+    marginBottom: 8, // Reduced space before date
+    color: '#1a1a1a', // Very dark gray, almost black
     fontWeight: 'bold',
   },
   date: {
     fontSize: 10,
-    textAlign: 'right',
-    marginBottom: 20,
-    color: '#666666',
+    textAlign: 'center', // Centered date
+    marginBottom: 25, // Increased space after date
+    color: '#555555', // Darker gray for date
   },
   section: {
-    marginBottom: 15,
+    marginBottom: 20, // Increased space between sections
   },
   heading: {
-    fontSize: 16,
-    marginBottom: 8,
+    fontSize: 15, // Slightly smaller heading
+    marginBottom: 10, // Increased space after heading
     fontWeight: 'bold',
-    color: '#4A90E2', // Primary-like color
-    borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
-    paddingBottom: 3,
+    color: '#2d2d2d', // Dark gray for headings (instead of blue)
+    borderBottomWidth: 0.5, // Thinner border
+    borderBottomColor: '#cccccc', // Lighter border color
+    paddingBottom: 4, // Slightly more padding
   },
   paragraph: {
-    fontSize: 11,
-    lineHeight: 1.6,
-    marginBottom: 10,
+    fontSize: 10.5, // Slightly smaller body text for denser content
+    lineHeight: 1.65, // Adjusted line height
+    marginBottom: 8, // Consistent paragraph spacing
     textAlign: 'justify',
     color: '#333333',
   },
   listItem: {
-    fontSize: 11,
-    lineHeight: 1.6,
-    marginLeft: 15,
-    marginBottom: 5,
+    fontSize: 10.5,
+    lineHeight: 1.65,
+    marginLeft: 18, // Slightly increased indent for list items
+    marginBottom: 6, // Consistent list item spacing
     color: '#333333',
   },
   list: {
@@ -69,20 +69,20 @@ const styles = StyleSheet.create({
     left: 35,
     right: 35,
     textAlign: 'center',
-    color: 'grey',
+    color: '#666666', // Consistent footer color
     fontSize: 9,
-    borderTopWidth: 1,
-    borderTopColor: '#AAAAAA',
-    paddingTop: 5,
+    borderTopWidth: 0.5, // Thinner border
+    borderTopColor: '#cccccc', // Lighter border
+    paddingTop: 8, // Increased padding for footer
   },
   pageNumber: {
     position: 'absolute',
     fontSize: 9,
-    bottom: 15,
+    bottom: 15, // Standardized position
     left: 0,
     right: 35,
     textAlign: "right",
-    color: 'grey',
+    color: '#666666',
   },
 });
 
@@ -104,16 +104,10 @@ const ActivityReportDocument: React.FC<ActivityReportDocumentProps> = ({ reportT
     <Document title="Informe de Actividad AlpriNexus" author="AlpriNexus">
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          {/* 
-            Para que la imagen funcione, `/width_800.png` debe ser accesible públicamente.
-            En un entorno de desarrollo local, esto usualmente significa que está en la carpeta `public`.
-            Si la generación del PDF ocurre en un contexto sin acceso al servidor web (ej. serverless function sin acceso a assets),
-            se necesitaría un URL absoluto a la imagen o la imagen como Data URI.
-            Por ahora, asumimos que el contexto de renderizado puede acceder a `/width_800.png`.
-          */}
+          {/* Ensure /width_800.png is in your public folder for this to work */}
           <Image
             style={styles.logo}
-            src="/width_800.png" // Asumiendo que está en public/width_800.png
+            src="/width_800.png"
           />
           <Text style={styles.title}>Informe de Actividad de la Plataforma AlpriNexus</Text>
           <Text style={styles.date}>Generado el: {currentDate}</Text>
