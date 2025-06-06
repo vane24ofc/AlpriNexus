@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, PlusCircle, MessageSquare, BarChart as BarChartIcon, Star, Edit3, Loader2 } from "lucide-react";
@@ -11,43 +11,42 @@ import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 
-
 export default function InstructorDashboardPage() {
   const { userProfile, currentSessionRole } = useSessionRole();
   const { toast } = useToast();
   const [instructorCourses, setInstructorCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchCoursesForInstructor = async () => {
-      if (currentSessionRole !== 'instructor' || !userProfile.name) {
-        setIsLoading(false);
-        setInstructorCourses([]);
-        return;
+  const fetchCoursesForInstructor = useCallback(async () => {
+    if (currentSessionRole !== 'instructor' || !userProfile.name) {
+      setIsLoading(false);
+      setInstructorCourses([]);
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/courses'); // Fetches all courses
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+        throw new Error(errorData.message || 'Error al cargar los cursos de la plataforma.');
       }
-      setIsLoading(true);
-      try {
-        const response = await fetch('/api/courses');
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
-          throw new Error(errorData.message || 'Error al cargar los cursos de la plataforma.');
-        }
-        const allPlatformCourses: Course[] = await response.json();
-        const filteredForInstructor = allPlatformCourses.filter(
-          course => course.instructorName === userProfile.name
-        );
-        setInstructorCourses(filteredForInstructor);
-      } catch (error: any) {
-        console.error("Error cargando cursos para el instructor:", error);
-        toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
-        setInstructorCourses([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCoursesForInstructor();
+      const allPlatformCourses: Course[] = await response.json();
+      const filteredForInstructor = allPlatformCourses.filter(
+        course => course.instructorName === userProfile.name
+      );
+      setInstructorCourses(filteredForInstructor);
+    } catch (error: any) {
+      console.error("Error cargando cursos para el instructor:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
+      setInstructorCourses([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, [userProfile.name, currentSessionRole, toast]);
+
+  useEffect(() => {
+    fetchCoursesForInstructor();
+  }, [fetchCoursesForInstructor]);
 
   const pendingReviewCount = useMemo(() =>
     instructorCourses.filter(c => c.status === 'pending').length,
@@ -55,25 +54,24 @@ export default function InstructorDashboardPage() {
   );
 
   const stats = useMemo(() => [
-    { title: "Mis Cursos", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Estudiantes Totales (Simulado)", value: (instructorCourses.length * (Math.floor(Math.random() * 20) + 5)).toLocaleString(), icon: Users, link: "#" }, // Simulación basada en cursos
-    { title: "Revisiones Pendientes", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
-    { title: "Calificación Promedio (Simulado)", value: instructorCourses.length > 0 ? `${(Math.random() * 1 + 4).toFixed(1)}/5` : "N/A", icon: BarChartIcon, link: "#" },
+    { title: "Mis Cursos Creados", value: instructorCourses.length.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
+    { title: "Estudiantes Totales (Simulado)", value: (instructorCourses.length * (Math.floor(Math.random() * 18) + 7)).toLocaleString(), icon: Users, link: "#", isSimulated: true },
+    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
+    { title: "Calificación Prom. (Simulado)", value: instructorCourses.length > 0 ? `${(Math.random() * 1.2 + 3.8).toFixed(1)}/5` : "N/A", icon: BarChartIcon, link: "#", isSimulated: true },
   ], [instructorCourses, pendingReviewCount]);
 
   const recentFeedbacks = useMemo(() => {
     if (instructorCourses.length === 0) return [];
     return instructorCourses.slice(0, 3).map((course, index) => ({
-        student: `Estudiante ${String.fromCharCode(65 + index)}`, // Estudiante A, B, C
+        student: `Estudiante ${String.fromCharCode(65 + index)}`,
         course: course.title,
-        comment: `Comentario de ejemplo para "${course.title.substring(0,20)}"...`,
-        rating: Math.floor(Math.random() * 3) + 3, // Rating entre 3 y 5
-        time: `hace ${index+1}h`
+        comment: `Un comentario de ejemplo muy útil para "${course.title.substring(0,25)}"...`,
+        rating: Math.floor(Math.random() * 2) + 4, // Rating entre 4 y 5
+        time: `hace ${index*2+1}h`
     }));
   }, [instructorCourses]);
 
-
-  if (isLoading) {
+  if (isLoading && currentSessionRole === 'instructor') {
     return (
       <div className="flex h-[calc(100vh-150px)] flex-col items-center justify-center space-y-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -97,7 +95,7 @@ export default function InstructorDashboardPage() {
         {stats.map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <CardTitle className="text-sm font-medium">{stat.title} {stat.isSimulated && <span className="text-xs text-muted-foreground">(S)</span>}</CardTitle>
               <stat.icon className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -114,25 +112,20 @@ export default function InstructorDashboardPage() {
         <Card className="lg:col-span-2 shadow-lg">
           <CardHeader>
             <CardTitle>Mis Cursos (Resumen)</CardTitle>
-            <CardDescription>Un vistazo rápido a tus cursos y su estado.</CardDescription>
+            <CardDescription>Un vistazo rápido a tus cursos y su estado actual.</CardDescription>
           </CardHeader>
           <CardContent>
-            {isLoading && instructorCourses.length === 0 ? (
-                <div className="flex justify-center items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
-            ) : instructorCourses.length > 0 ? (
+            {instructorCourses.length > 0 ? (
               <ul className="space-y-4">
                 {instructorCourses.slice(0, 3).map((course) => {
-                  const students = Math.floor(Math.random() * 150) + 20; // Simulación de estudiantes inscritos
-                  // Simulación de progreso, podría basarse en si está aprobado o no.
-                  const progress = course.status === 'approved' ? (Math.floor(Math.random() * 70) + 30) : (course.status === 'pending' ? Math.floor(Math.random() * 20) : 0) ;
+                  const studentsSimulated = Math.floor(Math.random() * 130) + 25;
+                  const progressSimulated = course.status === 'approved' ? (Math.floor(Math.random() * 60) + 40) : (course.status === 'pending' ? Math.floor(Math.random() * 25) : 0) ;
                   return (
                   <li key={course.id} className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-semibold text-lg line-clamp-1" title={course.title}>{course.title}</h3>
-                        <p className="text-sm text-muted-foreground">{students} estudiantes inscritos (simulado)</p>
+                        <p className="text-sm text-muted-foreground">{studentsSimulated} estudiantes (simulado)</p>
                         <Badge
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
                           className={`mt-1 text-xs ${
@@ -151,17 +144,17 @@ export default function InstructorDashboardPage() {
                     </div>
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Progreso promedio estudiantes (simulado): {progress}%</span>
+                        <span>Participación estimada (simulada): {progressSimulated}%</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2.5">
-                        <div className={`h-2.5 rounded-full ${progress > 70 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${progress}%` }}></div>
+                        <div className={`h-2.5 rounded-full ${progressSimulated > 70 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${progressSimulated}%` }}></div>
                       </div>
                     </div>
                   </li>
                 )})}
               </ul>
             ) : (
-              <p className="text-muted-foreground text-center py-4">Aún no has creado cursos.</p>
+              <p className="text-muted-foreground text-center py-4">Aún no has creado cursos. ¡Anímate a crear el primero!</p>
             )}
             {instructorCourses.length > 3 && (
                 <Button variant="outline" className="w-full mt-4" asChild>
@@ -174,7 +167,7 @@ export default function InstructorDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle>Comentarios Recientes (Simulado)</CardTitle>
-            <CardDescription>Últimos comentarios de los estudiantes.</CardDescription>
+            <CardDescription>Últimos comentarios de los estudiantes en tus cursos.</CardDescription>
           </CardHeader>
           <CardContent>
             {recentFeedbacks.length > 0 ? (
@@ -203,3 +196,5 @@ export default function InstructorDashboardPage() {
     </div>
   );
 }
+
+    
