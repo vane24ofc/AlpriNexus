@@ -25,12 +25,12 @@ import type { Course } from '@/types/course';
 import ActivityReportDocument from '@/components/reports/ActivityReportDocument';
 
 // Static data for other charts (will be replaced step-by-step)
-const roleDistributionData = [
-  { role: "Estudiantes", value: 1250, fill: "hsl(var(--chart-1))" },
-  { role: "Instructores", value: 250, fill: "hsl(var(--chart-2))" },
-  { role: "Administradores", value: 23, fill: "hsl(var(--chart-3))" },
-];
-const roleChartConfig = {
+// const roleDistributionData = [ // Will be replaced by dynamicRoleDistributionData
+//   { role: "Estudiantes", value: 1250, fill: "hsl(var(--chart-1))" },
+//   { role: "Instructores", value: 250, fill: "hsl(var(--chart-2))" },
+//   { role: "Administradores", value: 23, fill: "hsl(var(--chart-3))" },
+// ];
+const roleChartConfig = { // This config remains, used to map API data to display names and colors
   Estudiantes: { label: "Estudiantes", color: "hsl(var(--chart-1))" },
   Instructores: { label: "Instructores", color: "hsl(var(--chart-2))" },
   Administradores: { label: "Administradores", color: "hsl(var(--chart-3))" },
@@ -61,12 +61,19 @@ interface UserGrowthChartDataItem {
   users: number;
 }
 
-const userGrowthChartConfig = { // Renamed to avoid conflict if also used as data var
+const userGrowthDisplayConfig = { // Renamed to avoid conflict if also used as data var
   users: {
     label: "Nuevos Usuarios",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
+
+interface RoleDistributionChartDataItem {
+  role: string; // This will be "Estudiantes", "Instructores", etc.
+  value: number;
+  fill: string; // Color for the pie slice
+}
+
 
 const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
 
@@ -83,9 +90,14 @@ export default function AdminMetricsPage() {
     activeInstructors: 0,
     coursesInReview: 0,
   });
-  const [isLoadingStats, setIsLoadingStats] = useState(true); // For top cards and general metrics
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  
   const [dynamicUserGrowthData, setDynamicUserGrowthData] = useState<UserGrowthChartDataItem[]>([]);
   const [isLoadingUserGrowthChart, setIsLoadingUserGrowthChart] = useState(true);
+
+  const [dynamicRoleDistributionData, setDynamicRoleDistributionData] = useState<RoleDistributionChartDataItem[]>([]);
+  const [isLoadingRoleDistributionChart, setIsLoadingRoleDistributionChart] = useState(true);
+
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }));
@@ -93,6 +105,8 @@ export default function AdminMetricsPage() {
     const fetchAllDashboardStats = async () => {
       setIsLoadingStats(true);
       setIsLoadingUserGrowthChart(true);
+      setIsLoadingRoleDistributionChart(true);
+
       let token: string | null = null;
       if (typeof window !== 'undefined') {
         token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
@@ -102,25 +116,24 @@ export default function AdminMetricsPage() {
         toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado. No se pueden cargar las métricas." });
         setIsLoadingStats(false);
         setIsLoadingUserGrowthChart(false);
+        setIsLoadingRoleDistributionChart(false);
         return;
       }
       const authHeaders = { 'Authorization': `Bearer ${token}` };
 
       try {
-        // 1. Fetch core metrics from /api/metrics
-        const metricsPromise = fetch('/api/metrics', { headers: authHeaders });
-        
-        // 2. Fetch users for active instructors count
-        const usersPromise = fetch('/api/users', { headers: authHeaders });
-        
-        // 3. Fetch courses for courses in review count (assuming public GET /api/courses)
-        const coursesPromise = fetch('/api/courses');
-        
-        // 4. Fetch user growth chart data
-        const userGrowthPromise = fetch('/api/metrics/user-growth-data', { headers: authHeaders });
-
-        const [metricsResponse, usersResponse, coursesResponse, userGrowthResponse] = await Promise.all([
-          metricsPromise, usersPromise, coursesPromise, userGrowthPromise
+        const [
+          metricsResponse, 
+          usersResponse, 
+          coursesResponse, 
+          userGrowthResponse,
+          roleDistributionResponse,
+        ] = await Promise.all([
+          fetch('/api/metrics', { headers: authHeaders }),
+          fetch('/api/users', { headers: authHeaders }),
+          fetch('/api/courses'), // Assuming public GET for now
+          fetch('/api/metrics/user-growth-data', { headers: authHeaders }),
+          fetch('/api/metrics/role-distribution-data', { headers: authHeaders }),
         ]);
 
         // Process core metrics
@@ -148,7 +161,6 @@ export default function AdminMetricsPage() {
         } else {
           console.warn("No se pudieron obtener los cursos para contar cursos en revisión.");
         }
-        
         setAdditionalStats({ activeInstructors: activeInstructorsCount, coursesInReview: coursesInReviewCount });
 
         // Process user growth data
@@ -158,20 +170,52 @@ export default function AdminMetricsPage() {
         }
         const userGrowthChartData: UserGrowthChartDataItem[] = await userGrowthResponse.json();
         setDynamicUserGrowthData(userGrowthChartData);
+        setIsLoadingUserGrowthChart(false);
+
+        // Process role distribution data
+        if (!roleDistributionResponse.ok) {
+            const errorData = await roleDistributionResponse.json().catch(() => ({ message: "Error al cargar distribución de roles."}));
+            throw new Error(`Distribución Roles: ${errorData.message}`);
+        }
+        const apiRoleData: { role: string; value: number }[] = await roleDistributionResponse.json();
+        const formattedRoleData = apiRoleData.map(item => {
+            let displayRole = "Otro";
+            let fillColor = "hsl(var(--muted-foreground))"; // Default color
+            if (item.role === 'estudiante' && roleChartConfig.Estudiantes) {
+                displayRole = roleChartConfig.Estudiantes.label as string;
+                fillColor = roleChartConfig.Estudiantes.color as string;
+            } else if (item.role === 'instructor' && roleChartConfig.Instructores) {
+                displayRole = roleChartConfig.Instructores.label as string;
+                fillColor = roleChartConfig.Instructores.color as string;
+            } else if (item.role === 'administrador' && roleChartConfig.Administradores) {
+                displayRole = roleChartConfig.Administradores.label as string;
+                fillColor = roleChartConfig.Administradores.color as string;
+            }
+            return { role: displayRole, value: item.value, fill: fillColor };
+        }).filter(item => item.value > 0); // Filter out roles with 0 users if any
+        setDynamicRoleDistributionData(formattedRoleData);
+        setIsLoadingRoleDistributionChart(false);
+
 
       } catch (error: any) {
         console.error("Error cargando estadísticas del panel:", error);
         toast({ variant: "destructive", title: "Error al Cargar Estadísticas", description: error.message || "No se pudieron obtener todos los datos del panel." });
-        if (!apiMetrics) setApiMetrics(null); // Reset apiMetrics on error if not already set
-        if (dynamicUserGrowthData.length === 0) setDynamicUserGrowthData([]); // Reset chart data on error
+        if (!apiMetrics) setApiMetrics(null);
+        if (dynamicUserGrowthData.length === 0) {
+            setDynamicUserGrowthData([]);
+            setIsLoadingUserGrowthChart(false);
+        }
+        if (dynamicRoleDistributionData.length === 0) {
+            setDynamicRoleDistributionData([]);
+            setIsLoadingRoleDistributionChart(false);
+        }
       } finally {
-        setIsLoadingStats(false);
-        setIsLoadingUserGrowthChart(false);
+        setIsLoadingStats(false); 
       }
     };
     
     fetchAllDashboardStats();
-  }, [toast]); // Removed apiMetrics and dynamicUserGrowthData from deps to prevent re-fetch loops
+  }, [toast]);
 
   const dynamicStats = useMemo(() => {
     return {
@@ -333,7 +377,7 @@ export default function AdminMetricsPage() {
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
               </div>
             ) : dynamicUserGrowthData.length > 0 ? (
-              <ChartContainer config={userGrowthChartConfig} className="h-[280px] w-full">
+              <ChartContainer config={userGrowthDisplayConfig} className="h-[280px] w-full">
                 <AreaChart
                   accessibilityLayer
                   data={dynamicUserGrowthData}
@@ -373,36 +417,44 @@ export default function AdminMetricsPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <PieChartIcon className="mr-2 h-5 w-5 text-primary" />
-              Distribución de Roles (Simulado)
+              Distribución de Roles
             </CardTitle>
-            <CardDescription>Porcentaje de usuarios por cada rol en la plataforma (datos de ejemplo).</CardDescription>
+            <CardDescription>Porcentaje de usuarios por cada rol en la plataforma.</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-            <ChartContainer config={roleChartConfig} className="h-[280px] w-full max-w-[350px] aspect-square">
-              <PieChart 
-                accessibilityLayer
-                animationDuration={1000}
-                animationEasing="ease-out"
-              >
-                <ChartTooltip
-                  content={<ChartTooltipContent hideLabel nameKey="role" />}
-                />
-                <Pie 
-                    data={roleDistributionData} 
-                    dataKey="value" 
-                    nameKey="role" 
-                    labelLine={false} 
-                    label={({ percent, role, value }) => `${role}: ${value} (${(percent * 100).toFixed(0)}%)`}
-                    outerRadius={100}
-                    paddingAngle={2}
+          {isLoadingRoleDistributionChart ? (
+              <div className="flex justify-center items-center h-[280px]">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+            ) : dynamicRoleDistributionData.length > 0 ? (
+                <ChartContainer config={roleChartConfig} className="h-[280px] w-full max-w-[350px] aspect-square">
+                <PieChart 
+                    accessibilityLayer
+                    animationDuration={1000}
+                    animationEasing="ease-out"
                 >
-                  {roleDistributionData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} stroke={entry.fill} />
-                  ))}
-                </Pie>
-                <ChartLegend content={<ChartLegendContent />} />
-              </PieChart>
-            </ChartContainer>
+                    <ChartTooltip
+                    content={<ChartTooltipContent hideLabel nameKey="role" />}
+                    />
+                    <Pie 
+                        data={dynamicRoleDistributionData} 
+                        dataKey="value" 
+                        nameKey="role" 
+                        labelLine={false} 
+                        label={({ percent, role, value }) => `${role}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                        outerRadius={100}
+                        paddingAngle={2}
+                    >
+                    {dynamicRoleDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} stroke={entry.fill} />
+                    ))}
+                    </Pie>
+                    <ChartLegend content={<ChartLegendContent />} />
+                </PieChart>
+                </ChartContainer>
+            ) : (
+                <p className="text-center text-muted-foreground h-[280px] flex items-center justify-center">No hay datos de distribución de roles para mostrar.</p>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -535,9 +587,12 @@ export default function AdminMetricsPage() {
                 <li>Usuarios Totales: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
                 <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li> 
                 <li>Instructores Activos: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.activeInstructors.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeInstructors')?.trend})</li> 
-                <li>Distribución de Roles (Simulado):
+                <li>Distribución de Roles (Datos de la API):
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
-                    {roleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value.toLocaleString()}</li>)}
+                    {dynamicRoleDistributionData.length > 0 ? 
+                        dynamicRoleDistributionData.map(r => <li key={r.role}>{r.role}: {r.value.toLocaleString()}</li>)
+                        : (isLoadingRoleDistributionChart ? <li>Cargando distribución...</li> : <li>No hay datos de distribución.</li>)
+                    }
                   </ul>
                 </li>
               </ul>
@@ -615,3 +670,5 @@ export default function AdminMetricsPage() {
   );
 }
 
+
+    
