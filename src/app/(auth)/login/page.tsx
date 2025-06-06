@@ -91,7 +91,7 @@ export default function LoginPage() {
       
       toast({ title: "Inicio de Sesión Exitoso", description: `¡Bienvenido de nuevo, ${user.fullName}!` });
       router.push('/dashboard');
-      // router.refresh(); // Comentado temporalmente
+      // router.refresh(); // Comentado para evitar problemas de redirección
       
     } catch (error: any) {
       console.error("Login error:", error); 
@@ -204,7 +204,7 @@ export default function LoginPage() {
       {/* Columna Decorativa */}
       <div className="hidden bg-muted md:block md:w-1/2 relative">
         <Image 
-          src="/login-decorative.png" 
+          src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo para inicio de sesión" 
           fill
           style={{objectFit: 'cover'}}

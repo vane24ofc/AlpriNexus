@@ -222,7 +222,7 @@ export default function RegisterPage() {
           alt="Diseño abstracto decorativo para registro" 
           fill
           style={{objectFit: 'cover'}}
-          data-ai-hint="employee growth"
+          data-ai-hint="corporate learning"
           priority
         />
       </div>
