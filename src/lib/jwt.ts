@@ -5,18 +5,17 @@ import type { Role } from '@/app/dashboard/layout';
 interface TokenPayload extends JWTPayload {
   userId: string;
   role: Role;
-  // Puedes añadir más campos si los necesitas en el payload del token
+  fullName?: string; // Añadido para pasar el nombre en el token
 }
 
 const JWT_SECRET_STRING = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = '1h'; // El token expira en 1 hora
-export const COOKIE_MAX_AGE = 60 * 60; // 1 hora en segundos para la cookie
+const JWT_EXPIRES_IN = '1h'; 
+export const COOKIE_MAX_AGE = 60 * 60; 
 
 if (!JWT_SECRET_STRING) {
   throw new Error('La variable de entorno JWT_SECRET no está definida. Por favor, añádela a tu archivo .env');
 }
 
-// `jose` requiere que la clave secreta sea un Uint8Array
 const getSecretKey = () => {
   return new TextEncoder().encode(JWT_SECRET_STRING);
 };

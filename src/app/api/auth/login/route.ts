@@ -23,7 +23,7 @@ const loginSchema = z.object({
 });
 
 interface UserFromDB {
-  id: string; // Asegurémonos que sea string para consistencia con UUIDs si se usan
+  id: string; 
   fullName: string;
   email: string;
   password?: string; 
@@ -97,11 +97,14 @@ export async function POST(request: NextRequest) {
     console.log(`LOGIN API: Inicio de sesión exitoso para el usuario: ${email}`);
     await connection.end();
 
-    // Generar JWT
-    const tokenPayload = { userId: String(user.id), role: user.role }; // Asegurarse que userId es string
-    const token = await generateToken(tokenPayload); // generateToken ahora es async
+    // Generar JWT, incluyendo fullName
+    const tokenPayload = { 
+        userId: String(user.id), 
+        role: user.role,
+        fullName: user.fullName // Añadir fullName al payload del token
+    }; 
+    const token = await generateToken(tokenPayload); 
 
-    // No enviar la contraseña de vuelta al cliente
     const { password: _, ...userWithoutPassword } = user;
 
     const response = NextResponse.json({
@@ -109,11 +112,10 @@ export async function POST(request: NextRequest) {
       user: userWithoutPassword,
     });
 
-    // Establecer la cookie HttpOnly
     response.cookies.set('nexusAlpriSession', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Solo en producción para HTTPS
-      maxAge: COOKIE_MAX_AGE, // 1 hora, igual que la expiración del token
+      secure: process.env.NODE_ENV === 'production', 
+      maxAge: COOKIE_MAX_AGE, 
       path: '/',
       sameSite: 'strict',
     });
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error: any) {
     console.error('LOGIN API: Error general en el endpoint:', error);
-    await connection?.end(); // Asegurarse de cerrar la conexión en caso de error
+    await connection?.end(); 
     return NextResponse.json(
       { message: 'Error en el servidor durante el inicio de sesión.', error: error.message },
       { status: 500 }
