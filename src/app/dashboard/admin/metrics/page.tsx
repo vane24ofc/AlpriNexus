@@ -15,39 +15,21 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Resp
 import type { ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
 import { pdf } from '@react-pdf/renderer';
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; // React imports unified
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
 import { generateReportSections, type GenerateReportSectionsInput, type GenerateReportSectionsOutput } from '@/ai/flows/generate-report-sections-flow';
-import type { User } from '@/app/dashboard/admin/users/page'; // User type import is unique
+import type { User } from '@/app/dashboard/admin/users/page';
 import type { Course } from '@/types/course';
 
 import ActivityReportDocument from '@/components/reports/ActivityReportDocument';
 
-const userGrowthData = [
-  { month: "Ene", users: 65 },
-  { month: "Feb", users: 59 },
-  { month: "Mar", users: 80 },
-  { month: "Abr", users: 81 },
-  { month: "May", users: 96 },
-  { month: "Jun", users: 105 },
-  { month: "Jul", users: 120 },
-  { month: "Ago", users: 135 },
-];
-
-const userGrowthChartConfig = {
-  users: {
-    label: "Nuevos Usuarios",
-    color: "hsl(var(--chart-1))",
-  },
-} satisfies ChartConfig;
-
+// Static data for other charts (will be replaced step-by-step)
 const roleDistributionData = [
   { role: "Estudiantes", value: 1250, fill: "hsl(var(--chart-1))" },
   { role: "Instructores", value: 250, fill: "hsl(var(--chart-2))" },
   { role: "Administradores", value: 23, fill: "hsl(var(--chart-3))" },
 ];
-
 const roleChartConfig = {
   Estudiantes: { label: "Estudiantes", color: "hsl(var(--chart-1))" },
   Instructores: { label: "Instructores", color: "hsl(var(--chart-2))" },
@@ -61,7 +43,6 @@ const courseActivityData = [
   { name: 'React Native', inscritos: 110, completados: 70, color: "hsl(var(--chart-4))" },
   { name: 'Marketing Digital', inscritos: 200, completados: 130, color: "hsl(var(--chart-5))" },
 ];
-
 const courseActivityChartConfig = {
   inscritos: { label: "Inscritos", color: "hsl(var(--chart-1))" },
   completados: { label: "Completados", color: "hsl(var(--chart-2))" },
@@ -75,6 +56,18 @@ interface MetricsData {
   newStudentsMonthly: number;
 }
 
+interface UserGrowthChartDataItem {
+  month: string;
+  users: number;
+}
+
+const userGrowthChartConfig = { // Renamed to avoid conflict if also used as data var
+  users: {
+    label: "Nuevos Usuarios",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
 const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
 
 export default function AdminMetricsPage() {
@@ -82,7 +75,7 @@ export default function AdminMetricsPage() {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isPreviewReportOpen, setIsPreviewReportOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
-  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null); // Only one declaration of reportText state
+  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null);
   const [isAiLoadingReportText, setIsAiLoadingReportText] = useState(false);
   
   const [apiMetrics, setApiMetrics] = useState<MetricsData | null>(null);
@@ -90,33 +83,55 @@ export default function AdminMetricsPage() {
     activeInstructors: 0,
     coursesInReview: 0,
   });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [isLoadingStats, setIsLoadingStats] = useState(true); // For top cards and general metrics
+  const [dynamicUserGrowthData, setDynamicUserGrowthData] = useState<UserGrowthChartDataItem[]>([]);
+  const [isLoadingUserGrowthChart, setIsLoadingUserGrowthChart] = useState(true);
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }));
 
     const fetchAllDashboardStats = async () => {
       setIsLoadingStats(true);
-      try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
-        if (!token) {
-          toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado para cargar métricas." });
-          setIsLoadingStats(false);
-          return;
-        }
-        const authHeaders = { 'Authorization': `Bearer ${token}` };
+      setIsLoadingUserGrowthChart(true);
+      let token: string | null = null;
+      if (typeof window !== 'undefined') {
+        token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
+      }
+      
+      if (!token) {
+        toast({ variant: "destructive", title: "Error de Autenticación", description: "Token no encontrado. No se pueden cargar las métricas." });
+        setIsLoadingStats(false);
+        setIsLoadingUserGrowthChart(false);
+        return;
+      }
+      const authHeaders = { 'Authorization': `Bearer ${token}` };
 
+      try {
         // 1. Fetch core metrics from /api/metrics
-        const metricsResponse = await fetch('/api/metrics', { headers: authHeaders });
+        const metricsPromise = fetch('/api/metrics', { headers: authHeaders });
+        
+        // 2. Fetch users for active instructors count
+        const usersPromise = fetch('/api/users', { headers: authHeaders });
+        
+        // 3. Fetch courses for courses in review count (assuming public GET /api/courses)
+        const coursesPromise = fetch('/api/courses');
+        
+        // 4. Fetch user growth chart data
+        const userGrowthPromise = fetch('/api/metrics/user-growth-data', { headers: authHeaders });
+
+        const [metricsResponse, usersResponse, coursesResponse, userGrowthResponse] = await Promise.all([
+          metricsPromise, usersPromise, coursesPromise, userGrowthPromise
+        ]);
+
+        // Process core metrics
         if (!metricsResponse.ok) {
           const errorData = await metricsResponse.json().catch(() => ({ message: "Error al cargar métricas principales."}));
-          throw new Error(errorData.message);
+          throw new Error(`Métricas Principales: ${errorData.message}`);
         }
         const metricsData: MetricsData = await metricsResponse.json();
         setApiMetrics(metricsData);
 
-        // 2. Fetch users for active instructors count
-        const usersResponse = await fetch('/api/users', { headers: authHeaders });
+        // Process users for active instructors
         let activeInstructorsCount = 0;
         if (usersResponse.ok) {
           const usersData: User[] = await usersResponse.json();
@@ -125,8 +140,7 @@ export default function AdminMetricsPage() {
           console.warn("No se pudieron obtener los usuarios para contar instructores activos.");
         }
 
-        // 3. Fetch courses for courses in review count (assuming public GET /api/courses)
-        const coursesResponse = await fetch('/api/courses'); 
+        // Process courses for review count
         let coursesInReviewCount = 0;
         if (coursesResponse.ok) {
           const coursesData: Course[] = await coursesResponse.json();
@@ -135,22 +149,29 @@ export default function AdminMetricsPage() {
           console.warn("No se pudieron obtener los cursos para contar cursos en revisión.");
         }
         
-        setAdditionalStats({
-          activeInstructors: activeInstructorsCount,
-          coursesInReview: coursesInReviewCount,
-        });
+        setAdditionalStats({ activeInstructors: activeInstructorsCount, coursesInReview: coursesInReviewCount });
+
+        // Process user growth data
+        if (!userGrowthResponse.ok) {
+            const errorData = await userGrowthResponse.json().catch(() => ({ message: "Error al cargar datos de crecimiento de usuarios."}));
+            throw new Error(`Crecimiento Usuarios: ${errorData.message}`);
+        }
+        const userGrowthChartData: UserGrowthChartDataItem[] = await userGrowthResponse.json();
+        setDynamicUserGrowthData(userGrowthChartData);
 
       } catch (error: any) {
         console.error("Error cargando estadísticas del panel:", error);
         toast({ variant: "destructive", title: "Error al Cargar Estadísticas", description: error.message || "No se pudieron obtener todos los datos del panel." });
-        setApiMetrics(null); // Reset apiMetrics on error
+        if (!apiMetrics) setApiMetrics(null); // Reset apiMetrics on error if not already set
+        if (dynamicUserGrowthData.length === 0) setDynamicUserGrowthData([]); // Reset chart data on error
       } finally {
         setIsLoadingStats(false);
+        setIsLoadingUserGrowthChart(false);
       }
     };
     
     fetchAllDashboardStats();
-  }, [toast]);
+  }, [toast]); // Removed apiMetrics and dynamicUserGrowthData from deps to prevent re-fetch loops
 
   const dynamicStats = useMemo(() => {
     return {
@@ -181,7 +202,6 @@ export default function AdminMetricsPage() {
       if (apiMetrics) {
         metricsForReport = apiMetrics;
       } else {
-        // Attempt to fetch metrics again if not available
         const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
         if (!token) throw new Error("Token de autenticación no disponible para generar el informe.");
         
@@ -191,11 +211,11 @@ export default function AdminMetricsPage() {
           throw new Error(errorData.message);
         }
         const freshMetricsData: MetricsData = await metricsResponse.json();
-        setApiMetrics(freshMetricsData); // Update state if fetched again
+        setApiMetrics(freshMetricsData);
         metricsForReport = freshMetricsData;
       }
       
-      if (!metricsForReport) { // Double check after potential re-fetch
+      if (!metricsForReport) {
           throw new Error("No se pudieron obtener las métricas necesarias para generar el informe.");
       }
 
@@ -303,46 +323,49 @@ export default function AdminMetricsPage() {
           <CardHeader>
             <CardTitle className="flex items-center">
               <TrendingUp className="mr-2 h-5 w-5 text-primary" />
-              Crecimiento de Usuarios (Simulado)
+              Crecimiento de Usuarios
             </CardTitle>
-            <CardDescription>Nuevos usuarios registrados en los últimos 8 meses (datos de ejemplo).</CardDescription>
+            <CardDescription>Nuevos usuarios registrados en los últimos 8 meses.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={userGrowthChartConfig} className="h-[280px] w-full">
-              <AreaChart
-                accessibilityLayer
-                data={userGrowthData}
-                margin={{
-                  left: 12,
-                  right: 12,
-                  top: 5,
-                  bottom: 5,
-                }}
-                animationDuration={700}
-              >
-                <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent indicator="dot" />}
-                />
-                <Area
-                  dataKey="users"
-                  type="natural"
-                  fill="var(--color-users)"
-                  fillOpacity={0.4}
-                  stroke="var(--color-users)"
-                  stackId="a"
-                />
-              </AreaChart>
-            </ChartContainer>
+            {isLoadingUserGrowthChart ? (
+              <div className="flex justify-center items-center h-[280px]">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              </div>
+            ) : dynamicUserGrowthData.length > 0 ? (
+              <ChartContainer config={userGrowthChartConfig} className="h-[280px] w-full">
+                <AreaChart
+                  accessibilityLayer
+                  data={dynamicUserGrowthData}
+                  margin={{ left: 12, right: 12, top: 5, bottom: 5 }}
+                  animationDuration={700}
+                >
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
+                    tickFormatter={(value) => typeof value === 'string' ? value.slice(0, 3) : ''}
+                  />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent indicator="dot" />}
+                  />
+                  <Area
+                    dataKey="users"
+                    type="natural"
+                    fill="var(--color-users)"
+                    fillOpacity={0.4}
+                    stroke="var(--color-users)"
+                    stackId="a"
+                  />
+                </AreaChart>
+              </ChartContainer>
+            ) : (
+              <p className="text-center text-muted-foreground h-[280px] flex items-center justify-center">No hay datos de crecimiento de usuarios para mostrar.</p>
+            )}
           </CardContent>
         </Card>
 
