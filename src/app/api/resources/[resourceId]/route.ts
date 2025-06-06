@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import * as z from 'zod';
+import type { Role } from '@/app/dashboard/layout';
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -14,18 +15,12 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
-// DUMMY_TOKEN_VALUE - Usaremos el mismo que en otros endpoints
-const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
-
 // Zod schema for validating resource updates
+// actingUserRole is removed as it will come from middleware headers
 const UpdateResourceSchema = z.object({
   name: z.string().min(1, { message: "El nombre del archivo es requerido." }).max(255).optional(),
   visibility: z.enum(['private', 'instructors', 'public']).optional(),
   category: z.enum(['company', 'learning']).optional(),
-  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], {
-    required_error: "El rol del usuario que realiza la acción es requerido.",
-    invalid_type_error: "Rol de usuario inválido."
-  }).optional(),
 });
 
 export async function GET(
@@ -37,10 +32,10 @@ export async function GET(
         return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
     }
 
-    const authorizationHeader = request.headers.get('Authorization');
-    if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-      return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
-    }
+    // Authorization is primarily handled by middleware.
+    // If middleware allows, we assume the user is authenticated.
+    // Further role-based access for specific resource can be added if needed.
+    // For now, if authenticated and knows ID, allow GET.
 
     let connection;
     try {
@@ -55,9 +50,13 @@ export async function GET(
         if (resources.length === 0) {
             return NextResponse.json({ message: 'Recurso no encontrado.' }, { status: 404 });
         }
-        // Aquí podríamos añadir una capa extra de seguridad para verificar si el rol actual
-        // (que tendríamos que pasar o decodificar del token) tiene permiso para ver este recurso específico,
-        // pero por ahora, si está autenticado y conoce el ID, lo permitimos. La API GET /api/resources ya hace el filtro principal.
+        
+        // TODO: Add more granular access control here based on x-user-role and resource visibility/uploaderUserId
+        // For example, a student should only be able to GET public resources.
+        // An instructor should be able to GET public, instructors, or their own private resources.
+        // An admin can GET any.
+        // This logic should mirror the GET /api/resources filtering but for a single item.
+
         return NextResponse.json(resources[0]);
     } catch (error: any) {
         console.error(`Error obteniendo recurso ${resourceId}:`, error);
@@ -79,14 +78,25 @@ export async function PUT(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  const actingUserRoleFromHeader = request.headers.get('x-user-role') as Role | null;
+  // const uploaderUserIdFromHeader = request.headers.get('x-user-id'); // Could be used for ownership checks
+
+  if (!actingUserRoleFromHeader) {
+    return NextResponse.json({ message: 'Rol de usuario no proporcionado en la cabecera.' }, { status: 403 });
   }
+
+  if (actingUserRoleFromHeader !== 'administrador' && actingUserRoleFromHeader !== 'instructor') {
+    return NextResponse.json(
+      { message: 'Acción no permitida. Solo administradores o instructores pueden actualizar recursos.' },
+      { status: 403 }
+    );
+  }
+  // TODO: If instructor, potentially check if they are the uploaderUserId of the resource.
 
   let connection;
   try {
     const body = await request.json();
+    // actingUserRole is removed from schema
     const validationResult = UpdateResourceSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -96,14 +106,7 @@ export async function PUT(
       );
     }
 
-    const { name, visibility, category, actingUserRole } = validationResult.data;
-
-    if (!actingUserRole || (actingUserRole !== 'administrador' && actingUserRole !== 'instructor')) {
-      return NextResponse.json(
-        { message: 'Acción no permitida. Solo administradores o instructores pueden actualizar recursos.' },
-        { status: 403 }
-      );
-    }
+    const { name, visibility, category } = validationResult.data;
 
     if (!name && !visibility && !category) {
       return NextResponse.json({ message: 'No se proporcionaron campos para actualizar.' }, { status: 400 });
@@ -169,23 +172,20 @@ export async function DELETE(
     return NextResponse.json({ message: 'ID del recurso es requerido.' }, { status: 400 });
   }
 
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  const actingUserRoleFromHeader = request.headers.get('x-user-role') as Role | null;
+  // const uploaderUserIdFromHeader = request.headers.get('x-user-id'); // Could be used for ownership checks
+
+  if (!actingUserRoleFromHeader) {
+     return NextResponse.json({ message: 'Rol de usuario no proporcionado en la cabecera para la eliminación.' }, { status: 403 });
   }
 
-  const actingUserRole = request.nextUrl.searchParams.get('actingUserRole');
-
-  if (!actingUserRole) {
-    return NextResponse.json({ message: 'El rol del usuario es requerido para esta acción.' }, { status: 400 });
-  }
-
-  if (actingUserRole !== 'administrador' && actingUserRole !== 'instructor') {
+  if (actingUserRoleFromHeader !== 'administrador' && actingUserRoleFromHeader !== 'instructor') {
     return NextResponse.json(
       { message: 'Acción no permitida. Solo administradores o instructores pueden eliminar recursos.' },
       { status: 403 }
     );
   }
+  // TODO: If instructor, potentially check if they are the uploaderUserId of the resource.
 
   let connection;
   try {
@@ -211,4 +211,3 @@ export async function DELETE(
     );
   }
 }
-

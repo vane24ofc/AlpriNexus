@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import { randomUUID } from 'crypto';
 import * as z from 'zod';
+import type { Role } from '@/app/dashboard/layout';
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -15,32 +16,23 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
-const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
-
 // Zod schema for validating new resource input
+// actingUserRole is removed as it will come from middleware headers
 const CreateResourceSchema = z.object({
   name: z.string().min(1, { message: "El nombre del archivo es requerido." }).max(255),
   type: z.string().min(1, { message: "El tipo de archivo es requerido." }).max(50),
   size: z.string().min(1, { message: "El tamaño del archivo es requerido." }).max(50),
   visibility: z.enum(['private', 'instructors', 'public']),
   category: z.enum(['company', 'learning']),
-  uploaderUserId: z.number().int().positive().optional().nullable(),
-  actingUserRole: z.enum(['administrador', 'instructor', 'estudiante'], {
-    required_error: "El rol del usuario que realiza la acción es requerido.",
-    invalid_type_error: "Rol de usuario inválido."
-  }),
+  uploaderUserId: z.number().int().positive().optional().nullable(), // Kept for now, but will be primarily derived from x-user-id
 });
 
 export async function GET(request: NextRequest) {
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
-  }
+  // Role is now obtained from middleware-injected headers
+  const actingUserRoleFromHeader = request.headers.get('x-user-role') as Role | null;
 
-  const actingUserRole = request.nextUrl.searchParams.get('actingUserRole') as 'administrador' | 'instructor' | 'estudiante' | null;
-
-  if (!actingUserRole || !['administrador', 'instructor', 'estudiante'].includes(actingUserRole)) {
-    return NextResponse.json({ message: 'Rol de usuario no proporcionado o inválido en la consulta.' }, { status: 400 });
+  if (!actingUserRoleFromHeader || !['administrador', 'instructor', 'estudiante'].includes(actingUserRoleFromHeader)) {
+    return NextResponse.json({ message: 'Rol de usuario no proporcionado o inválido en la cabecera.' }, { status: 403 });
   }
 
   let connection;
@@ -49,16 +41,17 @@ export async function GET(request: NextRequest) {
     let query = 'SELECT * FROM resources';
     const queryParams: string[] = [];
 
-    if (actingUserRole === 'estudiante') {
+    if (actingUserRoleFromHeader === 'estudiante') {
       query += ' WHERE visibility = ?';
       queryParams.push('public');
-    } else if (actingUserRole === 'instructor') {
-      // Instructores ven 'public' y 'instructors'. 
-      // Podríamos añadir lógica para 'private' si el uploaderUserId coincide, pero lo mantenemos simple por ahora.
+    } else if (actingUserRoleFromHeader === 'instructor') {
+      // Instructores ven 'public' y 'instructors'.
+      // Y sus propios archivos 'private' (requeriría uploaderUserId check aquí)
+      // Simplificando: instructores ven public, instructors. Lógica para private del instructor podría añadirse.
       query += ' WHERE visibility IN (?, ?)';
       queryParams.push('public', 'instructors');
     }
-    // Administradores ven todo, no se añade cláusula WHERE.
+    // Administradores ven todo, no se añade cláusula WHERE de visibilidad por defecto.
 
     query += ' ORDER BY uploadDate DESC;';
     
@@ -81,14 +74,31 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  // Role and userId are now obtained from middleware-injected headers
+  const actingUserRoleFromHeader = request.headers.get('x-user-role') as Role | null;
+  const uploaderUserIdFromHeaderString = request.headers.get('x-user-id');
+  const uploaderUserIdFromHeader = uploaderUserIdFromHeaderString ? parseInt(uploaderUserIdFromHeaderString, 10) : null;
+
+  if (!actingUserRoleFromHeader) {
+    return NextResponse.json({ message: 'Rol de usuario no proporcionado en la cabecera.' }, { status: 403 });
   }
+
+  if (actingUserRoleFromHeader !== 'administrador' && actingUserRoleFromHeader !== 'instructor') {
+    return NextResponse.json(
+      { message: 'Acción no permitida. Solo administradores o instructores pueden crear recursos.' },
+      { status: 403 } 
+    );
+  }
+  
+  if (actingUserRoleFromHeader === 'instructor' && !uploaderUserIdFromHeader) {
+    return NextResponse.json({ message: 'ID de usuario del instructor no disponible para la subida.' }, { status: 400 });
+  }
+
 
   let connection;
   try {
     const body = await request.json();
+    // uploaderUserId and actingUserRole are removed from schema validation as they come from headers
     const validationResult = CreateResourceSchema.safeParse(body);
 
     if (!validationResult.success) {
@@ -98,14 +108,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, type, size, visibility, category, uploaderUserId, actingUserRole } = validationResult.data;
-
-    if (actingUserRole !== 'administrador' && actingUserRole !== 'instructor') {
-      return NextResponse.json(
-        { message: 'Acción no permitida. Solo administradores o instructores pueden crear recursos.' },
-        { status: 403 } 
-      );
-    }
+    const { name, type, size, visibility, category } = validationResult.data;
+    // uploaderUserId from body is ignored, use uploaderUserIdFromHeader
 
     const id = randomUUID();
     const uploadDate = new Date(); 
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest) {
     connection = await mysql.createConnection(dbConfig);
     await connection.execute(
       'INSERT INTO resources (id, name, type, size, uploadDate, url, visibility, category, uploaderUserId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, type, size, uploadDate, url, visibility, category, uploaderUserId || null]
+      [id, name, type, size, uploadDate, url, visibility, category, uploaderUserIdFromHeader || null]
     );
     await connection.end();
 
@@ -127,8 +131,8 @@ export async function POST(request: NextRequest) {
       url,
       visibility,
       category,
-      uploaderUserId: uploaderUserId || null,
-      actingUserRole, 
+      uploaderUserId: uploaderUserIdFromHeader || null,
+      // actingUserRole: actingUserRoleFromHeader, // Not typically returned in the resource object itself from DB
     };
 
     return NextResponse.json(
