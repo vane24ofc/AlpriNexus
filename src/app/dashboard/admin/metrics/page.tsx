@@ -15,7 +15,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Resp
 import type { ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
 import { pdf } from '@react-pdf/renderer';
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; // React imports unified
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
 import { generateReportSections, type GenerateReportSectionsInput, type GenerateReportSectionsOutput } from '@/ai/flows/generate-report-sections-flow';
