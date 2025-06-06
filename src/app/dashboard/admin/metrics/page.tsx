@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -15,14 +14,15 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Resp
 import type { ChartConfig } from "@/components/ui/chart";
 import { useToast } from "@/hooks/use-toast";
 import { pdf } from '@react-pdf/renderer';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react'; // React imports unified
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Image from "next/image";
 import { generateReportSections, type GenerateReportSectionsInput, type GenerateReportSectionsOutput } from '@/ai/flows/generate-report-sections-flow';
-import type { User } from '@/app/dashboard/admin/users/page'; // Assuming User type is exported
+import type { User } from '@/app/dashboard/admin/users/page'; // User type import is unique
 import type { Course } from '@/types/course';
 
 import ActivityReportDocument from '@/components/reports/ActivityReportDocument';
+
 const userGrowthData = [
   { month: "Ene", users: 65 },
   { month: "Feb", users: 59 },
@@ -68,26 +68,20 @@ const courseActivityChartConfig = {
 
 
 interface MetricsData {
- totalUsers: number;
- activeCourses: number;
- completionRate: string;
- newStudentsMonthly: number;
+  totalUsers: number;
+  activeCourses: number;
+  completionRate: string;
+  newStudentsMonthly: number;
 }
 
-async function fetchMetrics(): Promise<MetricsData> {
- const response = await fetch('/api/metrics'); // Assume this endpoint exists
- if (!response.ok) {
- throw new Error(`Failed to fetch metrics: ${response.statusText}`);
- }
- return response.json();
-}
+// REMOVED: fetchMetrics() function as requested and logic moved to use dynamicStats
 
 export default function AdminMetricsPage() {
   const { toast } = useToast();
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isPreviewReportOpen, setIsPreviewReportOpen] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
-  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null); // Corrected type
+  const [reportText, setReportText] = useState<GenerateReportSectionsOutput | null>(null); // Only one declaration of reportText state
   const [isAiLoadingReportText, setIsAiLoadingReportText] = useState(false);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
 
@@ -95,7 +89,7 @@ export default function AdminMetricsPage() {
     totalUsers: 0,
     activeCourses: 0,
     coursesInReview: 0,
-    // These remain simulated for now
+    // These remain simulated for now (or updated by fetchStats if API provides them)
     completionRate: "67%", 
     newStudentsMonthly: 150,
     activeInstructors: 42, 
@@ -132,6 +126,8 @@ export default function AdminMetricsPage() {
           totalUsers: totalUsersCount,
           activeCourses: activeCoursesCount,
           coursesInReview: coursesInReviewCount,
+          // If '/api/metrics' was meant to update these, you'd integrate it here.
+          // For now, they remain simulated as per original code, unless updated by other fetches.
         }));
 
       } catch (error) {
@@ -157,39 +153,36 @@ export default function AdminMetricsPage() {
     });
 
     try {
-
       toast({
         title: "Generando Informe...",
         description: "El informe de actividad de usuarios se está procesando con IA. Esto puede tardar unos segundos.",
       });
 
-      // Fetch real metrics before generating the report
-      const realMetrics = await fetchMetrics();
+      // Use the already fetched dynamicStats for AI report generation
       const inputForAI: GenerateReportSectionsInput = {
- totalUsers: realMetrics.totalUsers,
- activeCourses: realMetrics.activeCourses,
- completionRate: realMetrics.completionRate,
- newStudentsMonthly: realMetrics.newStudentsMonthly,
+        totalUsers: dynamicStats.totalUsers,
+        activeCourses: dynamicStats.activeCourses,
+        completionRate: dynamicStats.completionRate, // Using current simulated/fetched rate
+        newStudentsMonthly: dynamicStats.newStudentsMonthly, // Using current simulated/fetched count
       };
 
       const aiGeneratedText = await generateReportSections(inputForAI);
       setReportText(aiGeneratedText);
     } catch (error) {
       console.error("Error generando texto del informe con IA:", error);
-      toast({ // Moved toast here inside catch block
+      toast({ 
         variant: "destructive",
         title: "Error al generar informe",
         description: "No se pudo generar el contenido del informe con IA. Inténtalo de nuevo.",
       });
-      // Close the dialog or show an error state in the dialog
-      setIsPreviewReportOpen(false); // Close dialog on error
+      setIsPreviewReportOpen(false); 
     } finally {
       setIsAiLoadingReportText(false);
       setIsGeneratingReport(false);
     }
   };
 
-  const handleDownloadReportPdf = async () => { // Make function async
+  const handleDownloadReportPdf = async () => { 
     if (!reportText) {
       toast({
         variant: "warning",
@@ -205,35 +198,31 @@ export default function AdminMetricsPage() {
         description: "Generando el archivo PDF. Esto puede tomar un momento.",
       });
 
-      // Use the ActivityReportDocument component with React-PDF to create a blob
       const blob = await pdf(<ActivityReportDocument reportText={reportText} />).toBlob();
 
-      // Create a URL for the blob and trigger download
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `informe_actividad_${new Date().toISOString().split('T')[0]}.pdf`; // Dynamic filename
+      a.download = `informe_actividad_${new Date().toISOString().split('T')[0]}.pdf`; 
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url); // Clean up the URL
+      URL.revokeObjectURL(url); 
     } catch (error) {
       console.error("Error al descargar el informe PDF:", error);
       toast({ variant: "destructive", title: "Error de Descarga", description: "No se pudo generar o descargar el archivo PDF." });
     }
   };
 
- const statsToDisplay = useMemo(() => [
+  const statsToDisplay = useMemo(() => [
     { title: "Usuarios Totales", value: dynamicStats.totalUsers.toLocaleString(), icon: Users, trend: "+5% último mes", key: 'totalUsers' },
     { title: "Cursos Activos", value: dynamicStats.activeCourses.toLocaleString(), icon: BookOpen, trend: "+3 esta semana", key: 'activeCourses' },
     { title: "Tasa de Finalización Prom.", value: dynamicStats.completionRate, icon: Award, trend: "Estable", key: 'completionRate' },
     { title: "Nuevos Estudiantes (Mes)", value: dynamicStats.newStudentsMonthly.toLocaleString(), icon: UserPlus, trend: "+12% vs mes anterior", key: 'newStudentsMonthly' },
     { title: "Instructores Activos", value: dynamicStats.activeInstructors.toLocaleString(), icon: Users, trend: "+2 este mes", key: 'activeInstructors' },
     { title: "Cursos en Revisión", value: dynamicStats.coursesInReview.toLocaleString(), icon: CheckSquare, trend: `Pendientes: ${dynamicStats.coursesInReview}`, key: 'coursesInReview' },
- ], [dynamicStats]);
+  ], [dynamicStats]);
 
-
-  
   const renderStatCards = (stats: typeof statsToDisplay) => {
     return stats.map((stat) => (
       <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
@@ -253,7 +242,6 @@ export default function AdminMetricsPage() {
     ));
   };
 
-
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
@@ -266,7 +254,7 @@ export default function AdminMetricsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {renderStatCards(statsToDisplay.slice(0,3))}
       </div>
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
         {renderStatCards(statsToDisplay.slice(3,6))}
       </div>
 
@@ -389,7 +377,7 @@ export default function AdminMetricsPage() {
               <ChartTooltip content={<ChartTooltipContent />} />
               <ChartLegend content={<ChartLegendContent />} />
               <Bar dataKey="inscritos" fill="var(--color-inscritos)" radius={[4, 4, 0, 0]}>
-                 <LabelList dataKey="inscritos" position="top" offset={5} fontSize={10} />
+                   <LabelList dataKey="inscritos" position="top" offset={5} fontSize={10} />
               </Bar>
               <Bar dataKey="completados" fill="var(--color-completados)" radius={[4, 4, 0, 0]}>
                 <LabelList dataKey="completados" position="top" offset={5} fontSize={10} />
@@ -409,8 +397,8 @@ export default function AdminMetricsPage() {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row items-center gap-4">
-              <p className="text-sm text-muted-foreground flex-1">
-              Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación. El resumen y las conclusiones se generarán con IA.
+            <p className="text-sm text-muted-foreground flex-1">
+            Genera un informe detallado sobre la actividad de los usuarios, incluyendo registros, finalización de cursos y participación. El resumen y las conclusiones se generarán con IA.
             </p>
             <Button 
               onClick={handleGenerateReport}
@@ -439,7 +427,7 @@ export default function AdminMetricsPage() {
           <div className="flex-grow overflow-y-auto overflow-x-auto p-6 sm:p-8 bg-card text-card-foreground">
             {isAiLoadingReportText && !reportText?.executiveSummary ? (
               <div className="flex flex-col items-center justify-center h-full text-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> {/* Check for any reportText property */}
+                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" /> 
                 <p className="text-muted-foreground">Generando contenido del informe con IA...</p>
               </div>
             ) : (
@@ -467,14 +455,14 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">2. Puntos Clave Destacados</h3>
               {isAiLoadingReportText && !reportText ? (
-                 <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+                   <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (!reportText?.keyHighlights || reportText.keyHighlights.length === 0) ? (
                  <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron puntos clave destacados para este período.</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
- (reportText?.keyHighlights || []).map((highlight, index) => (
- <li key={`highlight-${index}`}>{highlight}</li>
- ))}
+                  {(reportText?.keyHighlights || []).map((highlight, index) => (
+                    <li key={`highlight-${index}`}>{highlight}</li>
+                  ))}
                 </ul>
               )}
             </section>
@@ -498,10 +486,10 @@ export default function AdminMetricsPage() {
 
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>              <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4" data-ai-hint="Display real course activity metrics from dynamicStats">
-                 <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
+                <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
                 {/* Using simulated stats for now */}
                 <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{dynamicStats.completionRate}</span> ({statsToDisplay.find(s => s.key === 'completionRate')?.trend})</li>
-                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
+                <li>Cursos en Revisión: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
                 {/* Using simulated data for now */}
                 <li>Cursos más populares (Inscritos / Completados):
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
@@ -514,14 +502,14 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">5. Conclusiones</h3>
               {isAiLoadingReportText && !reportText ? (
-                 <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
+                   <p className="text-sm text-muted-foreground leading-relaxed">Generando...</p>
               ) : (!reportText?.conclusions || reportText.conclusions.length === 0) ? (
                 <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron conclusiones para este período.</p>
               ) : (
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
- (reportText?.conclusions || []).map((conclusion, index) => (
- <li key={`conclusion-${index}`}>{conclusion}</li>
- ))}
+                  {(reportText?.conclusions || []).map((conclusion, index) => (
+                    <li key={`conclusion-${index}`}>{conclusion}</li>
+                  ))}
                 </ul>
               )}
             </section>
@@ -534,9 +522,9 @@ export default function AdminMetricsPage() {
                     <p className="text-sm text-muted-foreground leading-relaxed italic">No se generaron recomendaciones para este período.</p>
                 ) : (
                     <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4">
- (reportText?.recommendations || []).map((recommendation, index) => (
- <li key={`recommendation-${index}`}>{recommendation}</li>
- ))}
+                        {(reportText?.recommendations || []).map((recommendation, index) => (
+                            <li key={`recommendation-${index}`}>{recommendation}</li>
+                        ))}
                     </ul>
                 )}
             </section>
@@ -568,5 +556,3 @@ export default function AdminMetricsPage() {
     </div>
   );
 }
-    
-    
