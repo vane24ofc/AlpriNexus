@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
+import type { Role } from '@/app/dashboard/layout'; // Import Role type
 
 const dbConfig = {
   host: process.env.DB_HOST,
@@ -12,8 +13,6 @@ const dbConfig = {
   database: process.env.DB_DATABASE,
 };
 
-const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
-
 interface CourseActivityRow {
   name: string; // Course title
   inscritos: number;
@@ -21,9 +20,10 @@ interface CourseActivityRow {
 }
 
 export async function GET(request: NextRequest) {
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  const userRole = request.headers.get('x-user-role') as Role | null;
+
+  if (userRole !== 'administrador') {
+    return NextResponse.json({ message: 'Acción no autorizada. Se requiere rol de administrador.' }, { status: 403 });
   }
 
   let connection;
@@ -71,3 +71,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
