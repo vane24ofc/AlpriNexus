@@ -5,6 +5,8 @@ import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import * as z from 'zod';
 import bcrypt from 'bcryptjs';
+import { generateToken, COOKIE_MAX_AGE } from '@/lib/jwt';
+import type { Role } from '@/app/dashboard/layout';
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -21,11 +23,11 @@ const loginSchema = z.object({
 });
 
 interface UserFromDB {
-  id: string;
+  id: string; // Asegurémonos que sea string para consistencia con UUIDs si se usan
   fullName: string;
   email: string;
   password?: string; 
-  role: 'administrador' | 'instructor' | 'estudiante';
+  role: Role;
   status: 'active' | 'inactive';
   avatarUrl?: string | null;
   createdAt: string;
@@ -69,9 +71,7 @@ export async function POST(request: NextRequest) {
 
     const user = users[0];
     console.log('LOGIN API: Usuario encontrado:', { id: user.id, email: user.email, role: user.role, status: user.status });
-    console.log('LOGIN API: Hash de contraseña almacenado en BD (primeros/últimos chars):', user.password ? `${user.password.substring(0, 5)}...${user.password.substring(user.password.length - 5)}` : 'SIN CONTRASEÑA EN BD');
-
-
+    
     if (user.status === 'inactive') {
       console.log(`LOGIN API: Cuenta inactiva para el usuario: ${email}`);
       await connection.end();
@@ -94,21 +94,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'Credenciales incorrectas. Inténtalo de nuevo.' }, { status: 401 });
     }
     
-    // Si todo es válido:
     console.log(`LOGIN API: Inicio de sesión exitoso para el usuario: ${email}`);
     await connection.end();
 
-    // Do not send password back to client
+    // Generar JWT
+    const tokenPayload = { userId: String(user.id), role: user.role }; // Asegurarse que userId es string
+    const token = generateToken(tokenPayload);
+
+    // No enviar la contraseña de vuelta al cliente
     const { password: _, ...userWithoutPassword } = user;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: 'Inicio de sesión exitoso.',
       user: userWithoutPassword,
     });
 
+    // Establecer la cookie HttpOnly
+    response.cookies.set('nexusAlpriSession', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // Solo en producción para HTTPS
+      maxAge: COOKIE_MAX_AGE, // 1 hora, igual que la expiración del token
+      path: '/',
+      sameSite: 'strict',
+    });
+
+    return response;
+
   } catch (error: any) {
     console.error('LOGIN API: Error general en el endpoint:', error);
-    await connection?.end();
+    await connection?.end(); // Asegurarse de cerrar la conexión en caso de error
     return NextResponse.json(
       { message: 'Error en el servidor durante el inicio de sesión.', error: error.message },
       { status: 500 }
