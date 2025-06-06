@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server';
 import mysql from 'mysql2/promise';
 import * as z from 'zod';
 import bcrypt from 'bcryptjs';
+import type { Role } from '@/app/dashboard/layout'; // Import Role type
 
 // Database connection details from environment variables
 const dbConfig = {
@@ -25,14 +26,14 @@ const userSchema = z.object({
   avatarUrl: z.string().url().optional().or(z.literal('')), // Optional and can be an empty string
 });
 
-const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
-const DUMMY_TOKEN_VALUE = 'secret-dummy-token-123';
-
 // GET handler to fetch all users
 export async function GET(request: NextRequest) {
-  const authorizationHeader = request.headers.get('Authorization');
-  if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    return NextResponse.json({ message: 'No autorizado. Token inválido o ausente.' }, { status: 401 });
+  // Leer el rol del usuario desde las cabeceras inyectadas por el middleware
+  const userRole = request.headers.get('x-user-role') as Role | null;
+
+  // Autorización: Solo los administradores pueden listar todos los usuarios
+  if (userRole !== 'administrador') {
+    return NextResponse.json({ message: 'Acción no autorizada. Se requiere rol de administrador.' }, { status: 403 });
   }
 
   let connection;
@@ -54,15 +55,14 @@ export async function GET(request: NextRequest) {
 
 // POST handler to create a new user
 export async function POST(request: NextRequest) {
-   const authorizationHeader = request.headers.get('Authorization');
-   // Basic check, in real app, verify token properly (e.g. JWT)
-   if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ') || authorizationHeader.substring(7) !== DUMMY_TOKEN_VALUE) {
-    //  Allowing POST /api/users without auth only if it's from specific internal logic or if we add other checks later
-    //  For now, let's assume if an admin is creating a user, they are "authorized" via their session on the frontend
-    //  This needs more robust protection if used as a general user creation endpoint.
-    //  For strictness, uncomment:
-    //  return NextResponse.json({ message: 'No autorizado para crear usuario.' }, { status: 401 });
-   }
+  // Leer el rol del usuario desde las cabeceras inyectadas por el middleware
+  const userRole = request.headers.get('x-user-role') as Role | null;
+
+  // Autorización: Solo los administradores pueden crear nuevos usuarios directamente así.
+  // (El registro público tiene su propio endpoint /api/auth/register)
+  if (userRole !== 'administrador') {
+    return NextResponse.json({ message: 'Acción no autorizada. Se requiere rol de administrador para crear usuarios.' }, { status: 403 });
+  }
 
   let connection;
   try {
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     connection = await mysql.createConnection(dbConfig);
 
-    // Check if email already exists (moved from register to here as well for admin creation)
+    // Check if email already exists
     const [existingUsers] = await connection.execute('SELECT id FROM users WHERE email = ?', [email]);
     if ((existingUsers as any[]).length > 0) {
       await connection.end();
