@@ -61,14 +61,16 @@ export const config = {
     /*
      * Rutas que deben ser protegidas:
      * - Todas las páginas bajo /dashboard/
-     * - Todas las rutas API excepto las de autenticación y test-db.
+     * - Todas las rutas API excepto las de autenticación, test-db y el propio /api/me
      */
     '/dashboard/:path*', // Protege /dashboard y todas sus subrutas
+    '/api/me', // Proteger el endpoint /api/me
     '/api/((?!auth/login|auth/register|auth/logout|test-db).*)', 
     // Lo anterior protege todas las rutas /api/ EXCEPTO:
     // /api/auth/login
     // /api/auth/register
     // /api/auth/logout
     // /api/test-db
+    // No es necesario excluir /api/me aquí porque ya está incluido arriba.
   ],
 };
