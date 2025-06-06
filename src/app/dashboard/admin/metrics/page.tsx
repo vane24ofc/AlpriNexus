@@ -24,25 +24,24 @@ import type { Course } from '@/types/course';
 
 import ActivityReportDocument from '@/components/reports/ActivityReportDocument';
 
-// Static data for other charts (will be replaced step-by-step)
-// const roleDistributionData = [ // Will be replaced by dynamicRoleDistributionData
-//   { role: "Estudiantes", value: 1250, fill: "hsl(var(--chart-1))" },
-//   { role: "Instructores", value: 250, fill: "hsl(var(--chart-2))" },
-//   { role: "Administradores", value: 23, fill: "hsl(var(--chart-3))" },
-// ];
+// Static data for userGrowthData will be replaced step-by-step with API calls
+// For now, roleDistributionData and courseActivityData are also static
+
+const userGrowthDisplayConfig = { // Renamed to avoid conflict if also used as data var
+  users: {
+    label: "Nuevos Usuarios",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
 const roleChartConfig = { // This config remains, used to map API data to display names and colors
   Estudiantes: { label: "Estudiantes", color: "hsl(var(--chart-1))" },
   Instructores: { label: "Instructores", color: "hsl(var(--chart-2))" },
   Administradores: { label: "Administradores", color: "hsl(var(--chart-3))" },
 } satisfies ChartConfig;
 
-const courseActivityData = [
-  { name: 'JS Avanzado', inscritos: 120, completados: 85, color: "hsl(var(--chart-1))" },
-  { name: 'Python para DS', inscritos: 150, completados: 95, color: "hsl(var(--chart-2))" },
-  { name: 'Diseño UX', inscritos: 90, completados: 60, color: "hsl(var(--chart-3))" },
-  { name: 'React Native', inscritos: 110, completados: 70, color: "hsl(var(--chart-4))" },
-  { name: 'Marketing Digital', inscritos: 200, completados: 130, color: "hsl(var(--chart-5))" },
-];
+// courseActivityData (static) will be removed.
+// Its config is still useful.
 const courseActivityChartConfig = {
   inscritos: { label: "Inscritos", color: "hsl(var(--chart-1))" },
   completados: { label: "Completados", color: "hsl(var(--chart-2))" },
@@ -61,17 +60,16 @@ interface UserGrowthChartDataItem {
   users: number;
 }
 
-const userGrowthDisplayConfig = { // Renamed to avoid conflict if also used as data var
-  users: {
-    label: "Nuevos Usuarios",
-    color: "hsl(var(--chart-1))",
-  },
-} satisfies ChartConfig;
-
 interface RoleDistributionChartDataItem {
-  role: string; // This will be "Estudiantes", "Instructores", etc.
+  role: string; 
   value: number;
-  fill: string; // Color for the pie slice
+  fill: string; 
+}
+
+interface CourseActivityChartDataItem {
+  name: string;
+  inscritos: number;
+  completados: number;
 }
 
 
@@ -98,6 +96,9 @@ export default function AdminMetricsPage() {
   const [dynamicRoleDistributionData, setDynamicRoleDistributionData] = useState<RoleDistributionChartDataItem[]>([]);
   const [isLoadingRoleDistributionChart, setIsLoadingRoleDistributionChart] = useState(true);
 
+  const [dynamicCourseActivityData, setDynamicCourseActivityData] = useState<CourseActivityChartDataItem[]>([]);
+  const [isLoadingCourseActivityChart, setIsLoadingCourseActivityChart] = useState(true);
+
 
   useEffect(() => {
     setCurrentDate(new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' }));
@@ -106,6 +107,7 @@ export default function AdminMetricsPage() {
       setIsLoadingStats(true);
       setIsLoadingUserGrowthChart(true);
       setIsLoadingRoleDistributionChart(true);
+      setIsLoadingCourseActivityChart(true);
 
       let token: string | null = null;
       if (typeof window !== 'undefined') {
@@ -117,6 +119,7 @@ export default function AdminMetricsPage() {
         setIsLoadingStats(false);
         setIsLoadingUserGrowthChart(false);
         setIsLoadingRoleDistributionChart(false);
+        setIsLoadingCourseActivityChart(false);
         return;
       }
       const authHeaders = { 'Authorization': `Bearer ${token}` };
@@ -128,12 +131,14 @@ export default function AdminMetricsPage() {
           coursesResponse, 
           userGrowthResponse,
           roleDistributionResponse,
+          courseActivityResponse,
         ] = await Promise.all([
           fetch('/api/metrics', { headers: authHeaders }),
           fetch('/api/users', { headers: authHeaders }),
-          fetch('/api/courses'), // Assuming public GET for now
+          fetch('/api/courses'), 
           fetch('/api/metrics/user-growth-data', { headers: authHeaders }),
           fetch('/api/metrics/role-distribution-data', { headers: authHeaders }),
+          fetch('/api/metrics/course-activity-data', { headers: authHeaders }),
         ]);
 
         // Process core metrics
@@ -162,6 +167,7 @@ export default function AdminMetricsPage() {
           console.warn("No se pudieron obtener los cursos para contar cursos en revisión.");
         }
         setAdditionalStats({ activeInstructors: activeInstructorsCount, coursesInReview: coursesInReviewCount });
+        setIsLoadingStats(false);
 
         // Process user growth data
         if (!userGrowthResponse.ok) {
@@ -180,7 +186,7 @@ export default function AdminMetricsPage() {
         const apiRoleData: { role: string; value: number }[] = await roleDistributionResponse.json();
         const formattedRoleData = apiRoleData.map(item => {
             let displayRole = "Otro";
-            let fillColor = "hsl(var(--muted-foreground))"; // Default color
+            let fillColor = "hsl(var(--muted-foreground))"; 
             if (item.role === 'estudiante' && roleChartConfig.Estudiantes) {
                 displayRole = roleChartConfig.Estudiantes.label as string;
                 fillColor = roleChartConfig.Estudiantes.color as string;
@@ -192,29 +198,31 @@ export default function AdminMetricsPage() {
                 fillColor = roleChartConfig.Administradores.color as string;
             }
             return { role: displayRole, value: item.value, fill: fillColor };
-        }).filter(item => item.value > 0); // Filter out roles with 0 users if any
+        }).filter(item => item.value > 0);
         setDynamicRoleDistributionData(formattedRoleData);
         setIsLoadingRoleDistributionChart(false);
 
+        // Process course activity data
+        if (!courseActivityResponse.ok) {
+            const errorData = await courseActivityResponse.json().catch(() => ({ message: "Error al cargar actividad de cursos."}));
+            throw new Error(`Actividad Cursos: ${errorData.message}`);
+        }
+        const courseActivityChartData: CourseActivityChartDataItem[] = await courseActivityResponse.json();
+        setDynamicCourseActivityData(courseActivityChartData);
+        setIsLoadingCourseActivityChart(false);
 
       } catch (error: any) {
         console.error("Error cargando estadísticas del panel:", error);
         toast({ variant: "destructive", title: "Error al Cargar Estadísticas", description: error.message || "No se pudieron obtener todos los datos del panel." });
-        if (!apiMetrics) setApiMetrics(null);
-        if (dynamicUserGrowthData.length === 0) {
-            setDynamicUserGrowthData([]);
-            setIsLoadingUserGrowthChart(false);
-        }
-        if (dynamicRoleDistributionData.length === 0) {
-            setDynamicRoleDistributionData([]);
-            setIsLoadingRoleDistributionChart(false);
-        }
-      } finally {
-        setIsLoadingStats(false); 
+        if (!apiMetrics) { setApiMetrics(null); setIsLoadingStats(false); }
+        if (dynamicUserGrowthData.length === 0) { setDynamicUserGrowthData([]); setIsLoadingUserGrowthChart(false); }
+        if (dynamicRoleDistributionData.length === 0) { setDynamicRoleDistributionData([]); setIsLoadingRoleDistributionChart(false); }
+        if (dynamicCourseActivityData.length === 0) { setDynamicCourseActivityData([]); setIsLoadingCourseActivityChart(false); }
       }
     };
     
     fetchAllDashboardStats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   const dynamicStats = useMemo(() => {
@@ -463,41 +471,49 @@ export default function AdminMetricsPage() {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Activity className="mr-2 h-5 w-5 text-primary" />
-            Actividad de Cursos Populares (Simulado)
+            Actividad de Cursos Populares
           </CardTitle>
-          <CardDescription>Comparativa de inscritos vs. completados en los cursos más destacados (datos de ejemplo).</CardDescription>
+          <CardDescription>Comparativa de inscritos vs. completados en los cursos más destacados.</CardDescription>
         </CardHeader>
         <CardContent>
-           <ChartContainer config={courseActivityChartConfig} className="h-[350px] w-full">
-            <ReBarChart
-              accessibilityLayer
-              data={courseActivityData}
-              margin={{ top: 20, right: 20, left: -10, bottom: 5 }}
-              barCategoryGap="20%"
-              animationDuration={800}
-            >
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis
-                dataKey="name"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                angle={-15}
-                textAnchor="end"
-                height={50}
-                interval={0}
-              />
-              <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <ChartLegend content={<ChartLegendContent />} />
-              <Bar dataKey="inscritos" fill="var(--color-inscritos)" radius={[4, 4, 0, 0]}>
-                   <LabelList dataKey="inscritos" position="top" offset={5} fontSize={10} />
-              </Bar>
-              <Bar dataKey="completados" fill="var(--color-completados)" radius={[4, 4, 0, 0]}>
-                <LabelList dataKey="completados" position="top" offset={5} fontSize={10} />
-              </Bar>
-            </ReBarChart>
-          </ChartContainer>
+           {isLoadingCourseActivityChart ? (
+             <div className="flex justify-center items-center h-[350px]">
+               <Loader2 className="h-10 w-10 animate-spin text-primary" />
+             </div>
+           ) : dynamicCourseActivityData.length > 0 ? (
+             <ChartContainer config={courseActivityChartConfig} className="h-[350px] w-full">
+              <ReBarChart
+                accessibilityLayer
+                data={dynamicCourseActivityData}
+                margin={{ top: 20, right: 20, left: -10, bottom: 5 }}
+                barCategoryGap="20%"
+                animationDuration={800}
+              >
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="name"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  angle={-15}
+                  textAnchor="end"
+                  height={50}
+                  interval={0}
+                />
+                <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="inscritos" fill="var(--color-inscritos)" radius={[4, 4, 0, 0]}>
+                     <LabelList dataKey="inscritos" position="top" offset={5} fontSize={10} />
+                </Bar>
+                <Bar dataKey="completados" fill="var(--color-completados)" radius={[4, 4, 0, 0]}>
+                  <LabelList dataKey="completados" position="top" offset={5} fontSize={10} />
+                </Bar>
+              </ReBarChart>
+            </ChartContainer>
+           ) : (
+            <p className="text-center text-muted-foreground h-[350px] flex items-center justify-center">No hay datos de actividad de cursos para mostrar.</p>
+           )}
         </CardContent>
       </Card>
 
@@ -584,9 +600,9 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">3. Métricas Clave de Usuarios</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4" data-ai-hint="Display real user metrics from dynamicStats">
-                <li>Usuarios Totales: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
-                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li> 
-                <li>Instructores Activos: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.activeInstructors.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeInstructors')?.trend})</li> 
+                <li>Usuarios Totales Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.totalUsers.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'totalUsers')?.trend})</li>
+                <li>Nuevos Estudiantes (Mes): <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.newStudentsMonthly.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'newStudentsMonthly')?.trend})</li> 
+                <li>Instructores Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeInstructors.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeInstructors')?.trend})</li> 
                 <li>Distribución de Roles (Datos de la API):
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
                     {dynamicRoleDistributionData.length > 0 ? 
@@ -601,12 +617,15 @@ export default function AdminMetricsPage() {
             <section className="mb-8">
               <h3 className="text-xl font-semibold border-b border-border pb-2 mb-4 text-primary">4. Actividad de Cursos</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground space-y-2 pl-4" data-ai-hint="Display real course activity metrics from dynamicStats">
-                 <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
-                <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.completionRate}</span> ({statsToDisplay.find(s => s.key === 'completionRate')?.trend})</li>
-                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{isLoadingStats && !apiMetrics ? 'Cargando...' : dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
-                <li>Cursos más populares (Simulado - Inscritos / Completados):
+                 <li>Cursos Activos: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.activeCourses.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'activeCourses')?.trend})</li>
+                <li>Tasa de Finalización Promedio: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.completionRate}</span> ({statsToDisplay.find(s => s.key === 'completionRate')?.trend})</li>
+                 <li>Cursos en Revisión: <span className="font-semibold text-foreground">{isLoadingStats ? 'Cargando...' : dynamicStats.coursesInReview.toLocaleString()}</span> ({statsToDisplay.find(s => s.key === 'coursesInReview')?.trend})</li>
+                <li>Cursos más populares (Inscritos / Completados):
                   <ul className="list-['-_'] list-inside ml-6 mt-1 space-y-0.5">
-                    {courseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)}
+                    {dynamicCourseActivityData.length > 0 ? 
+                        dynamicCourseActivityData.slice(0,3).map(c => <li key={c.name}>{c.name}: {c.inscritos} / {c.completados}</li>)
+                        : (isLoadingCourseActivityChart ? <li>Cargando actividad de cursos...</li> : <li>No hay datos de actividad de cursos.</li>)
+                    }
                   </ul>
                 </li>
               </ul>
@@ -670,5 +689,3 @@ export default function AdminMetricsPage() {
   );
 }
 
-
-    
