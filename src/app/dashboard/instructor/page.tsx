@@ -4,17 +4,18 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle, MessageSquare, BarChartIcon, TrendingUp, Percent } from "lucide-react";
+import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle, MessageSquare, Percent } from "lucide-react";
 import Link from "next/link";
-import type { Course } from '@/types/course';
+import type { Course } from '@/types/course'; // Course ya incluye lessons
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
+// Esta interfaz debe coincidir con lo que devuelve /api/instructor/courses-summary
 interface InstructorCourseSummary extends Course {
   enrolledStudentsCount: number;
-  averageCourseProgress: number; 
+  averageCourseProgress: number;
 }
 
 export default function InstructorDashboardPage() {
@@ -25,14 +26,18 @@ export default function InstructorDashboardPage() {
   const router = useRouter();
 
   const fetchInstructorDashboardData = useCallback(async () => {
+    // Asegurarse de que tenemos el rol y el nombre/id del perfil antes de llamar
     if (currentSessionRole !== 'instructor' || (!userProfile.name && !userProfile.id)) {
       setIsLoading(false);
-      setInstructorCoursesSummary([]);
-      // No mostrar toast aquí, ya que el rol podría no estar listo inicialmente
+      // No mostrar error aquí inmediatamente, DashboardLayout podría estar aún cargando el perfil.
+      // Si después de un tiempo sigue sin perfil, DashboardLayout lo manejará.
       return;
     }
     setIsLoading(true);
     try {
+      // El middleware ya debería haber verificado la sesión y el token.
+      // El endpoint /api/instructor/courses-summary usa x-user-name o x-user-id
+      // que el middleware inyecta.
       const response = await fetch('/api/instructor/courses-summary');
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
@@ -43,7 +48,7 @@ export default function InstructorDashboardPage() {
     } catch (error: any) {
       console.error("Error cargando datos del panel del instructor:", error);
       toast({ variant: "destructive", title: "Error al Cargar Datos", description: error.message });
-      setInstructorCoursesSummary([]);
+      setInstructorCoursesSummary([]); // Limpiar en caso de error para evitar mostrar datos viejos
     } finally {
       setIsLoading(false);
     }
@@ -56,10 +61,12 @@ export default function InstructorDashboardPage() {
     } else if (currentSessionRole && currentSessionRole !== 'instructor') {
         // Si el rol es otro, no hay nada que cargar aquí y terminamos la carga.
         setIsLoading(false);
-        setInstructorCoursesSummary([]);
+        setInstructorCoursesSummary([]); // Asegurarse de que no haya datos de instructor
     }
     // Si currentSessionRole es null (aún cargando), esperamos.
+    // isLoadingRole se maneja en DashboardLayout.
   }, [fetchInstructorDashboardData, currentSessionRole, userProfile.name, userProfile.id]);
+
 
   const totalCoursesCreated = useMemo(() =>
     instructorCoursesSummary.length,
@@ -79,17 +86,18 @@ export default function InstructorDashboardPage() {
 
   const overallStudentProgressAverage = useMemo(() => {
     if (instructorCoursesSummary.length === 0) return 0;
-    const coursesWithProgressData = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0); // Consider only courses with students
-    if (coursesWithProgressData.length === 0) return 0;
+    // Considerar solo cursos con estudiantes para un promedio más significativo del progreso de *esos* estudiantes.
+    const coursesWithEnrolledStudents = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
+    if (coursesWithEnrolledStudents.length === 0) return 0;
 
-    const totalProgressSum = coursesWithProgressData.reduce((sum, course) => sum + course.averageCourseProgress, 0);
-    return parseFloat((totalProgressSum / coursesWithProgressData.length).toFixed(1));
+    const totalProgressSum = coursesWithEnrolledStudents.reduce((sum, course) => sum + course.averageCourseProgress, 0);
+    return parseFloat((totalProgressSum / coursesWithEnrolledStudents.length).toFixed(1));
   }, [instructorCoursesSummary]);
 
 
   const stats = useMemo(() => [
-    { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: MessageSquare, linkPathSuffix: "?tab=pending", link: "/dashboard/instructor/my-courses" },
+    { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses", unit: "cursos" },
+    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: MessageSquare, linkPathSuffix: "?tab=pending", link: "/dashboard/instructor/my-courses", unit: "cursos" },
     { title: "Prom. Inscripciones por Curso", value: averageEnrollmentsPerCourse.toString(), icon: Users, link: "/dashboard/instructor/my-courses", unit: "estudiantes/curso" },
     { title: "Progreso Prom. Estudiantes", value: `${overallStudentProgressAverage}%`, icon: Percent, link: "/dashboard/instructor/my-courses", unit: "en mis cursos" },
   ], [totalCoursesCreated, pendingReviewCount, averageEnrollmentsPerCourse, overallStudentProgressAverage]);
@@ -105,6 +113,7 @@ export default function InstructorDashboardPage() {
   }
 
   if (currentSessionRole !== 'instructor') {
+    // Esta comprobación también está en DashboardLayout, pero es una salvaguarda.
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center p-4">
         <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
@@ -204,5 +213,3 @@ export default function InstructorDashboardPage() {
     </div>
   );
 }
-
-    
