@@ -64,16 +64,14 @@ export default function DashboardLayout({
   const router = useRouter();
   const [currentSessionRole, setCurrentSessionRole] = useState<Role | null>(null);
   const [isLoadingRole, setIsLoadingRole] = useState(true);
-  const [activeTheme, setActiveTheme] = useState(''); // Inicialmente vacío
+  const [activeTheme, setActiveTheme] = useState(''); 
   const [hasMountedLayout, setHasMountedLayout] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfileData>({ name: '', email: '' });
 
-  // 1. Marcar como montado
   useEffect(() => {
     setHasMountedLayout(true);
   }, []);
 
-  // 2. Cargar y establecer el tema DESPUÉS de que el componente se haya montado
   useEffect(() => {
     if (!hasMountedLayout) return;
 
@@ -83,13 +81,12 @@ export default function DashboardLayout({
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       initialTheme = storedTheme;
     } else {
-      initialTheme = 'theme-light'; // Default theme
+      initialTheme = 'theme-light'; 
       localStorage.setItem(THEME_STORAGE_KEY, initialTheme);
     }
-    setActiveTheme(initialTheme); // Esto disparará el siguiente useEffect para aplicar la clase
+    setActiveTheme(initialTheme); 
   }, [hasMountedLayout]);
 
-  // 3. Aplicar la clase del tema al DOM cuando activeTheme cambie Y el layout esté montado
   useEffect(() => {
     if (!hasMountedLayout || !activeTheme) return;
 
@@ -97,13 +94,10 @@ export default function DashboardLayout({
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
       root.classList.add(activeTheme);
-      // No es necesario guardar en localStorage aquí si ya se hizo al determinar initialTheme
     }
   }, [activeTheme, hasMountedLayout]);
 
-  // 4. Lógica de sesión (ya estaba bastante bien, pero la revisamos)
   const fetchAndSetSession = useCallback(async () => {
-    // No establecer isLoadingRole aquí, se maneja en el useEffect de llamada
     try {
       const response = await fetch('/api/me');
       if (response.ok) {
@@ -127,23 +121,23 @@ export default function DashboardLayout({
       localStorage.removeItem(USER_PROFILE_STORAGE_KEY);
       router.push('/login?fetchError=true');
     } finally {
-      setIsLoadingRole(false); // Marcar como cargado aquí, después de todo el proceso
+      setIsLoadingRole(false); 
     }
   }, [router]);
 
   useEffect(() => {
     if (!hasMountedLayout) return;
 
-    setIsLoadingRole(true); // Iniciar carga de rol
+    setIsLoadingRole(true); 
     const roleFromStorage = localStorage.getItem(SESSION_ROLE_STORAGE_KEY) as Role | null;
     const storedProfileString = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
     
     if (roleFromStorage && storedProfileString) {
       try {
         const storedProfile = JSON.parse(storedProfileString);
-        setCurrentSessionRole(roleFromStorage); // Establecer tentativamente desde localStorage
+        setCurrentSessionRole(roleFromStorage); 
         setUserProfile(storedProfile);
-        fetchAndSetSession(); // Verificar con el backend
+        fetchAndSetSession(); 
       } catch (e) {
         console.error("Error parsing stored session data, fetching from API:", e);
         fetchAndSetSession();
@@ -153,7 +147,6 @@ export default function DashboardLayout({
     }
   }, [hasMountedLayout, fetchAndSetSession]);
   
-  // 5. Guardar perfil de usuario en localStorage si cambia (ya estaba bien)
   useEffect(() => {
     if (hasMountedLayout && userProfile.name && userProfile.email) {
       localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(userProfile));
@@ -167,24 +160,20 @@ export default function DashboardLayout({
     setUserProfile,
   }), [currentSessionRole, isLoadingRole, userProfile]);
 
-  // El loader se muestra si el layout no ha montado O si el rol aún está cargando O si no hay rol (y no se ha redirigido aún)
   if (!hasMountedLayout || isLoadingRole) {
     return <FullPageLoader message="Verificando sesión y cargando panel..." />;
   }
   
-  // Si después de cargar, no hay rol, fetchAndSetSession ya debería haber redirigido.
-  // Pero si por alguna razón llegamos aquí sin rol, es un estado inválido.
   if (!currentSessionRole) {
-     // Este FullPageLoader es más un fallback en caso de que la redirección de fetchAndSetSession falle o tarde.
     return <FullPageLoader message="Redirigiendo a inicio de sesión..." />;
   }
 
   return (
     <SessionRoleContext.Provider value={contextValue}>
-      <SidebarProvider key={`sp-${String(currentSessionRole)}`} defaultOpen={true}>
-        <AppSidebarNav key={`asn-${String(currentSessionRole)}`} />
-        <SidebarInset key={`si-${String(currentSessionRole)}`}>
-          <AppHeader key={`ah-${String(currentSessionRole)}`} />
+      <SidebarProvider defaultOpen={true}> {/* Removed role-based key */}
+        <AppSidebarNav /> {/* Removed role-based key */}
+        <SidebarInset> {/* Removed role-based key */}
+          <AppHeader /> {/* Removed role-based key */}
           <main className="relative flex-1 overflow-auto p-4 md:p-6 lg:p-8">
             {children}
             <Image

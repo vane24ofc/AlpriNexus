@@ -207,6 +207,7 @@ export default function LoginPage() {
           src="https://placehold.co/800x1000.png" 
           alt="Diseño abstracto decorativo para inicio de sesión" 
           fill
+          sizes="(max-width: 768px) 100vw, 50vw"
           style={{objectFit: 'cover'}}
           data-ai-hint="professional learning"
           priority
