@@ -127,7 +127,7 @@ export default function InstructorDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <h1 className="text-3xl font-bold tracking-tight">Panel de Instructor</h1>
+        <h1 className="text-3xl font-bold tracking-tight" style={{ color: 'red', border: '2px solid blue', padding: '10px' }}>¡Panel de Instructor - CAMBIO VISIBLE!</h1>
         <Button asChild className="bg-primary hover:bg-primary/90">
           <Link href="/dashboard/courses/new">
             <PlusCircle className="mr-2 h-5 w-5" /> Crear Nuevo Curso
