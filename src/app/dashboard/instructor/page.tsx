@@ -4,16 +4,17 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle } from "lucide-react";
+import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle, MessageSquare, BarChartIcon, TrendingUp, Percent } from "lucide-react";
 import Link from "next/link";
 import type { Course } from '@/types/course';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 
 interface InstructorCourseSummary extends Course {
   enrolledStudentsCount: number;
-  averageCourseProgress: number;
+  averageCourseProgress: number; // Progreso promedio de estudiantes DENTRO de este curso
 }
 
 export default function InstructorDashboardPage() {
@@ -21,7 +22,7 @@ export default function InstructorDashboardPage() {
   const { toast } = useToast();
   const [instructorCoursesSummary, setInstructorCoursesSummary] = useState<InstructorCourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter(); // Import and use router if needed for navigation
+  const router = useRouter();
 
   const fetchInstructorDashboardData = useCallback(async () => {
     if (currentSessionRole !== 'instructor' || (!userProfile.name && !userProfile.id)) {
@@ -31,10 +32,9 @@ export default function InstructorDashboardPage() {
     }
     setIsLoading(true);
     try {
-      const response = await fetch('/api/instructor/courses-summary'); 
-      
+      const response = await fetch('/api/instructor/courses-summary');
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
+        const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
         throw new Error(errorData.message || 'Error al cargar los datos del panel del instructor.');
       }
       const summaryData: InstructorCourseSummary[] = await response.json();
@@ -62,11 +62,30 @@ export default function InstructorDashboardPage() {
     [instructorCoursesSummary]
   );
 
+  const averageEnrollmentsPerCourse = useMemo(() => {
+    if (instructorCoursesSummary.length === 0) return 0;
+    const totalEnrollments = instructorCoursesSummary.reduce((sum, course) => sum + course.enrolledStudentsCount, 0);
+    return parseFloat((totalEnrollments / instructorCoursesSummary.length).toFixed(1));
+  }, [instructorCoursesSummary]);
+
+  const overallStudentProgressAverage = useMemo(() => {
+    if (instructorCoursesSummary.length === 0) return 0;
+    // Consider only courses with students for a more meaningful average progress, or all courses if desired
+    const coursesWithProgress = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
+    if (coursesWithProgress.length === 0) return 0; // Avoid division by zero if no courses have students
+
+    const totalProgressSum = coursesWithProgress.reduce((sum, course) => sum + course.averageCourseProgress, 0);
+    return parseFloat((totalProgressSum / coursesWithProgress.length).toFixed(1));
+  }, [instructorCoursesSummary]);
+
+
   const stats = useMemo(() => [
     { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: BookOpen, // Using BookOpen as MessageSquare was for comments
-      linkPathSuffix: "?tab=pending", link: "/dashboard/instructor/my-courses" }, // Example to link to a specific tab if your table page supports it
-  ], [totalCoursesCreated, pendingReviewCount]);
+    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: MessageSquare, linkPathSuffix: "?tab=pending", link: "/dashboard/instructor/my-courses" },
+    { title: "Prom. Inscripciones por Curso", value: averageEnrollmentsPerCourse.toString(), icon: Users, link: "/dashboard/instructor/my-courses", unit: "estudiantes/curso" },
+    { title: "Progreso Prom. Estudiantes", value: `${overallStudentProgressAverage}%`, icon: Percent, link: "/dashboard/instructor/my-courses", unit: "en mis cursos" },
+  ], [totalCoursesCreated, pendingReviewCount, averageEnrollmentsPerCourse, overallStudentProgressAverage]);
+
 
   if (isLoading) {
     return (
@@ -78,7 +97,7 @@ export default function InstructorDashboardPage() {
   }
 
   if (currentSessionRole !== 'instructor') {
-     return (
+    return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center p-4">
         <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
         <p className="text-xl font-semibold text-destructive">Acceso Denegado</p>
@@ -99,7 +118,7 @@ export default function InstructorDashboardPage() {
         </Button>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.title} className="shadow-lg hover:shadow-primary/20 transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -108,6 +127,7 @@ export default function InstructorDashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
+              {stat.unit && <p className="text-xs text-muted-foreground">{stat.unit}</p>}
               <Button variant="link" size="sm" asChild className="px-0 -ml-1 text-primary">
                 <Link href={`${stat.link}${stat.linkPathSuffix || ''}`}>Ver detalles</Link>
               </Button>
@@ -124,10 +144,10 @@ export default function InstructorDashboardPage() {
           </CardHeader>
           <CardContent>
             {isLoading && instructorCoursesSummary.length === 0 ? (
-                <div className="flex justify-center items-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="ml-3 text-muted-foreground">Cargando tus cursos...</p>
-                </div>
+              <div className="flex justify-center items-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <p className="ml-3 text-muted-foreground">Cargando tus cursos...</p>
+              </div>
             ) : instructorCoursesSummary.length > 0 ? (
               <ul className="space-y-4">
                 {instructorCoursesSummary.slice(0, 5).map((course) => (
@@ -138,17 +158,16 @@ export default function InstructorDashboardPage() {
                         <p className="text-sm text-muted-foreground">{course.enrolledStudentsCount} estudiante(s) inscrito(s)</p>
                         <Badge
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
-                          className={`mt-1 text-xs ${
-                            course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
+                          className={`mt-1 text-xs ${course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' :
                             course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' : ''
-                          }`}
+                            }`}
                         >
                           {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente de Revisión' : 'Rechazado'}
                         </Badge>
                       </div>
                       <Button variant="outline" size="sm" asChild>
                         <Link href={`/dashboard/courses/${course.id}/edit`}>
-                            <Edit3 className="mr-2 h-4 w-4" />Gestionar
+                          <Edit3 className="mr-2 h-4 w-4" />Gestionar
                         </Link>
                       </Button>
                     </div>
@@ -167,9 +186,9 @@ export default function InstructorDashboardPage() {
               <p className="text-muted-foreground text-center py-4">Aún no has creado cursos. ¡Anímate a crear el primero!</p>
             )}
             {instructorCoursesSummary.length > 5 && (
-                <Button variant="outline" className="w-full mt-4" asChild>
-                    <Link href="/dashboard/instructor/my-courses">Ver todos mis cursos</Link>
-                </Button>
+              <Button variant="outline" className="w-full mt-4" asChild>
+                <Link href="/dashboard/instructor/my-courses">Ver todos mis cursos</Link>
+              </Button>
             )}
           </CardContent>
         </Card>
@@ -177,5 +196,3 @@ export default function InstructorDashboardPage() {
     </div>
   );
 }
-
-    
