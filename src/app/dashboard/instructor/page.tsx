@@ -6,13 +6,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle, MessageSquare, Percent } from "lucide-react";
 import Link from "next/link";
-import type { Course } from '@/types/course'; // Course ya incluye lessons
+import type { Course } from '@/types/course';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { useRouter } from 'next/navigation';
 
-// Esta interfaz debe coincidir con lo que devuelve /api/instructor/courses-summary
 interface InstructorCourseSummary extends Course {
   enrolledStudentsCount: number;
   averageCourseProgress: number;
@@ -26,18 +25,13 @@ export default function InstructorDashboardPage() {
   const router = useRouter();
 
   const fetchInstructorDashboardData = useCallback(async () => {
-    // Asegurarse de que tenemos el rol y el nombre/id del perfil antes de llamar
     if (currentSessionRole !== 'instructor' || (!userProfile.name && !userProfile.id)) {
       setIsLoading(false);
-      // No mostrar error aquí inmediatamente, DashboardLayout podría estar aún cargando el perfil.
-      // Si después de un tiempo sigue sin perfil, DashboardLayout lo manejará.
+      setInstructorCoursesSummary([]);
       return;
     }
     setIsLoading(true);
     try {
-      // El middleware ya debería haber verificado la sesión y el token.
-      // El endpoint /api/instructor/courses-summary usa x-user-name o x-user-id
-      // que el middleware inyecta.
       const response = await fetch('/api/instructor/courses-summary');
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}` }));
@@ -48,25 +42,20 @@ export default function InstructorDashboardPage() {
     } catch (error: any) {
       console.error("Error cargando datos del panel del instructor:", error);
       toast({ variant: "destructive", title: "Error al Cargar Datos", description: error.message });
-      setInstructorCoursesSummary([]); // Limpiar en caso de error para evitar mostrar datos viejos
+      setInstructorCoursesSummary([]);
     } finally {
       setIsLoading(false);
     }
   }, [userProfile.name, userProfile.id, currentSessionRole, toast]);
 
   useEffect(() => {
-    // Solo ejecutar si el rol de instructor está confirmado y el perfil tiene datos
     if (currentSessionRole === 'instructor' && (userProfile.name || userProfile.id)) {
         fetchInstructorDashboardData();
     } else if (currentSessionRole && currentSessionRole !== 'instructor') {
-        // Si el rol es otro, no hay nada que cargar aquí y terminamos la carga.
         setIsLoading(false);
-        setInstructorCoursesSummary([]); // Asegurarse de que no haya datos de instructor
+        setInstructorCoursesSummary([]);
     }
-    // Si currentSessionRole es null (aún cargando), esperamos.
-    // isLoadingRole se maneja en DashboardLayout.
   }, [fetchInstructorDashboardData, currentSessionRole, userProfile.name, userProfile.id]);
-
 
   const totalCoursesCreated = useMemo(() =>
     instructorCoursesSummary.length,
@@ -86,14 +75,11 @@ export default function InstructorDashboardPage() {
 
   const overallStudentProgressAverage = useMemo(() => {
     if (instructorCoursesSummary.length === 0) return 0;
-    // Considerar solo cursos con estudiantes para un promedio más significativo del progreso de *esos* estudiantes.
     const coursesWithEnrolledStudents = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
     if (coursesWithEnrolledStudents.length === 0) return 0;
-
     const totalProgressSum = coursesWithEnrolledStudents.reduce((sum, course) => sum + course.averageCourseProgress, 0);
     return parseFloat((totalProgressSum / coursesWithEnrolledStudents.length).toFixed(1));
   }, [instructorCoursesSummary]);
-
 
   const stats = useMemo(() => [
     { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses", unit: "cursos" },
@@ -101,7 +87,6 @@ export default function InstructorDashboardPage() {
     { title: "Prom. Inscripciones por Curso", value: averageEnrollmentsPerCourse.toString(), icon: Users, link: "/dashboard/instructor/my-courses", unit: "estudiantes/curso" },
     { title: "Progreso Prom. Estudiantes", value: `${overallStudentProgressAverage}%`, icon: Percent, link: "/dashboard/instructor/my-courses", unit: "en mis cursos" },
   ], [totalCoursesCreated, pendingReviewCount, averageEnrollmentsPerCourse, overallStudentProgressAverage]);
-
 
   if (isLoading) {
     return (
@@ -113,7 +98,6 @@ export default function InstructorDashboardPage() {
   }
 
   if (currentSessionRole !== 'instructor') {
-    // Esta comprobación también está en DashboardLayout, pero es una salvaguarda.
     return (
       <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center p-4">
         <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
