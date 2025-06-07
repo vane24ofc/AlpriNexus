@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 
 interface InstructorCourseSummary extends Course {
   enrolledStudentsCount: number;
-  averageCourseProgress: number; // Progreso promedio de estudiantes DENTRO de este curso
+  averageCourseProgress: number; 
 }
 
 export default function InstructorDashboardPage() {
@@ -28,6 +28,7 @@ export default function InstructorDashboardPage() {
     if (currentSessionRole !== 'instructor' || (!userProfile.name && !userProfile.id)) {
       setIsLoading(false);
       setInstructorCoursesSummary([]);
+      // No mostrar toast aquí, ya que el rol podría no estar listo inicialmente
       return;
     }
     setIsLoading(true);
@@ -49,8 +50,16 @@ export default function InstructorDashboardPage() {
   }, [userProfile.name, userProfile.id, currentSessionRole, toast]);
 
   useEffect(() => {
-    fetchInstructorDashboardData();
-  }, [fetchInstructorDashboardData]);
+    // Solo ejecutar si el rol de instructor está confirmado y el perfil tiene datos
+    if (currentSessionRole === 'instructor' && (userProfile.name || userProfile.id)) {
+        fetchInstructorDashboardData();
+    } else if (currentSessionRole && currentSessionRole !== 'instructor') {
+        // Si el rol es otro, no hay nada que cargar aquí y terminamos la carga.
+        setIsLoading(false);
+        setInstructorCoursesSummary([]);
+    }
+    // Si currentSessionRole es null (aún cargando), esperamos.
+  }, [fetchInstructorDashboardData, currentSessionRole, userProfile.name, userProfile.id]);
 
   const totalCoursesCreated = useMemo(() =>
     instructorCoursesSummary.length,
@@ -70,12 +79,11 @@ export default function InstructorDashboardPage() {
 
   const overallStudentProgressAverage = useMemo(() => {
     if (instructorCoursesSummary.length === 0) return 0;
-    // Consider only courses with students for a more meaningful average progress, or all courses if desired
-    const coursesWithProgress = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
-    if (coursesWithProgress.length === 0) return 0; // Avoid division by zero if no courses have students
+    const coursesWithProgressData = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0); // Consider only courses with students
+    if (coursesWithProgressData.length === 0) return 0;
 
-    const totalProgressSum = coursesWithProgress.reduce((sum, course) => sum + course.averageCourseProgress, 0);
-    return parseFloat((totalProgressSum / coursesWithProgress.length).toFixed(1));
+    const totalProgressSum = coursesWithProgressData.reduce((sum, course) => sum + course.averageCourseProgress, 0);
+    return parseFloat((totalProgressSum / coursesWithProgressData.length).toFixed(1));
   }, [instructorCoursesSummary]);
 
 
@@ -196,3 +204,5 @@ export default function InstructorDashboardPage() {
     </div>
   );
 }
+
+    
