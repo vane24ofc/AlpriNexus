@@ -226,6 +226,7 @@ export default function StudentDashboardPage() {
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{numCompletedCourses}</span></div>
             <div className="flex justify-between items-center"><span>Total Inscritos:</span> <span className="font-semibold">{numEnrolledCourses}</span></div>
+            {/* Puntuación Promedio eliminada */}
             <Button variant="secondary" className="w-full mt-2" asChild>
                  <Link href="/dashboard/student/my-courses">Ver Mis Cursos Detallados</Link>
             </Button>
@@ -248,5 +249,7 @@ export default function StudentDashboardPage() {
     </div>
   );
 }
+
+    
 
     
