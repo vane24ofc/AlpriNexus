@@ -9,8 +9,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation'; // Import useRouter
 
-const SIMULATED_STUDENT_USER_ID = 3; // Asumiendo que el ID del estudiante actual es 3
+const SIMULATED_STUDENT_USER_ID = 3; 
 
 interface ApiEnrolledCourse {
   enrollmentId: string;
@@ -25,36 +26,36 @@ interface ApiEnrolledCourse {
     description: string;
     thumbnailUrl: string;
     instructorName: string;
-    status: 'pending' | 'approved' | 'rejected'; // Curso aprobado es el único que debería mostrarse aquí
+    status: 'pending' | 'approved' | 'rejected'; 
     dataAiHint?: string;
-    lessons?: any[]; // Puede ser simplificado o extendido según necesidad
+    lessons?: any[]; 
   };
 }
 
 interface StudentDashboardCourseDisplay {
-  id: string; // courseId
+  id: string; 
   title: string;
   description: string;
   thumbnailUrl: string;
   instructorName: string;
   dataAiHint?: string;
-  progress: number; // from enrollment.progressPercent
-  isCompleted: boolean; // derived from enrollment.completedAt or progressPercent === 100
+  progress: number; 
+  isCompleted: boolean; 
 }
 
 export default function StudentDashboardPage() {
-  const { userProfile } = useSessionRole(); // userProfile puede no ser necesario aquí si usamos SIMULATED_STUDENT_USER_ID
+  const { userProfile } = useSessionRole(); 
   const { toast } = useToast();
   const [enrolledCourseDetails, setEnrolledCourseDetails] = useState<StudentDashboardCourseDisplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   const fetchEnrolledCourses = useCallback(async () => {
     setIsLoading(true);
     try {
-      // Usar el ID del estudiante simulado/real para obtener sus inscripciones
       const response = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
       if (!response.ok) {
-        if (response.status === 404) { // No enrollments found is not an error for the dashboard display
+        if (response.status === 404) { 
           setEnrolledCourseDetails([]);
         } else {
           const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status}`}));
@@ -63,7 +64,7 @@ export default function StudentDashboardPage() {
       } else {
         const apiEnrollments: ApiEnrolledCourse[] = await response.json();
         const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments
-          .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') // Solo mostrar cursos aprobados
+          .filter(enrollment => enrollment.course && enrollment.course.status === 'approved') 
           .map(enrollment => ({
             id: enrollment.course.id,
             title: enrollment.course.title,
@@ -79,7 +80,7 @@ export default function StudentDashboardPage() {
     } catch (error: any) {
       console.error("Error cargando cursos inscritos para el estudiante:", error);
       toast({ variant: "destructive", title: "Error al Cargar Cursos", description: error.message });
-      setEnrolledCourseDetails([]); // Limpiar en caso de error
+      setEnrolledCourseDetails([]); 
     } finally {
       setIsLoading(false);
     }
@@ -93,21 +94,18 @@ export default function StudentDashboardPage() {
     if (enrolledCourseDetails.length === 0) return null;
     const incompleteCourses = enrolledCourseDetails.filter(course => !course.isCompleted);
     if (incompleteCourses.length > 0) {
-      // Ordenar por progreso descendente, luego por título si el progreso es el mismo
       incompleteCourses.sort((a, b) => {
         if (b.progress !== a.progress) return b.progress - a.progress;
         return a.title.localeCompare(b.title);
       });
       return incompleteCourses[0];
     }
-    // Si todos están completos, mostrar el último modificado/inscrito o el primero de la lista.
-    // Esta lógica puede ajustarse. Por ahora, el primero de los completados.
     const completedCourses = enrolledCourseDetails.filter(course => course.isCompleted);
     if (completedCourses.length > 0) {
-        completedCourses.sort((a,b) => a.title.localeCompare(b.title)); // O por fecha de completado si la tuviéramos
+        completedCourses.sort((a,b) => a.title.localeCompare(b.title)); 
         return completedCourses[0];
     }
-    return null; // Debería ser cubierto por el primer if
+    return null; 
   }, [enrolledCourseDetails]);
 
   const numCompletedCourses = useMemo(() => enrolledCourseDetails.filter(c => c.isCompleted).length, [enrolledCourseDetails]);
@@ -223,28 +221,27 @@ export default function StudentDashboardPage() {
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary" />Progreso General</CardTitle>
-            <CardDescription>Tus estadísticas de aprendizaje (simuladas).</CardDescription>
+            <CardDescription>Tus estadísticas de aprendizaje.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{numCompletedCourses}</span></div>
             <div className="flex justify-between items-center"><span>Total Inscritos:</span> <span className="font-semibold">{numEnrolledCourses}</span></div>
-            <div className="flex justify-between items-center"><span>Puntuación Promedio:</span> <span className="font-semibold">{(numCompletedCourses > 0 ? (Math.random() * 10 + 85).toFixed(0) : 'N/A')}% (S)</span></div>
-            <Button variant="secondary" className="w-full mt-2" disabled>Ver Estadísticas Detalladas (Próximamente)</Button>
+            <Button variant="secondary" className="w-full mt-2" asChild>
+                 <Link href="/dashboard/student/my-courses">Ver Mis Cursos Detallados</Link>
+            </Button>
           </CardContent>
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center"><Award className="mr-2 h-5 w-5 text-accent" />Logros e Insignias</CardTitle>
-            <CardDescription>Hitos que has desbloqueado (simulados).</CardDescription>
+            <CardDescription>Hitos que has desbloqueado.</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-wrap gap-4 items-center justify-center">
-            {['Pionero AlpriNexus', 'Aprendiz Rápido', 'Mejor Rendimiento', 'Estudiante Dedicado'].map((achievement, index) => (
-              <div key={achievement} className={`flex flex-col items-center p-3 bg-muted rounded-lg w-28 text-center ${index < numCompletedCourses ? '' : 'opacity-50'}`}>
-                <CheckCircle className={`h-8 w-8  mb-1 ${index < numCompletedCourses ? 'text-accent' : 'text-muted-foreground' }`} />
-                <span className="text-xs font-medium">{achievement}</span>
-              </div>
-            ))}
-             {numCompletedCourses === 0 && <p className="text-sm text-muted-foreground w-full text-center">Completa cursos para desbloquear logros.</p>}
+          <CardContent className="flex flex-col items-center justify-center text-center min-h-[150px]">
+            <Award className="h-10 w-10 text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              El sistema de logros e insignias está en desarrollo.
+            </p>
+            <p className="text-xs text-muted-foreground">¡Vuelve pronto para ver tus reconocimientos!</p>
           </CardContent>
         </Card>
       </div>

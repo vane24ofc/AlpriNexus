@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Users, PlusCircle, MessageSquare, Loader2, Edit3, AlertTriangle } from "lucide-react";
+import { BookOpen, Users, PlusCircle, Edit3, Loader2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import type { Course } from '@/types/course';
 import { useSessionRole } from '@/app/dashboard/layout';
@@ -21,19 +21,16 @@ export default function InstructorDashboardPage() {
   const { toast } = useToast();
   const [instructorCoursesSummary, setInstructorCoursesSummary] = useState<InstructorCourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter(); // Import and use router if needed for navigation
 
   const fetchInstructorDashboardData = useCallback(async () => {
     if (currentSessionRole !== 'instructor' || (!userProfile.name && !userProfile.id)) {
       setIsLoading(false);
       setInstructorCoursesSummary([]);
-      // Si no es instructor, DashboardLayout ya debería manejar la redirección o mostrar un error.
-      // Aquí podríamos añadir un mensaje si llegase a este punto por alguna razón.
       return;
     }
     setIsLoading(true);
     try {
-      // El nuevo endpoint /api/instructor/courses-summary se encargará de usar el token (via middleware)
-      // para identificar al instructor y devolver solo sus cursos con las estadísticas.
       const response = await fetch('/api/instructor/courses-summary'); 
       
       if (!response.ok) {
@@ -67,7 +64,8 @@ export default function InstructorDashboardPage() {
 
   const stats = useMemo(() => [
     { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses" },
-    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: MessageSquare, link: "/dashboard/instructor/my-courses" },
+    { title: "Cursos Pendientes de Revisión", value: pendingReviewCount.toString(), icon: BookOpen, // Using BookOpen as MessageSquare was for comments
+      linkPathSuffix: "?tab=pending", link: "/dashboard/instructor/my-courses" }, // Example to link to a specific tab if your table page supports it
   ], [totalCoursesCreated, pendingReviewCount]);
 
   if (isLoading) {
@@ -84,12 +82,11 @@ export default function InstructorDashboardPage() {
       <div className="flex h-screen flex-col items-center justify-center space-y-4 text-center p-4">
         <AlertTriangle className="h-12 w-12 text-destructive mb-3" />
         <p className="text-xl font-semibold text-destructive">Acceso Denegado</p>
-        <p className="text-muted-foreground max-w-md">Esta sección es exclusiva para instructores. Si crees que esto es un error, por favor contacta al administrador.</p>
+        <p className="text-muted-foreground max-w-md">Esta sección es exclusiva para instructores.</p>
         <Button onClick={() => router.push('/dashboard')} className="mt-4">Volver al Panel Principal</Button>
       </div>
     );
   }
-
 
   return (
     <div className="space-y-6">
@@ -112,7 +109,7 @@ export default function InstructorDashboardPage() {
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
               <Button variant="link" size="sm" asChild className="px-0 -ml-1 text-primary">
-                <Link href={stat.link}>Ver detalles</Link>
+                <Link href={`${stat.link}${stat.linkPathSuffix || ''}`}>Ver detalles</Link>
               </Button>
             </CardContent>
           </Card>
@@ -143,7 +140,7 @@ export default function InstructorDashboardPage() {
                           variant={course.status === 'approved' ? 'default' : course.status === 'pending' ? 'secondary' : 'destructive'}
                           className={`mt-1 text-xs ${
                             course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : 
-                            course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600' : ''
+                            course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' : ''
                           }`}
                         >
                           {course.status === 'approved' ? 'Aprobado' : course.status === 'pending' ? 'Pendiente de Revisión' : 'Rechazado'}
@@ -157,7 +154,7 @@ export default function InstructorDashboardPage() {
                     </div>
                     <div className="mt-3">
                       <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                        <span>Progreso promedio estudiantes: {course.averageCourseProgress}%</span>
+                        <span>Progreso promedio estudiantes: {course.averageCourseProgress.toFixed(0)}%</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2.5">
                         <div className={`h-2.5 rounded-full ${course.averageCourseProgress > 70 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.averageCourseProgress}%` }}></div>
@@ -180,3 +177,5 @@ export default function InstructorDashboardPage() {
     </div>
   );
 }
+
+    
