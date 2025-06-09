@@ -23,7 +23,7 @@ import {
   Edit3,
   Trash2,
   Percent,
-  FileWarning, // Para Cursos Pendientes
+  FileWarning,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -95,7 +95,6 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({
     { title: "Tasa de Finalización", value: courseCompletionRate, icon: Percent, trend: "Promedio de cursos" },
   ];
 
-  // Actividad Reciente (Simulada por ahora)
   const recentActivities = [
     { user: "Alice", action: "registró una nueva cuenta.", time: "hace 5m" },
     { user: "Equipo Alpri", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
@@ -216,10 +215,12 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
     if (instructorCoursesSummary.length === 0) return 0;
     const coursesWithEnrolledStudents = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
     if (coursesWithEnrolledStudents.length === 0) return 0;
+    
     const totalWeightedProgressSum = coursesWithEnrolledStudents.reduce((sum, course) => {
       return sum + (course.averageCourseProgress * course.enrolledStudentsCount);
     }, 0);
     const totalStudentsInTheseCourses = coursesWithEnrolledStudents.reduce((sum, course) => sum + course.enrolledStudentsCount, 0);
+
     if (totalStudentsInTheseCourses === 0) return 0;
     return parseFloat((totalWeightedProgressSum / totalStudentsInTheseCourses).toFixed(1));
   }, [instructorCoursesSummary]);
@@ -665,7 +666,7 @@ export default function DashboardHomePage() {
     try {
       const [metricsResponse, coursesResponse] = await Promise.all([
         fetch('/api/metrics', { headers }),
-        fetch('/api/courses', { headers })
+        fetch('/api/courses', { headers }) // Assuming admin can fetch all courses
       ]);
 
       if (!metricsResponse.ok) {
@@ -685,10 +686,12 @@ export default function DashboardHomePage() {
     } catch (error: any) {
       console.error("Error loading admin data:", error);
       toast({ variant: "destructive", title: "Error al Cargar Datos (Admin)", description: error.message });
-      if (!adminMetrics) setAdminMetrics({ totalUsers: 0, activeCourses: 0, completionRate: "0%" });
+      // Set to default/empty values on error to prevent crashes
+      setAdminMetrics({ totalUsers: 0, activeCourses: 0, completionRate: "0%" });
       setPendingReviewCourseCount(0);
     }
-  }, [toast, adminMetrics]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]); // Removed adminMetrics from dependencies
 
   const fetchInstructorDashboardData = useCallback(async (token: string) => {
     const headers = { 'Authorization': `Bearer ${token}` };
@@ -705,6 +708,7 @@ export default function DashboardHomePage() {
       toast({ variant: "destructive", title: "Error al Cargar Datos (Instructor)", description: error.message });
       setInstructorCoursesSummaryData([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   const fetchStudentData = useCallback(async () => {
@@ -738,6 +742,7 @@ export default function DashboardHomePage() {
       toast({ variant: "destructive", title: "Error al Cargar Datos (Estudiante)", description: error.message });
       setStudentEnrolledCourseDetails([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [toast]);
 
   useEffect(() => {
@@ -748,7 +753,7 @@ export default function DashboardHomePage() {
       const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
 
       if ((currentSessionRole === 'administrador' || currentSessionRole === 'instructor') && !token) {
-        if (currentSessionRole) { // Solo muestra toast si el rol ya está determinado
+        if (currentSessionRole) {
             toast({ variant: 'destructive', title: 'Error de Autenticación', description: 'Token no encontrado. Redirigiendo al login.' });
             router.push('/login');
         }
@@ -766,13 +771,16 @@ export default function DashboardHomePage() {
         }
       } catch (error) {
         console.error("Error general al cargar datos del panel:", error);
+        // Toast for general error is handled within specific fetch functions
       } finally {
         setIsLoadingDashboardData(false);
       }
     };
 
     loadDataForRole();
-  }, [currentSessionRole, isLoadingRole, fetchAdminData, fetchInstructorDashboardData, fetchStudentData, router, toast]);
+  // Only re-run if role or profile changes fundamentally, or toast/router for safety.
+  // Specific fetch functions handle their own data dependencies.
+  }, [currentSessionRole, isLoadingRole, userProfile.name, fetchAdminData, fetchInstructorDashboardData, fetchStudentData, router, toast]);
 
 
   if (isLoadingRole || isLoadingDashboardData) {
@@ -814,7 +822,7 @@ export default function DashboardHomePage() {
       return (
         <InstructorDashboardContent
           instructorCoursesSummary={instructorCoursesSummaryData}
-          isLoadingData={isLoadingDashboardData} // Pasamos este estado para que InstructorDashboardContent muestre su propio loader
+          isLoadingData={isLoadingDashboardData}
         />
       );
     case 'estudiante':
@@ -823,5 +831,5 @@ export default function DashboardHomePage() {
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
   }
 }
-        
+
     
