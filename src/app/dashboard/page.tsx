@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; // useCallback añadido
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSessionRole, type Role } from '@/app/dashboard/layout';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,8 @@ import {
   Library,
   Edit3,
   Trash2,
-  Percent, // Nuevo ícono para Progreso
+  Percent,
+  FileWarning, // Para Cursos Pendientes
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -54,16 +55,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { Course } from '@/types/course';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Keys for localStorage
-const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
-const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
-const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
-const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
-const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
-const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
-const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
-const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
 const SIMULATED_AUTH_TOKEN_KEY = 'simulatedAuthToken';
 
 interface User {
@@ -78,39 +71,36 @@ interface User {
   updatedAt: string;
 }
 
-const initialSampleUsers: User[] = [
-  { id: 'user1', fullName: 'Carlos Administrador', email: 'admin@example.com', role: 'administrador', joinDate: '2023-01-15', avatarUrl: 'https://placehold.co/40x40.png?text=CA', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'user2', fullName: 'Isabel Instructora', email: 'instructor@example.com', role: 'instructor', joinDate: '2023-02-20', avatarUrl: 'https://placehold.co/40x40.png?text=II', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: 'user3', fullName: 'Esteban Estudiante', email: 'student@example.com', role: 'estudiante', joinDate: '2023-03-10', avatarUrl: 'https://placehold.co/40x40.png?text=EE', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
-
-const initialSampleCourses: Course[] = [
-  { id: 'seedCourse1', title: 'Fundamentos de JavaScript Moderno (Seed)', description: 'Aprende JS desde cero.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "javascript book", instructorName: 'Instructor A', status: 'pending', lessons: [{id: 'l1-s1', title: 'Intro Seed JS'}]},
-  { id: 'seedCourse2', title: 'Python para Ciencia de Datos (Seed)', description: 'Análisis y visualización.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "python data", instructorName: 'Instructor B', status: 'pending', lessons: [{id: 'l1-s2', title: 'Intro Seed Py'}]},
-  { id: 'seedCourse3', title: 'Diseño UX/UI para Principiantes (Seed)', description: 'Crea interfaces intuitivas.', thumbnailUrl: 'https://placehold.co/600x338.png', dataAiHint: "ux design", instructorName: 'Instructor C', status: 'approved', lessons: [{id: 'l1-s3', title: 'Intro Seed UX'}]},
-];
-
 // Admin Dashboard Content
 interface AdminDashboardContentProps {
   userCount: number;
   activeCourseCount: number;
+  pendingReviewCourseCount: number;
+  courseCompletionRate: string;
   onOpenAnnouncementDialog: () => void;
 }
 
-const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount, activeCourseCount, onOpenAnnouncementDialog }) => {
+const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({
+  userCount,
+  activeCourseCount,
+  pendingReviewCourseCount,
+  courseCompletionRate,
+  onOpenAnnouncementDialog,
+}) => {
 
   const stats = [
-    { title: "Usuarios Totales", value: userCount.toLocaleString(), icon: Users, trend: "+5% desde el mes pasado" },
-    { title: "Cursos Activos", value: activeCourseCount.toLocaleString(), icon: BookOpen, trend: "+2 nuevos esta semana" },
-    { title: "Salud del Sistema", value: "Óptima", icon: Settings, trend: "Todos los sistemas operativos" },
-    { title: "Tasa de Participación", value: "78%", icon: BarChart3, trend: "Aumento del 3%" },
+    { title: "Usuarios Totales", value: userCount.toLocaleString(), icon: Users, trend: "Activos en la plataforma" },
+    { title: "Cursos Activos", value: activeCourseCount.toLocaleString(), icon: BookOpen, trend: "Disponibles para inscripción" },
+    { title: "Cursos Pend. Revisión", value: pendingReviewCourseCount.toLocaleString(), icon: FileWarning, trend: "Esperando aprobación" },
+    { title: "Tasa de Finalización", value: courseCompletionRate, icon: Percent, trend: "Promedio de cursos" },
   ];
 
+  // Actividad Reciente (Simulada por ahora)
   const recentActivities = [
     { user: "Alice", action: "registró una nueva cuenta.", time: "hace 5m" },
-    { user: "Bob (Instructor)", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
+    { user: "Equipo Alpri", action: "publicó el curso 'IA Avanzada'.", time: "hace 1h" },
     { user: "Charlie", action: "completó 'Introducción a Python'.", time: "hace 2h" },
-    { user: "System", action: "mantenimiento programado para mañana.", time: "hace 4h" },
+    { user: "Sistema", action: "mantenimiento programado para mañana.", time: "hace 4h" },
   ];
 
   return (
@@ -135,7 +125,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount
       <div className="grid gap-6 lg:grid-cols-2">
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Actividad Reciente</CardTitle>
+            <CardTitle>Actividad Reciente (Simulada)</CardTitle>
             <CardDescription>Resumen de las actividades recientes de la plataforma.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -160,37 +150,32 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ userCount
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-4">
             <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
-                <Link href="/dashboard/admin/users">
-                    <Users className="h-8 w-8 mb-2 text-primary"/>
-                    <span className="font-medium">Gestionar Usuarios</span>
-                </Link>
+              <Link href="/dashboard/admin/users">
+                <Users className="h-8 w-8 mb-2 text-primary"/>
+                <span className="font-medium">Gestionar Usuarios</span>
+              </Link>
             </Button>
             <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
-                <Link href="/dashboard/admin/courses">
-                    <BookOpen className="h-8 w-8 mb-2 text-primary"/>
-                    <span className="font-medium">Gestionar Cursos</span>
-                </Link>
+              <Link href="/dashboard/admin/courses">
+                <BookOpen className="h-8 w-8 mb-2 text-primary"/>
+                <span className="font-medium">Gestionar Cursos</span>
+              </Link>
             </Button>
-             <Button
-                variant="outline"
-                className="p-4 h-auto flex flex-col items-center text-center"
-                onClick={onOpenAnnouncementDialog}
-              >
-                <Bell className="h-8 w-8 mb-2 text-foreground"/>
-                <span className="font-medium">Enviar Anuncio</span>
+            <Button
+              variant="outline"
+              className="p-4 h-auto flex flex-col items-center text-center"
+              onClick={onOpenAnnouncementDialog}
+            >
+              <Bell className="h-8 w-8 mb-2 text-foreground"/>
+              <span className="font-medium">Enviar Anuncio</span>
             </Button>
-             <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
-                <Link href="/dashboard/settings">
-                    <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
-                    <span className="font-medium">Configuración</span>
-                </Link>
+            <Button variant="outline" className="p-4 h-auto flex flex-col items-center text-center" asChild>
+              <Link href="/dashboard/settings">
+                <Settings className="h-8 w-8 mb-2 text-muted-foreground"/>
+                <span className="font-medium">Configuración</span>
+              </Link>
             </Button>
-            <AlertDialogTrigger asChild>
-                 <Button variant="destructive" className="p-4 h-auto flex flex-col items-center text-center col-span-2">
-                    <Trash2 className="h-8 w-8 mb-2"/>
-                    <span className="font-medium">Restablecer Datos de Plataforma</span>
-                </Button>
-            </AlertDialogTrigger>
+            {/* Botón de Restablecer Datos Eliminado de aquí */}
           </CardContent>
         </Card>
       </div>
@@ -206,11 +191,10 @@ interface InstructorCourseSummary extends Course {
 
 interface InstructorDashboardContentProps {
   instructorCoursesSummary: InstructorCourseSummary[];
-  isLoadingData: boolean; // para mostrar un loader si los datos aún no están listos
+  isLoadingData: boolean;
 }
 
 const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({ instructorCoursesSummary, isLoadingData }) => {
-  const { userProfile } = useSessionRole();
 
   const totalCoursesCreated = useMemo(() =>
     instructorCoursesSummary.length,
@@ -232,18 +216,13 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
     if (instructorCoursesSummary.length === 0) return 0;
     const coursesWithEnrolledStudents = instructorCoursesSummary.filter(c => c.enrolledStudentsCount > 0);
     if (coursesWithEnrolledStudents.length === 0) return 0;
-
-    // Suma el progreso de cada curso PONDERADO por el número de estudiantes en ese curso
     const totalWeightedProgressSum = coursesWithEnrolledStudents.reduce((sum, course) => {
       return sum + (course.averageCourseProgress * course.enrolledStudentsCount);
     }, 0);
     const totalStudentsInTheseCourses = coursesWithEnrolledStudents.reduce((sum, course) => sum + course.enrolledStudentsCount, 0);
-
     if (totalStudentsInTheseCourses === 0) return 0;
-
     return parseFloat((totalWeightedProgressSum / totalStudentsInTheseCourses).toFixed(1));
   }, [instructorCoursesSummary]);
-
 
   const stats = [
     { title: "Mis Cursos Creados", value: totalCoursesCreated.toString(), icon: BookOpen, link: "/dashboard/instructor/my-courses", unit: "cursos" },
@@ -286,7 +265,6 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
       </div>
     );
   }
-
 
   return (
     <div className="space-y-6">
@@ -372,7 +350,6 @@ const InstructorDashboardContent: React.FC<InstructorDashboardContentProps> = ({
     </div>
   );
 };
-
 
 // Student Dashboard Content
 interface StudentApiEnrollment {
@@ -530,7 +507,6 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrol
           <CardContent className="space-y-3">
             <div className="flex justify-between items-center"><span>Cursos Completados:</span> <span className="font-semibold">{numCompletedCourses}</span></div>
             <div className="flex justify-between items-center"><span>Total Inscritos:</span> <span className="font-semibold">{numEnrolledCourses}</span></div>
-            {/* Puntuación Promedio eliminada */}
             <Button variant="secondary" className="w-full mt-2" asChild>
                  <Link href="/dashboard/student/my-courses">Ver Mis Cursos Detallados</Link>
             </Button>
@@ -554,20 +530,24 @@ const StudentDashboardContent: React.FC<StudentDashboardContentProps> = ({ enrol
   );
 };
 
-
 interface AdminDashboardWrapperProps {
   userCount: number;
   activeCourseCount: number;
+  pendingReviewCourseCount: number;
+  courseCompletionRate: string;
 }
 
-const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount, activeCourseCount }) => {
+const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({
+  userCount,
+  activeCourseCount,
+  pendingReviewCourseCount,
+  courseCompletionRate
+}) => {
   const [isAnnouncementDialogOpen, setIsAnnouncementDialogOpen] = React.useState(false);
   const [announcementTitle, setAnnouncementTitle] = React.useState('');
   const [announcementMessage, setAnnouncementMessage] = React.useState('');
   const [announcementAudience, setAnnouncementAudience] = React.useState('all');
   const { toast } = useToast();
-  const [isDataResetDialogOpen, setIsDataResetDialogOpen] = useState(false);
-
 
   const handleSendAnnouncement = async () => {
     if (!announcementTitle.trim() || !announcementMessage.trim()) {
@@ -578,7 +558,6 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount
       });
       return;
     }
-    // TODO: Implement API call to send announcement
     console.log("Enviando anuncio (simulado):", { title: announcementTitle, message: announcementMessage, audience: announcementAudience });
     toast({
       title: "Anuncio Enviado (Simulado)",
@@ -592,43 +571,13 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount
 
   const openDialog = () => setIsAnnouncementDialogOpen(true);
 
-  const handleResetPlatformData = () => {
-    try {
-        if (typeof window === 'undefined') return;
-        localStorage.removeItem(USERS_STORAGE_KEY);
-        localStorage.removeItem(COURSES_STORAGE_KEY);
-        localStorage.removeItem(CALENDAR_EVENTS_STORAGE_KEY);
-        localStorage.removeItem(VIRTUAL_SESSIONS_STORAGE_KEY);
-        localStorage.removeItem(COMPANY_RESOURCES_STORAGE_KEY);
-        localStorage.removeItem(LEARNING_RESOURCES_STORAGE_KEY);
-        Object.keys(localStorage).forEach(key => {
-            if (key.startsWith(COMPLETED_LESSONS_PREFIX) || key.startsWith(QUIZ_STATE_STORAGE_PREFIX)) {
-            localStorage.removeItem(key);
-            }
-        });
-        toast({
-            title: "Datos Restablecidos",
-            description: "Todos los datos simulados de la plataforma han sido eliminados. La página se recargará.",
-        });
-        setTimeout(() => window.location.reload(), 1500);
-    } catch (error) {
-        console.error("Error al restablecer datos:", error);
-        toast({
-            variant: "destructive",
-            title: "Error al Restablecer",
-            description: "No se pudieron eliminar todos los datos simulados.",
-        });
-    } finally {
-        setIsDataResetDialogOpen(false);
-    }
-  };
-
-
   return (
-    <AlertDialog open={isDataResetDialogOpen} onOpenChange={setIsDataResetDialogOpen}>
+    <>
       <AdminDashboardContent
         userCount={userCount}
         activeCourseCount={activeCourseCount}
+        pendingReviewCourseCount={pendingReviewCourseCount}
+        courseCompletionRate={courseCompletionRate}
         onOpenAnnouncementDialog={openDialog}
       />
       <Dialog open={isAnnouncementDialogOpen} onOpenChange={setIsAnnouncementDialogOpen}>
@@ -687,66 +636,65 @@ const AdminDashboardWrapper: React.FC<AdminDashboardWrapperProps> = ({ userCount
           </DialogFooter>
         </DialogContent>
       </Dialog>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
-            <AlertDialogDescription>
-                Esta acción eliminará todos los usuarios, cursos, inscripciones, eventos del calendario y recursos simulados guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-                onClick={handleResetPlatformData}
-                className="bg-destructive hover:bg-destructive/90"
-            >
-                Sí, Restablecer Datos
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+    </>
   );
 }
 
-
 const SIMULATED_STUDENT_USER_ID = 3;
+
+interface AdminMetricsData {
+  totalUsers: number;
+  activeCourses: number;
+  completionRate: string;
+}
 
 export default function DashboardHomePage() {
   const { currentSessionRole, isLoadingRole, userProfile } = useSessionRole();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [apiUsers, setApiUsers] = useState<User[]>([]);
-  const [apiCourses, setApiCourses] = useState<Course[]>([]);
+  const [adminMetrics, setAdminMetrics] = useState<AdminMetricsData | null>(null);
+  const [pendingReviewCourseCount, setPendingReviewCourseCount] = useState(0);
   const [studentEnrolledCourseDetails, setStudentEnrolledCourseDetails] = useState<StudentDashboardCourseDisplay[]>([]);
-  const [instructorCoursesSummaryData, setInstructorCoursesSummaryData] = useState<InstructorCourseSummary[]>([]); // Para InstructorDashboardContent
-
-  const [adminTotalUsersCount, setAdminTotalUsersCount] = useState(0);
-  const [adminActiveCoursesCount, setAdminActiveCoursesCount] = useState(0);
+  const [instructorCoursesSummaryData, setInstructorCoursesSummaryData] = useState<InstructorCourseSummary[]>([]);
 
   const [isLoadingDashboardData, setIsLoadingDashboardData] = useState(true);
 
-  const fetchInstructorDashboardData = useCallback(async () => {
-    // Esta función ahora se llama desde el useEffect principal si el rol es instructor
-    let token: string | null = null;
-    if (typeof window !== 'undefined') {
-      token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
-    }
-    if (!token) {
-        toast({ variant: "destructive", title: "Autenticación Requerida", description: "No se encontró token para cargar datos del instructor." });
-        setIsLoadingDashboardData(false); // Para que no quede cargando indefinidamente
-        return;
-    }
+  const fetchAdminData = useCallback(async (token: string) => {
     const headers = { 'Authorization': `Bearer ${token}` };
+    try {
+      const [metricsResponse, coursesResponse] = await Promise.all([
+        fetch('/api/metrics', { headers }),
+        fetch('/api/courses', { headers })
+      ]);
 
+      if (!metricsResponse.ok) {
+        const errorData = await metricsResponse.json().catch(() => ({ message: 'Error cargando métricas principales.' }));
+        throw new Error(errorData.message);
+      }
+      const metricsData: AdminMetricsData = await metricsResponse.json();
+      setAdminMetrics(metricsData);
+
+      if (!coursesResponse.ok) {
+        const errorData = await coursesResponse.json().catch(() => ({ message: 'Error cargando todos los cursos.' }));
+        throw new Error(errorData.message);
+      }
+      const allCourses: Course[] = await coursesResponse.json();
+      setPendingReviewCourseCount(allCourses.filter(c => c.status === 'pending').length);
+
+    } catch (error: any) {
+      console.error("Error loading admin data:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Datos (Admin)", description: error.message });
+      if (!adminMetrics) setAdminMetrics({ totalUsers: 0, activeCourses: 0, completionRate: "0%" });
+      setPendingReviewCourseCount(0);
+    }
+  }, [toast, adminMetrics]);
+
+  const fetchInstructorDashboardData = useCallback(async (token: string) => {
+    const headers = { 'Authorization': `Bearer ${token}` };
     try {
       const response = await fetch('/api/instructor/courses-summary', { headers });
       if (!response.ok) {
-        if (response.status === 401) {
-            toast({ variant: 'destructive', title: 'Sesión Inválida', description: 'Tu sesión ha expirado o el token es inválido. Serás redirigido al login.' });
-            router.push('/login');
-            return;
-        }
         const errorData = await response.json().catch(() => ({ message: 'Error al cargar los datos del panel del instructor.' }));
         throw new Error(errorData.message);
       }
@@ -754,120 +702,77 @@ export default function DashboardHomePage() {
       setInstructorCoursesSummaryData(summaryData);
     } catch (error: any) {
       console.error("Error cargando datos del panel del instructor:", error);
-      toast({ variant: "destructive", title: "Error al Cargar Datos del Instructor", description: error.message });
-      setInstructorCoursesSummaryData([]); // Asegurar que se limpia en caso de error
+      toast({ variant: "destructive", title: "Error al Cargar Datos (Instructor)", description: error.message });
+      setInstructorCoursesSummaryData([]);
     }
-  }, [toast, router]); // No userProfile.name aquí, ya que se usa el token
+  }, [toast]);
 
+  const fetchStudentData = useCallback(async () => {
+    try {
+      const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
+      if (!enrollmentsResponse.ok) {
+         if (enrollmentsResponse.status === 404) {
+            setStudentEnrolledCourseDetails([]);
+         } else {
+            const errorData = await enrollmentsResponse.json().catch(() => ({ message: `Error cargando inscripciones: ${enrollmentsResponse.status}`}));
+            throw new Error(errorData.message);
+         }
+      } else {
+        const apiEnrollments: StudentApiEnrollment[] = await enrollmentsResponse.json();
+        const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments
+          .filter(enrollment => enrollment.course && enrollment.course.status === 'approved')
+          .map(enrollment => ({
+            id: enrollment.course.id,
+            title: enrollment.course.title,
+            description: enrollment.course.description,
+            thumbnailUrl: enrollment.course.thumbnailUrl,
+            instructorName: enrollment.course.instructorName,
+            dataAiHint: enrollment.course.dataAiHint,
+            progress: enrollment.progressPercent,
+            isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
+        }));
+        setStudentEnrolledCourseDetails(processedEnrollments);
+      }
+    } catch (error: any) {
+      console.error("Error loading student data:", error);
+      toast({ variant: "destructive", title: "Error al Cargar Datos (Estudiante)", description: error.message });
+      setStudentEnrolledCourseDetails([]);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    const loadData = async () => {
-      if (typeof window === 'undefined') {
+    const loadDataForRole = async () => {
+      if (!currentSessionRole || isLoadingRole) return;
+
+      setIsLoadingDashboardData(true);
+      const token = typeof window !== 'undefined' ? localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY) : null;
+
+      if ((currentSessionRole === 'administrador' || currentSessionRole === 'instructor') && !token) {
+        if (currentSessionRole) { // Solo muestra toast si el rol ya está determinado
+            toast({ variant: 'destructive', title: 'Error de Autenticación', description: 'Token no encontrado. Redirigiendo al login.' });
+            router.push('/login');
+        }
         setIsLoadingDashboardData(false);
         return;
       }
-      setIsLoadingDashboardData(true);
-      let token: string | null = null;
-      token = localStorage.getItem(SIMULATED_AUTH_TOKEN_KEY);
-
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
 
       try {
-        const coursesResponse = await fetch('/api/courses'); // No necesita token si es público
-        if (!coursesResponse.ok) {
-            const errorData = await coursesResponse.json().catch(() => ({ message: `Error cargando cursos: ${coursesResponse.status}`}));
-            throw new Error(errorData.message);
+        if (currentSessionRole === 'administrador' && token) {
+          await fetchAdminData(token);
+        } else if (currentSessionRole === 'instructor' && token) {
+          await fetchInstructorDashboardData(token);
+        } else if (currentSessionRole === 'estudiante') {
+          await fetchStudentData();
         }
-        const coursesDataFromApi: Course[] = await coursesResponse.json();
-        setApiCourses(coursesDataFromApi);
-
-        if (currentSessionRole === 'administrador') {
-          if (!token) {
-            toast({ variant: 'destructive', title: 'Error de Autenticación', description: 'No se encontró token de autenticación para el administrador. Redirigiendo al login.' });
-            router.push('/login');
-            setIsLoadingDashboardData(false);
-            return;
-          }
-          const usersResponse = await fetch('/api/users', { headers });
-          if (!usersResponse.ok) {
-            if (usersResponse.status === 401) {
-              toast({ variant: 'destructive', title: 'Sesión Inválida', description: 'Tu sesión ha expirado o el token es inválido. Serás redirigido al login.' });
-              router.push('/login');
-              setIsLoadingDashboardData(false);
-              return;
-            }
-            const errorData = await usersResponse.json().catch(() => ({ message: `Error cargando usuarios: ${usersResponse.status}`}));
-            throw new Error(errorData.message);
-          }
-          const usersDataFromApi: User[] = await usersResponse.json();
-          setApiUsers(usersDataFromApi.map(u => ({...u, fullName: u.fullName, joinDate: new Date(u.createdAt).toLocaleDateString() })));
-          setAdminTotalUsersCount(usersDataFromApi.length);
-          setAdminActiveCoursesCount(coursesDataFromApi.filter(c => c.status === 'approved').length);
-        }
-
-        if (currentSessionRole === 'instructor') {
-          await fetchInstructorDashboardData(); // Llama a la función específica para el instructor
-        }
-
-        if (currentSessionRole === 'estudiante') {
-          const enrollmentsResponse = await fetch(`/api/enrollments/user/${SIMULATED_STUDENT_USER_ID}`);
-          if (!enrollmentsResponse.ok) {
-             if (enrollmentsResponse.status === 404) {
-                setStudentEnrolledCourseDetails([]);
-             } else {
-                const errorData = await enrollmentsResponse.json().catch(() => ({ message: `Error cargando inscripciones: ${enrollmentsResponse.status}`}));
-                throw new Error(errorData.message);
-             }
-          } else {
-            const apiEnrollments: StudentApiEnrollment[] = await enrollmentsResponse.json();
-            const processedEnrollments: StudentDashboardCourseDisplay[] = apiEnrollments
-              .filter(enrollment => enrollment.course && enrollment.course.status === 'approved')
-              .map(enrollment => ({
-                id: enrollment.course.id,
-                title: enrollment.course.title,
-                description: enrollment.course.description,
-                thumbnailUrl: enrollment.course.thumbnailUrl,
-                instructorName: enrollment.course.instructorName,
-                dataAiHint: enrollment.course.dataAiHint,
-                progress: enrollment.progressPercent,
-                isCompleted: !!enrollment.completedAt || enrollment.progressPercent === 100,
-            }));
-            setStudentEnrolledCourseDetails(processedEnrollments);
-          }
-        }
-
-      } catch (error: any) {
-        console.error("Error loading data for dashboard:", error);
-        toast({
-            variant: "destructive",
-            title: "Error al Cargar Datos del Panel",
-            description: error.message || "No se pudieron cargar los datos del servidor."
-        });
-        if (apiCourses.length === 0) setApiCourses(initialSampleCourses);
-        if (apiUsers.length === 0 && currentSessionRole === 'administrador') {
-            setApiUsers(initialSampleUsers);
-            setAdminTotalUsersCount(initialSampleUsers.length);
-            setAdminActiveCoursesCount(initialSampleCourses.filter(c => c.status === 'approved').length);
-        }
-        if (instructorCoursesSummaryData.length === 0 && currentSessionRole === 'instructor'){
-             // No tenemos un fallback simple para instructorCoursesSummaryData, podría quedar vacío o mostrar error.
-             setInstructorCoursesSummaryData([]);
-        }
+      } catch (error) {
+        console.error("Error general al cargar datos del panel:", error);
       } finally {
         setIsLoadingDashboardData(false);
       }
     };
 
-    if (!isLoadingRole && currentSessionRole) {
-      loadData();
-    } else if (!isLoadingRole && !currentSessionRole) {
-      router.push('/login');
-      setIsLoadingDashboardData(false);
-    }
-  }, [isLoadingRole, currentSessionRole, userProfile.name, router, toast, fetchInstructorDashboardData]); // fetchInstructorDashboardData añadido como dependencia
+    loadDataForRole();
+  }, [currentSessionRole, isLoadingRole, fetchAdminData, fetchInstructorDashboardData, fetchStudentData, router, toast]);
 
 
   if (isLoadingRole || isLoadingDashboardData) {
@@ -886,8 +791,8 @@ export default function DashboardHomePage() {
             <Button onClick={() => {
                 if (typeof window !== 'undefined') {
                   localStorage.removeItem('sessionRole');
-                  localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY); // Limpiar token simulado
-                  localStorage.removeItem('nexusAlpriUserProfile'); // Limpiar perfil guardado
+                  localStorage.removeItem(SIMULATED_AUTH_TOKEN_KEY);
+                  localStorage.removeItem('nexusAlpriUserProfile');
                 }
                 router.push('/login');
             }}>Ir a Inicio de Sesión</Button>
@@ -897,15 +802,26 @@ export default function DashboardHomePage() {
 
   switch (currentSessionRole) {
     case 'administrador':
-      return <AdminDashboardWrapper userCount={adminTotalUsersCount} activeCourseCount={adminActiveCoursesCount} />;
+      return (
+        <AdminDashboardWrapper
+          userCount={adminMetrics?.totalUsers ?? 0}
+          activeCourseCount={adminMetrics?.activeCourses ?? 0}
+          pendingReviewCourseCount={pendingReviewCourseCount}
+          courseCompletionRate={adminMetrics?.completionRate ?? "0%"}
+        />
+      );
     case 'instructor':
-      // Pasar instructorCoursesSummaryData aquí.
-      return <InstructorDashboardContent instructorCoursesSummary={instructorCoursesSummaryData} isLoadingData={isLoadingDashboardData} />;
+      return (
+        <InstructorDashboardContent
+          instructorCoursesSummary={instructorCoursesSummaryData}
+          isLoadingData={isLoadingDashboardData} // Pasamos este estado para que InstructorDashboardContent muestre su propio loader
+        />
+      );
     case 'estudiante':
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
     default:
       return <StudentDashboardContent enrolledCourseDetails={studentEnrolledCourseDetails} />;
   }
 }
-
+        
     

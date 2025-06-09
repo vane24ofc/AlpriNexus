@@ -2,12 +2,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff, Check } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Palette, Lock, Save, Loader2, Eye, EyeOff, Check, Trash2, AlertTriangle } from 'lucide-react';
 import { useSessionRole } from '@/app/dashboard/layout';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -63,8 +63,19 @@ const themeOptions: ThemeOption[] = [
 
 const THEME_STORAGE_KEY = 'nexusAlpriTheme';
 
+// Keys for localStorage from dashboard/page.tsx for reset functionality
+const USERS_STORAGE_KEY = 'nexusAlpriAllUsers';
+const COURSES_STORAGE_KEY = 'nexusAlpriAllCourses';
+const CALENDAR_EVENTS_STORAGE_KEY = 'nexusAlpriCalendarEvents';
+const VIRTUAL_SESSIONS_STORAGE_KEY = 'nexusAlpriVirtualSessions';
+const COMPANY_RESOURCES_STORAGE_KEY = 'simulatedCompanyResources';
+const LEARNING_RESOURCES_STORAGE_KEY = 'simulatedLearningResources';
+const COMPLETED_LESSONS_PREFIX = 'simulatedCompletedCourseIds_';
+const QUIZ_STATE_STORAGE_PREFIX = 'simulatedQuizState_';
+
+
 export default function SettingsPage() {
-  const { userProfile, setUserProfile } = useSessionRole();
+  const { userProfile, setUserProfile, currentSessionRole } = useSessionRole();
   const { toast } = useToast();
 
   const [localName, setLocalName] = useState(userProfile.name);
@@ -89,6 +100,8 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
+  const [isDataResetDialogOpen, setIsDataResetDialogOpen] = useState(false);
+
   useEffect(() => {
     setLocalName(userProfile.name);
     setLocalEmail(userProfile.email);
@@ -99,10 +112,6 @@ export default function SettingsPage() {
     if (storedTheme && VALID_THEME_CLASSES.includes(storedTheme)) {
       setActiveTheme(storedTheme);
     } else {
-      // This logic has been moved to DashboardLayout
-      // Here we just sync with the theme from localStorage if present
-      // or default to what DashboardLayout might have set initially.
-      // If DashboardLayout defaults to 'theme-light', this will reflect it.
       const root = window.document.documentElement;
       const currentAppliedTheme = VALID_THEME_CLASSES.find(cls => root.classList.contains(cls));
       setActiveTheme(currentAppliedTheme || 'theme-light');
@@ -113,7 +122,7 @@ export default function SettingsPage() {
     if (typeof window !== 'undefined') {
       const root = window.document.documentElement;
       VALID_THEME_CLASSES.forEach(cls => root.classList.remove(cls));
-      if (newThemeId !== 'theme-light' || !VALID_THEME_CLASSES.includes('theme-light')) { // theme-light is base, no class needed unless explicitly defined
+      if (newThemeId !== 'theme-light' || !VALID_THEME_CLASSES.includes('theme-light')) {
         root.classList.add(newThemeId);
       }
       localStorage.setItem(THEME_STORAGE_KEY, newThemeId);
@@ -128,30 +137,8 @@ export default function SettingsPage() {
 
   const handleSaveChanges = async () => {
     setIsSaving(true);
-    
-    // TODO: API Call - PUT /api/me/profile with { name: localName, email: localEmail }
-    // Example:
-    // try {
-    //   const response = await fetch('/api/me/profile', {
-    //     method: 'PUT',
-    //     headers: { 'Content-Type': 'application/json', /* Add Authorization header if needed */ },
-    //     body: JSON.stringify({ name: localName, email: localEmail }),
-    //   });
-    //   if (!response.ok) throw new Error('Failed to update profile');
-    //   const updatedProfile = await response.json();
-    //   setUserProfile({ name: updatedProfile.name, email: updatedProfile.email });
-    //   toast({ title: "Perfil Actualizado", description: "Tu información ha sido actualizada." });
-    // } catch (error) {
-    //   console.error("Error updating profile:", error);
-    //   toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar tu perfil." });
-    // } finally {
-    //   setIsSaving(false);
-    // }
-
-    // Simulación (se mantiene para el prototipo)
     await new Promise(resolve => setTimeout(resolve, 1000));
     setUserProfile({ name: localName, email: localEmail });
-    // Notification preferences would also be saved to backend here
     console.log("Preferencias de notificación (simulado):", notificationPrefs);
     console.log("Tema de apariencia guardado:", activeTheme);
 
@@ -176,28 +163,6 @@ export default function SettingsPage() {
       setPasswordError('La nueva contraseña y la confirmación no coinciden.');
       return;
     }
-
-    // TODO: API Call - POST /api/me/change-password 
-    // { currentPassword, newPassword }
-    // Example:
-    // try {
-    //   const response = await fetch('/api/me/change-password', {
-    //     method: 'POST',
-    //     headers: { 'Content-Type': 'application/json', /* Auth header */ },
-    //     body: JSON.stringify({ currentPassword, newPassword }),
-    //   });
-    //   if (!response.ok) {
-    //     const errorData = await response.json();
-    //     throw new Error(errorData.message || 'Error al cambiar contraseña');
-    //   }
-    //   toast({ title: "Contraseña Actualizada", description: "Tu contraseña ha sido actualizada exitosamente." });
-    //   setIsPasswordDialogOpen(false);
-    //   setCurrentPassword(''); setNewPassword(''); setConfirmNewPassword('');
-    // } catch (error: any) {
-    //   setPasswordError(error.message || 'Error al procesar la solicitud.');
-    // }
-
-    // Simulación
     console.log("Simulando cambio de contraseña...");
     await new Promise(resolve => setTimeout(resolve, 1000));
     toast({
@@ -209,6 +174,44 @@ export default function SettingsPage() {
     setNewPassword('');
     setConfirmNewPassword('');
   };
+
+  const handleResetPlatformData = () => {
+    try {
+        if (typeof window === 'undefined') return;
+        // Lista de claves a eliminar (excluye sessionRole, nexusAlpriUserProfile, simulatedAuthToken)
+        const keysToClear = [
+          USERS_STORAGE_KEY,
+          COURSES_STORAGE_KEY,
+          CALENDAR_EVENTS_STORAGE_KEY,
+          VIRTUAL_SESSIONS_STORAGE_KEY,
+          COMPANY_RESOURCES_STORAGE_KEY,
+          LEARNING_RESOURCES_STORAGE_KEY,
+        ];
+
+        keysToClear.forEach(key => localStorage.removeItem(key));
+        
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith(COMPLETED_LESSONS_PREFIX) || key.startsWith(QUIZ_STATE_STORAGE_PREFIX)) {
+            localStorage.removeItem(key);
+            }
+        });
+        toast({
+            title: "Datos Restablecidos",
+            description: "Todos los datos simulados de la plataforma han sido eliminados. La página se recargará.",
+        });
+        setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+        console.error("Error al restablecer datos:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al Restablecer",
+            description: "No se pudieron eliminar todos los datos simulados.",
+        });
+    } finally {
+        setIsDataResetDialogOpen(false);
+    }
+  };
+
 
   const currentThemeDetails = themeOptions.find(t => t.id === activeTheme) || themeOptions[0];
 
@@ -222,7 +225,7 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-3 space-y-6"> {/* Changed from lg:col-span-2 to lg:col-span-3 for full width */}
+        <div className="lg:col-span-3 space-y-6">
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5 text-primary"/>Información de la Cuenta</CardTitle>
@@ -425,7 +428,7 @@ export default function SettingsPage() {
                         key={theme.id}
                         variant="outline"
                         className={cn(
-                            "w-full justify-start py-4 transition-all text-left h-auto relative", // Added relative for absolute positioning of check
+                            "w-full justify-start py-4 transition-all text-left h-auto relative",
                             activeTheme === theme.id ? "ring-2 ring-primary border-primary" : "hover:bg-muted/50"
                         )}
                         onClick={() => handleThemeChange(theme.id)}
@@ -456,6 +459,45 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {currentSessionRole === 'administrador' && (
+            <Card className="shadow-lg border-destructive">
+              <CardHeader>
+                <CardTitle className="flex items-center text-destructive"><AlertTriangle className="mr-2 h-5 w-5"/>Zona de Peligro</CardTitle>
+                <CardDescription>Acciones críticas que afectan a toda la plataforma.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                 <AlertDialog open={isDataResetDialogOpen} onOpenChange={setIsDataResetDialogOpen}>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" className="w-full">
+                            <Trash2 className="mr-2 h-4 w-4" /> Restablecer Datos Simulados de Plataforma
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>¿Confirmar Restablecimiento de Datos?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción eliminará todos los datos simulados (usuarios, cursos, inscripciones, etc.) guardados en el almacenamiento local de su navegador. Los datos iniciales de ejemplo se cargarán la próxima vez. Esta acción no se puede deshacer.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleResetPlatformData}
+                            className="bg-destructive hover:bg-destructive/90"
+                        >
+                            Sí, Restablecer Datos
+                        </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Esta acción es solo para fines de desarrollo y demostración.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+
           <div className="flex justify-end pt-4">
             <Button onClick={handleSaveChanges} className="min-w-[150px]" disabled={isSaving}>
                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -467,3 +509,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+        
+    
