@@ -179,7 +179,7 @@ export default function InstructorDashboardPage() {
                       <div className="w-full bg-muted rounded-full h-2.5">
                         <div className={`h-2.5 rounded-full ${course.averageCourseProgress > 70 ? 'bg-accent' : 'bg-primary'}`} style={{ width: `${course.averageCourseProgress}%` }}></div>
                       </div>
-</div>
+                    </div>
                   </li>
                 ))}
               </ul>
