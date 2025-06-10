@@ -5,14 +5,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Button, buttonVariants } from '@/components/ui/button'; // Importado buttonVariants
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, BookOpen, CheckCircle, XCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal, Users as UsersIcon } from 'lucide-react';
+import { PlusCircle, BookOpen, CheckCircle, AlertTriangle, Edit3, Eye, Trash2, Search, Loader2, MoreHorizontal, Users as UsersIcon, MessageSquare } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,10 +36,10 @@ import {
   AlertDialogTitle as ConfirmDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Input } from '@/components/ui/input';
-import type { User } from '@/app/dashboard/admin/users/page'; 
+import type { User } from '@/app/dashboard/admin/users/page';
 import { cn } from '@/lib/utils';
 
-interface ApiUser { 
+interface ApiUser {
   id: string;
   fullName: string;
   role: string;
@@ -50,11 +52,12 @@ interface EnrolledStudent {
 
 interface CourseRowProps {
   course: Course;
-  onOpenDialog: (course: Course, type: 'approve' | 'reject' | 'delete') => void;
+  onOpenDialog: (course: Course, type: 'approve' | 'delete' | 'feedback') => void;
   onOpenEnrolledStudentsModal: (course: Course) => void;
+  adminFeedback?: string;
 }
 
-const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, onOpenEnrolledStudentsModal }: CourseRowProps) {
+const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, onOpenEnrolledStudentsModal, adminFeedback }: CourseRowProps) {
   return (
     <TableRow>
       <TableCell className="hidden md:table-cell">
@@ -63,20 +66,25 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, 
       <TableCell className="font-medium max-w-xs truncate">
         <Link href={`/dashboard/courses/${course.id}/view`} className="hover:underline text-primary" title={course.title}>{course.title}</Link>
         <p className="text-xs text-muted-foreground md:hidden">{course.instructorName}</p>
+        {adminFeedback && course.status === 'pending' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 italic truncate" title={adminFeedback}>
+                <MessageSquare className="inline-block h-3 w-3 mr-1" /> Feedback: {adminFeedback}
+            </p>
+        )}
       </TableCell>
       <TableCell className="hidden sm:table-cell">{course.instructorName}</TableCell>
       <TableCell className="hidden lg:table-cell">
         <Badge variant={
           course.status === 'approved' ? 'default' :
-          course.status === 'pending' ? 'secondary' : 'destructive'
+          course.status === 'pending' ? 'secondary' : 'destructive' // Destructive is fallback, should not happen now
         } className={cn(
           course.status === 'approved' ? 'bg-accent text-accent-foreground hover:bg-accent/90' :
           course.status === 'pending' ? 'bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500' : ''
         )}>
           {course.status === 'approved' && <CheckCircle className="mr-1.5 h-3.5 w-3.5" />}
           {course.status === 'pending' && <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />}
-          {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />}
-          {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Rechazado'}
+          {/* {course.status === 'rejected' && <XCircle className="mr-1.5 h-3.5 w-3.5" />} - No longer a status */}
+          {course.status === 'pending' ? 'Pendiente' : course.status === 'approved' ? 'Aprobado' : 'Estado Desconocido'}
         </Badge>
       </TableCell>
       <TableCell className="text-right">
@@ -100,19 +108,20 @@ const MemoizedCourseRow = React.memo(function CourseRow({ course, onOpenDialog, 
               </Link>
             </DropdownMenuItem>
              <DropdownMenuItem onClick={() => onOpenEnrolledStudentsModal(course)}>
-              <UsersIcon className="mr-2 h-4 w-4" /> Ver Inscritos
+              <UsersIcon className="mr-2 h-4 w-4" /> Ver Inscritos (Simulado)
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            {(course.status === 'pending' || course.status === 'rejected') && (
-              <DropdownMenuItem onClick={() => onOpenDialog(course, 'approve')}>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Aprobar Curso
-              </DropdownMenuItem>
-            )}
             {course.status === 'pending' && (
-              <DropdownMenuItem onClick={() => onOpenDialog(course, 'reject')}>
-                <XCircle className="mr-2 h-4 w-4 text-orange-500" /> Rechazar Curso
-              </DropdownMenuItem>
+              <>
+                <DropdownMenuItem onClick={() => onOpenDialog(course, 'approve')}>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-500" /> Aprobar Curso
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onOpenDialog(course, 'feedback')}>
+                  <MessageSquare className="mr-2 h-4 w-4 text-blue-500" /> Añadir/Ver Feedback
+                </DropdownMenuItem>
+              </>
             )}
+            {/* No more 'Rechazar Curso' option */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onOpenDialog(course, 'delete')} className="text-destructive hover:!text-destructive focus:!text-destructive">
               <Trash2 className="mr-2 h-4 w-4" /> Eliminar Curso
@@ -130,10 +139,10 @@ export default function AdminCoursesPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const [allCourses, setAllCourses] = useState<Course[]>([]);
   const [courseToModify, setCourseToModify] = useState<Course | null>(null);
-  const [actionType, setActionType] = useState<'approve' | 'reject' | 'delete' | null>(null);
+  const [actionType, setActionType] = useState<'approve' | 'delete' | 'feedback' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -141,6 +150,9 @@ export default function AdminCoursesPage() {
   const [isLoadingEnrolledStudents, setIsLoadingEnrolledStudents] = useState(false);
   const [enrolledStudentsList, setEnrolledStudentsList] = useState<EnrolledStudent[]>([]);
   const [selectedCourseForEnrolledView, setSelectedCourseForEnrolledView] = useState<Course | null>(null);
+
+  const [feedbackComments, setFeedbackComments] = useState<Record<string, string>>({}); // Store feedback locally
+  const [currentFeedbackText, setCurrentFeedbackText] = useState("");
 
   const fetchCourses = useCallback(async () => {
     setIsLoading(true);
@@ -151,7 +163,7 @@ export default function AdminCoursesPage() {
         throw new Error(errorData.message || `Error al cargar cursos: ${response.status}`);
       }
       const coursesFromApi: Course[] = await response.json();
-      setAllCourses(coursesFromApi);
+      setAllCourses(coursesFromApi.filter(c => c.status !== 'rejected')); // Filter out rejected courses
     } catch (error: any) {
       console.error("Error cargando cursos desde API:", error);
       setAllCourses([]);
@@ -182,42 +194,49 @@ export default function AdminCoursesPage() {
         }
         router.replace(`${window.location.pathname}?${params.toString()}`, { scroll: false });
     }
-  }, [searchTerm, router]); 
+  }, [searchTerm, router]);
 
-  const handleCourseAction = async (courseId: string, newStatus: 'approved' | 'rejected') => {
+  const handleCourseAction = async (courseId: string, newStatus: 'approved') => { // 'rejected' status removed
     const course = allCourses.find(c => c.id === courseId);
     if (!course) return;
 
-    setIsLoading(true);
+    setIsLoading(true); // Or specific loader for this action
     try {
+      const payload: { status: 'approved'; adminFeedback?: string } = { status: newStatus };
+      if (newStatus === 'approved' && feedbackComments[courseId]) {
+          // Optionally, clear feedback when approving, or keep it for history (not implemented in DB field yet)
+          // For now, we don't send feedback when just approving.
+      }
+
       const response = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || `Error al actualizar estado del curso.`);
       }
-      
+
       toast({
-        title: `Curso ${newStatus === 'approved' ? 'Aprobado' : 'Rechazado'}`,
-        description: `El curso "${course.title}" ha sido marcado como ${newStatus === 'approved' ? 'aprobado' : 'rechazado'}.`,
+        title: `Curso Aprobado`,
+        description: `El curso "${course.title}" ha sido marcado como aprobado.`,
       });
-      fetchCourses(); 
+      fetchCourses();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Actualización", description: error.message });
-      setIsLoading(false); 
+    } finally {
+      setIsLoading(false);
+      setCourseToModify(null);
+      setActionType(null);
     }
-    setCourseToModify(null);
-    setActionType(null);
   };
 
   const handleDeleteCourse = async (courseId: string) => {
     const courseTitle = allCourses.find(c => c.id === courseId)?.title;
     if (!courseTitle) return;
-    setIsLoading(true);
+    setIsLoading(true); // Or specific loader
     try {
       const response = await fetch(`/api/courses/${courseId}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -229,19 +248,38 @@ export default function AdminCoursesPage() {
         description: `El curso "${courseTitle}" ha sido eliminado.`,
         variant: "destructive"
       });
-      fetchCourses(); 
+      fetchCourses();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Error de Eliminación", description: error.message });
-      setIsLoading(false); 
+    } finally {
+      setIsLoading(false);
+      setCourseToModify(null);
+      setActionType(null);
+    }
+  }
+
+  const handleSaveFeedback = () => {
+    if (courseToModify) {
+        // Here you would normally make an API call to save the feedback to the DB
+        // For simulation, we save it to local state `feedbackComments`
+        setFeedbackComments(prev => ({ ...prev, [courseToModify.id]: currentFeedbackText }));
+        toast({ title: "Feedback Guardado (Simulado)", description: `Feedback para "${courseToModify.title}" ha sido guardado localmente.` });
+        // Note: This feedback won't persist on page reload as it's not in the DB.
+        // The API PUT /api/courses/[courseId] would need to be updated to accept an `adminFeedback` field.
     }
     setCourseToModify(null);
     setActionType(null);
-  }
+    setCurrentFeedbackText("");
+  };
 
-  const openDialog = useCallback((course: Course, type: 'approve' | 'reject' | 'delete') => {
+
+  const openDialog = useCallback((course: Course, type: 'approve' | 'delete' | 'feedback') => {
     setCourseToModify(course);
     setActionType(type);
-  }, []);
+    if (type === 'feedback') {
+        setCurrentFeedbackText(feedbackComments[course.id] || "");
+    }
+  }, [feedbackComments]);
 
   const handleOpenEnrolledStudentsModal = useCallback(async (course: Course) => {
     setSelectedCourseForEnrolledView(course);
@@ -250,7 +288,6 @@ export default function AdminCoursesPage() {
     setEnrolledStudentsList([]);
 
     try {
-      
       await new Promise(resolve => setTimeout(resolve, 1000));
       const response = await fetch('/api/users');
       if (!response.ok) {
@@ -262,8 +299,7 @@ export default function AdminCoursesPage() {
       if (studentUsers.length === 0) {
         setEnrolledStudentsList([]);
       } else {
-        
-        const maxSimulated = Math.min(studentUsers.length, 5); 
+        const maxSimulated = Math.min(studentUsers.length, 5);
         const shuffledStudents = studentUsers.sort(() => 0.5 - Math.random());
         const simulatedEnrolled = shuffledStudents.slice(0, maxSimulated).map(u => ({ id: u.id, name: u.fullName }));
         setEnrolledStudentsList(simulatedEnrolled);
@@ -271,7 +307,7 @@ export default function AdminCoursesPage() {
     } catch (error: any) {
       console.error("Error simulando lista de inscritos:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo cargar la lista simulada de estudiantes inscritos." });
-      setEnrolledStudentsList([]); 
+      setEnrolledStudentsList([]);
     } finally {
       setIsLoadingEnrolledStudents(false);
     }
@@ -296,7 +332,7 @@ export default function AdminCoursesPage() {
   }, [allCourses, searchTerm]);
 
   const renderCourseTable = (courseList: Course[], tabName: string, emptyMessage: string) => {
-    if (isLoading && allCourses.length === 0 && !searchTerm) { 
+    if (isLoading && allCourses.length === 0 && !searchTerm) {
         return (
             <div className="flex justify-center items-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -313,14 +349,14 @@ export default function AdminCoursesPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="hidden md:table-cell w-[100px]">Miniatura</TableHead>
-              <TableHead>Título</TableHead>
+              <TableHead>Título y Feedback</TableHead>
               <TableHead className="hidden sm:table-cell">Instructor</TableHead>
               <TableHead className="hidden lg:table-cell">Estado</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {courseList.map(course => <MemoizedCourseRow key={course.id} course={course} onOpenDialog={openDialog} onOpenEnrolledStudentsModal={handleOpenEnrolledStudentsModal} />)}
+            {courseList.map(course => <MemoizedCourseRow key={course.id} course={course} onOpenDialog={openDialog} onOpenEnrolledStudentsModal={handleOpenEnrolledStudentsModal} adminFeedback={feedbackComments[course.id]}/>)}
           </TableBody>
         </Table>
       </div>
@@ -329,7 +365,7 @@ export default function AdminCoursesPage() {
 
   const pendingCourses = useMemo(() => filteredCourses.filter(c => c.status === 'pending'), [filteredCourses]);
   const publishedCourses = useMemo(() => filteredCourses.filter(c => c.status === 'approved'), [filteredCourses]);
-  const rejectedCourses = useMemo(() => filteredCourses.filter(c => c.status === 'rejected'), [filteredCourses]);
+  // Rejected courses are no longer displayed/filtered
 
   return (
     <div className="space-y-6">
@@ -348,7 +384,7 @@ export default function AdminCoursesPage() {
        <Card className="shadow-md">
         <CardHeader className="pb-4">
             <CardTitle className="text-base">Buscar Cursos</CardTitle>
-            <CardDescription>El filtro se aplica a todas las pestañas (Pendientes, Publicados, Rechazados).</CardDescription>
+            <CardDescription>El filtro se aplica a todas las pestañas (Pendientes, Publicados).</CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
             <div className="relative">
@@ -366,15 +402,12 @@ export default function AdminCoursesPage() {
       </Card>
 
       <Tabs defaultValue="pending">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+        <TabsList className="grid w-full grid-cols-2 mb-4"> {/* Changed to grid-cols-2 */}
           <TabsTrigger value="pending" disabled={isLoading && allCourses.length === 0}>
             Pendientes ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : pendingCourses.length})
           </TabsTrigger>
           <TabsTrigger value="published" disabled={isLoading && allCourses.length === 0}>
             Publicados ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : publishedCourses.length})
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex items-center justify-center" disabled={isLoading && allCourses.length === 0}>
-            Rechazados ({isLoading && allCourses.length === 0 && !searchTerm ? '...' : rejectedCourses.length})
           </TabsTrigger>
         </TabsList>
 
@@ -382,7 +415,7 @@ export default function AdminCoursesPage() {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Cursos Pendientes de Revisión</CardTitle>
-              <CardDescription>Cursos enviados por instructores que esperan tu aprobación.</CardDescription>
+              <CardDescription>Cursos enviados por instructores que esperan tu aprobación. Puedes añadir feedback.</CardDescription>
             </CardHeader>
             <CardContent>
               {renderCourseTable(pendingCourses, "pendientes", "No hay cursos pendientes de revisión.")}
@@ -401,28 +434,43 @@ export default function AdminCoursesPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
-        <TabsContent value="rejected">
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Cursos Rechazados</CardTitle>
-              <CardDescription>Cursos que han sido revisados y no aprobados. Puedes aprobarlos desde aquí si es necesario.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {renderCourseTable(rejectedCourses, "rechazados", "No hay cursos rechazados.")}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* TabsContent for 'rejected' removed */}
       </Tabs>
 
-      {courseToModify && actionType && (
-        <AlertDialog open={!!courseToModify} onOpenChange={() => { setCourseToModify(null); setActionType(null);}}>
+      {courseToModify && actionType === 'feedback' && (
+        <Dialog open={actionType === 'feedback'} onOpenChange={() => { setCourseToModify(null); setActionType(null); setCurrentFeedbackText("");}}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Feedback para: {courseToModify.title}</DialogTitle>
+              <DialogDescription>
+                Añade o edita tu comentario para el instructor sobre este curso pendiente.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Label htmlFor="feedback-text" className="sr-only">Comentario</Label>
+              <Textarea
+                id="feedback-text"
+                value={currentFeedbackText}
+                onChange={(e) => setCurrentFeedbackText(e.target.value)}
+                placeholder="Escribe tu feedback aquí..."
+                rows={5}
+              />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setCourseToModify(null); setActionType(null); setCurrentFeedbackText("");}}>Cancelar</Button>
+              <Button onClick={handleSaveFeedback}>Guardar Feedback (Simulado)</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {courseToModify && (actionType === 'approve' || actionType === 'delete') && (
+        <AlertDialog open={!!courseToModify && (actionType === 'approve' || actionType === 'delete')} onOpenChange={() => { setCourseToModify(null); setActionType(null);}}>
           <ConfirmDialogContent>
             <ConfirmDialogHeader>
               <ConfirmDialogTitle>Confirmar Acción</ConfirmDialogTitle>
               <ConfirmDialogDescription>
                 {actionType === 'approve' && `¿Estás seguro de que quieres aprobar el curso "${courseToModify.title}"?`}
-                {actionType === 'reject' && `¿Estás seguro de que quieres rechazar el curso "${courseToModify.title}"? Esto lo moverá a la pestaña de rechazados.`}
                 {actionType === 'delete' && `¿Estás seguro de que quieres eliminar permanentemente el curso "${courseToModify.title}"? Esta acción no se puede deshacer.`}
               </ConfirmDialogDescription>
             </ConfirmDialogHeader>
@@ -432,17 +480,14 @@ export default function AdminCoursesPage() {
                 onClick={() => {
                   if (!courseToModify) return;
                   if (actionType === 'approve') handleCourseAction(courseToModify.id, 'approved');
-                  if (actionType === 'reject') handleCourseAction(courseToModify.id, 'rejected');
                   if (actionType === 'delete') handleDeleteCourse(courseToModify.id);
                 }}
                 className={cn(
                     actionType === 'approve' ? 'bg-accent text-accent-foreground hover:bg-accent/90' : '',
-                    actionType === 'reject' ? buttonVariants({ variant: "destructive" }) : '',
                     actionType === 'delete' ? buttonVariants({ variant: "destructive" }) : ''
                 )}
               >
                 {actionType === 'approve' && 'Aprobar'}
-                {actionType === 'reject' && 'Rechazar Curso'}
                 {actionType === 'delete' && 'Eliminar Permanentemente'}
               </AlertDialogAction>
             </ConfirmDialogFooter>
@@ -489,4 +534,3 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
-    
