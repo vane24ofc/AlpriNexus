@@ -203,10 +203,8 @@ export default function AdminCoursesPage() {
     setIsLoading(true); // Or specific loader for this action
     try {
       const payload: { status: 'approved'; adminFeedback?: string } = { status: newStatus };
-      if (newStatus === 'approved' && feedbackComments[courseId]) {
-          // Optionally, clear feedback when approving, or keep it for history (not implemented in DB field yet)
-          // For now, we don't send feedback when just approving.
-      }
+      // For now, we don't send feedback when just approving.
+      // If we wanted to store feedback, PUT /api/courses/[id] needs to accept it.
 
       const response = await fetch(`/api/courses/${courseId}`, {
         method: 'PUT',
@@ -260,12 +258,12 @@ export default function AdminCoursesPage() {
 
   const handleSaveFeedback = () => {
     if (courseToModify) {
-        // Here you would normally make an API call to save the feedback to the DB
-        // For simulation, we save it to local state `feedbackComments`
+        // Simulate saving feedback to local state
+        // In a real app, this would be an API call to PUT /api/courses/[courseId]
+        // with a body like { adminFeedback: currentFeedbackText }
+        // The API would then update the course.
         setFeedbackComments(prev => ({ ...prev, [courseToModify.id]: currentFeedbackText }));
-        toast({ title: "Feedback Guardado (Simulado)", description: `Feedback para "${courseToModify.title}" ha sido guardado localmente.` });
-        // Note: This feedback won't persist on page reload as it's not in the DB.
-        // The API PUT /api/courses/[courseId] would need to be updated to accept an `adminFeedback` field.
+        toast({ title: "Feedback Guardado (Simulado)", description: `Feedback para "${courseToModify.title}" ha sido guardado localmente. No se persistirá en la base de datos.` });
     }
     setCourseToModify(null);
     setActionType(null);
@@ -277,7 +275,7 @@ export default function AdminCoursesPage() {
     setCourseToModify(course);
     setActionType(type);
     if (type === 'feedback') {
-        setCurrentFeedbackText(feedbackComments[course.id] || "");
+        setCurrentFeedbackText(feedbackComments[course.id] || ""); // Load existing local feedback
     }
   }, [feedbackComments]);
 
@@ -288,17 +286,19 @@ export default function AdminCoursesPage() {
     setEnrolledStudentsList([]);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const response = await fetch('/api/users');
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+      const response = await fetch('/api/users'); // Fetch all users for simulation
       if (!response.ok) {
         throw new Error('No se pudieron obtener los usuarios de la plataforma.');
       }
       const allApiUsers: ApiUser[] = await response.json();
+      // Filter for students and simulate some are enrolled
       const studentUsers = allApiUsers.filter(user => user.role === 'estudiante');
 
       if (studentUsers.length === 0) {
         setEnrolledStudentsList([]);
       } else {
+        // Simulate some students are enrolled, max 5 for display
         const maxSimulated = Math.min(studentUsers.length, 5);
         const shuffledStudents = studentUsers.sort(() => 0.5 - Math.random());
         const simulatedEnrolled = shuffledStudents.slice(0, maxSimulated).map(u => ({ id: u.id, name: u.fullName }));
@@ -534,3 +534,4 @@ export default function AdminCoursesPage() {
     </div>
   );
 }
+
