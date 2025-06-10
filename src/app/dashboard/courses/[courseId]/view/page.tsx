@@ -599,11 +599,11 @@ export default function StudentCourseViewPage() {
             </Card>
           )}
            <Card>
-            <CardHeader style={{ padding: '16px 20px 8px' }}>
-                <CardTitle style={{ fontSize: '1.5rem' }} className="text-foreground">Progreso del Curso</CardTitle>
+            <CardHeader className="p-4 text-center">
+                <CardTitle className="text-xl font-semibold text-foreground">Progreso del Curso</CardTitle>
             </CardHeader>
-            <CardContent className="text-center pt-4 pb-5 px-5">
-                <div className="relative w-32 h-32 mx-auto -mt-4">
+            <CardContent className="flex flex-col items-center px-4 pb-4 pt-2">
+                <div className="relative w-36 h-36 my-2">
                     <svg className="w-full h-full" viewBox="0 0 36 36" transform="rotate(-90 18 18)">
                         <path
                         className="text-muted/30"
@@ -623,17 +623,20 @@ export default function StudentCourseViewPage() {
                         />
                     </svg>
                     <div className="absolute inset-0 z-10 flex items-center justify-center">
-                        <span className={`text-xl font-normal ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
+                        <span className={`text-3xl font-semibold ${allLessonsCompleted ? "text-accent-foreground" : "text-foreground"}`}>
                             {courseProgress}%
                         </span>
                     </div>
                 </div>
-                <p className={`text-sm font-normal mt-2 mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
+                
+                <p className={`text-base mb-4 ${allLessonsCompleted ? "text-foreground" : "text-muted-foreground"}`}>
                     {allLessonsCompleted ? "Curso completado" : `${completedLessons.size} de ${course?.lessons?.length || 0} lecciones completadas`}
                 </p>
-                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3 mb-3 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} />
+
+                <Progress value={courseProgress} aria-label={`Progreso del curso: ${courseProgress}%`} className={`h-3.5 w-full max-w-sm mb-6 ${allLessonsCompleted ? "[&>div]:bg-accent" : "[&>div]:bg-primary"}`} />
+                
                 <Button
-                  className="w-full text-base py-2.5"
+                  className="w-full max-w-sm text-lg py-3"
                   onClick={handleCourseAction}
                   variant={allLessonsCompleted ? "default" : "default"}
                   style={allLessonsCompleted ? { backgroundColor: 'hsl(var(--accent))', color: 'hsl(var(--accent-foreground))' } : {}}
@@ -648,3 +651,4 @@ export default function StudentCourseViewPage() {
     </div>
   );
 }
+
