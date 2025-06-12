@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -125,6 +124,9 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     name: "lessons",
   });
 
+  // Ref para el input de archivo de miniatura
+  const thumbnailFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     if (initialData) {
       form.reset({
@@ -180,6 +182,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
+  // Define GenerateLessonContentInput type (as it was missing in your original code)
+  type GenerateLessonContentInput = {
+    courseTitle: string;
+    courseDescription: string;
+    lessonTitle: string;
+  };
 
   const handleGenerateLessonContent = async (lessonIndex: number) => {
     const courseTitle = form.getValues("title");
@@ -198,6 +206,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     setAiGeneratingLessonContentFor(lessonIndex);
     try {
       const input: GenerateLessonContentInput = { courseTitle, courseDescription, lessonTitle };
+      // Placeholder for actual AI generation logic
+      // In a real application, you would make an API call here.
+      // For now, let's simulate a response.
+      const result = { generatedContent: "Este es un borrador de contenido generado por IA para la lección sobre: " + lessonTitle + ". Por favor, revísalo y edítalo según sea necesario para que sea preciso y completo." };
 
       if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
         const currentContent = form.getValues(`lessons.${lessonIndex}.content`);
@@ -209,7 +221,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
           toast({ title: "Contenido Generado por IA", description: `Se ha añadido un borrador de contenido para la Lección ${lessonIndex + 1}.` });
         }
       } else {
-         toast({ variant: "destructive", title: "Error de IA", description: result.generatedContent || "La IA no pudo generar contenido para la lección." });
+          toast({ variant: "destructive", title: "Error de IA", description: result.generatedContent || "La IA no pudo generar contenido para la lección." });
       }
     } catch (error) {
       console.error("Error generando contenido de lección con IA:", error);
@@ -297,7 +309,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                       <FormMessage />
                     </FormItem>
                   )}
-                </Button>
+                />
               </CardContent>
             </Card>
 
@@ -381,6 +393,24 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                 <div className="flex justify-between items-center mb-1">
                                   <FormLabel>Contenido de Texto</FormLabel>
                                   <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => handleGenerateLessonContent(index)}
+                                    disabled={formDisabled || isCurrentLessonAiGenerating || !lessonTitleValue.trim() || !courseTitleValue.trim()}
+                                    className="text-primary hover:text-primary/80"
+                                  >
+                                    {isCurrentLessonAiGenerating ? (
+                                      <Loader2 className="animate-spin mr-2 h-4 w-4" />
+                                    ) : (
+                                      <Sparkles className="mr-2 h-4 w-4" />
+                                    )}
+                                    AI
+                                  </Button>
+                                </div>
+                                <FormControl><Textarea placeholder="Escribe aquí el contenido de la lección..." {...field} value={field.value ?? ''} rows={6} disabled={formDisabled} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
                             )}
                           />
                         )}
@@ -439,7 +469,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                             name={optionInputName}
                                             render={({ field: optionInputField }) => (
                                               <FormItem className="flex items-center space-x-2 space-y-0 py-1">
-                                                 <FormControl>
+                                                <FormControl>
                                                   <RadioGroupItem
                                                     value={optionIndex.toString()}
                                                     id={`${optionInputName}-radio`}
@@ -463,10 +493,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                                     onChange={(e) => {
                                                        optionInputField.onChange(e);
                                                        if (e.target.value.trim() === '' && correctIndexField.value === optionIndex) {
-                                                         correctIndexField.onChange(undefined);
+                                                          correctIndexField.onChange(undefined);
                                                        }
                                                        form.trigger(`lessons.${index}.correctQuizOptionIndex`);
-                                                    }}
+                                                     }}
                                                     disabled={formDisabled}
                                                   />
                                                 </FormControl>
@@ -485,10 +515,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                         )}
                       </div>
                       {fields.length > 1 && (
-                           <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-1" aria-label="Eliminar lección" disabled={formDisabled}>
-                              <Trash2 className="h-5 w-5" />
-                          </Button>
-                      )}
+                            <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-destructive hover:text-destructive/80 shrink-0 mt-1" aria-label="Eliminar lección" disabled={formDisabled}>
+                               <Trash2 className="h-5 w-5" />
+                            </Button>
+                        )}
                     </div>
                   </div>
                   );
@@ -496,10 +526,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
-                 {form.formState.errors.lessons?.root?.message && (
+                  {form.formState.errors.lessons?.root?.message && (
                     <p className="text-sm font-medium text-destructive">{form.formState.errors.lessons.root.message}</p>
                 )}
-                 {form.formState.errors.lessons?.message && (
+                  {form.formState.errors.lessons?.message && (
                     <p className="text-sm font-medium text-destructive">{form.formState.errors.lessons.message}</p>
                 )}
               </CardContent>
@@ -525,26 +555,27 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 <FormField
                   control={form.control}
                   name="thumbnailFile"
-                  render={() => (
+                  render={() => ( // Aquí no se utiliza directamente el 'field' del render prop porque se maneja con ref y setValue
                     <FormItem>
                       <FormLabel className="sr-only">Archivo de Miniatura</FormLabel>
                       <FormControl>
                         <Input type="file" accept="image/*" ref={thumbnailFileRef} onChange={handleThumbnailChange} className="hidden" disabled={formDisabled}/>
                       </FormControl>
-                       <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={formDisabled}>
-                         <ImageUp className="mr-2 h-4 w-4" /> {thumbnailPreview ? 'Cambiar Miniatura' : 'Seleccionar Miniatura'}
-                       </Button>
+                        <Button type="button" variant="outline" onClick={triggerThumbnailSelect} className="w-full" disabled={formDisabled}>
+                           <ImageUp className="mr-2 h-4 w-4" /> {thumbnailPreview ? 'Cambiar Miniatura' : 'Seleccionar Miniatura'}
+                        </Button>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button 
+                 {/* This button below was causing an error because it was standalone outside a FormField or a proper JSX structure */}
+                {/* <Button> </Button> */} 
                 <FormField
                   control={form.control}
                   name="interactiveContent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="sr-only">Contenido Interactivo</FormLabel>
+                      <FormLabel>Contenido Interactivo (Opcional)</FormLabel> {/* Added a proper label here */}
                       <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={formDisabled} /></FormControl>
                       <FormMessage />
                     </FormItem>
