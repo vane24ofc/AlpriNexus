@@ -34,24 +34,33 @@ const lessonSchema = z.object({
   title: z.string().min(3, { message: "El título de la lección debe tener al menos 3 caracteres." }),
   contentType: z.enum(['text', 'video', 'quiz']).default('text'),
   content: z.string().optional(),
-  videoUrl: z.string().url({ message: "Por favor, introduce una URL válida para el video (ej: https://www.youtube.com/embed/VIDEO_ID)." }).optional().or(z.literal('')).or(z.null())
+  // Modificado para permitir null explícitamente en el refinamiento, y para ser más robusto con las URLs
+  videoUrl: z.union([
+    z.string().url({ message: "Por favor, introduce una URL válida para el video (ej: https://www.youtube.com/embed/VIDEO_ID)." }),
+    z.literal(''),
+    z.null()
+  ]).optional().nullable()
     .refine(val => val === null || val === '' || (typeof val === 'string' && val.startsWith('https://www.youtube.com/embed/')), {
         message: "La URL debe ser un enlace 'embed' de YouTube (ej: https://www.youtube.com/embed/VIDEO_ID)",
     }),
   quizPlaceholder: z.string().optional(),
-  quizOptions: z.array(z.string().optional()).optional().default(['', '', '']),
-  correctQuizOptionIndex: z.number().optional(),
+  // Hacer quizOptions un array de strings que pueden ser vacíos o indefinidos, pero con un default
+  quizOptions: z.array(z.string()).max(3, { message: "Máximo 3 opciones para el quiz." }).default(['', '', '']),
+  correctQuizOptionIndex: z.number().int().min(0).max(2).optional().nullable(), // Permitir null y optional
 }).refine(data => {
   if (data.contentType === 'quiz') {
-    const providedOptions = data.quizOptions?.filter(opt => opt && opt.trim() !== '').length || 0;
+    // Asegurarse de que quizOptions sea un array y no null o undefined antes de filter
+    const providedOptions = (data.quizOptions || []).filter(opt => opt && opt.trim() !== '').length;
     if (providedOptions < 2) {
-      return false; 
+      return false; // Debe haber al menos 2 opciones con texto
     }
-    if (providedOptions > 0 && data.correctQuizOptionIndex === undefined) {
+    // Si hay opciones, debe haber una respuesta correcta seleccionada
+    if (providedOptions > 0 && (data.correctQuizOptionIndex === undefined || data.correctQuizOptionIndex === null)) {
         return false;
     }
-    if (data.correctQuizOptionIndex !== undefined && (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= (data.quizOptions || []).length || !(data.quizOptions?.[data.correctQuizOptionIndex]?.trim())  )) {
-        if (data.quizOptions?.[data.correctQuizOptionIndex]?.trim() === '') {
+    // La opción correcta debe ser una de las opciones proporcionadas y no estar vacía
+    if (data.correctQuizOptionIndex !== undefined && data.correctQuizOptionIndex !== null) {
+        if (data.correctQuizOptionIndex < 0 || data.correctQuizOptionIndex >= (data.quizOptions || []).length || !(data.quizOptions?.[data.correctQuizOptionIndex]?.trim())) {
             return false; 
         }
     }
@@ -110,11 +119,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
         title: l.title,
         contentType: l.contentType || 'text',
         content: l.content || '',
-        videoUrl: l.videoUrl || '',
+        videoUrl: l.videoUrl || null, // Usar null para URL vacía, compatible con schema
         quizPlaceholder: l.quizPlaceholder || 'Pregunta de ejemplo para el quiz',
-        quizOptions: l.quizOptions && l.quizOptions.length >= 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
-        correctQuizOptionIndex: l.correctQuizOptionIndex
-      })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined }],
+        // Asegurar que quizOptions siempre sea un array de 3 strings, incluso si son vacíos
+        quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
+        correctQuizOptionIndex: l.correctQuizOptionIndex ?? null // Usar null para undefined
+      })) || [{ title: '', contentType: 'text', content: '', videoUrl: null, quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: null }],
       interactiveContent: initialData?.interactiveContent || '',
     },
   });
@@ -124,7 +134,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     name: "lessons",
   });
 
-  // Ref para el input de archivo de miniatura
+  // AÑADIDO: Declaración de thumbnailFileRef
   const thumbnailFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -138,11 +148,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
           title: l.title,
           contentType: l.contentType || 'text',
           content: l.content || '',
-          videoUrl: l.videoUrl || '',
+          videoUrl: l.videoUrl || null, // Usar null
           quizPlaceholder: l.quizPlaceholder || '',
-          quizOptions: l.quizOptions && l.quizOptions.length >= 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
-          correctQuizOptionIndex: l.correctQuizOptionIndex
-        })) || [{ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined }],
+          quizOptions: l.quizOptions && l.quizOptions.length > 0 ? (l.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', ''],
+          correctQuizOptionIndex: l.correctQuizOptionIndex ?? null // Usar null
+        })) || [{ title: '', contentType: 'text', content: '', videoUrl: null, quizPlaceholder: 'Pregunta de ejemplo para el quiz', quizOptions: ['', '', ''], correctQuizOptionIndex: null }],
         interactiveContent: initialData.interactiveContent || '',
       });
       setThumbnailPreview(initialData.thumbnailUrl || null);
@@ -182,10 +192,10 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     thumbnailFileRef.current?.click();
   };
 
-  // Define GenerateLessonContentInput type (as it was missing in your original code)
+  // AÑADIDO: Definición del tipo GenerateLessonContentInput
   type GenerateLessonContentInput = {
     courseTitle: string;
-    courseDescription: string;
+    courseDescription?: string; // Hice opcional por si no se usa siempre
     lessonTitle: string;
   };
 
@@ -206,10 +216,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     setAiGeneratingLessonContentFor(lessonIndex);
     try {
       const input: GenerateLessonContentInput = { courseTitle, courseDescription, lessonTitle };
-      // Placeholder for actual AI generation logic
-      // In a real application, you would make an API call here.
-      // For now, let's simulate a response.
-      const result = { generatedContent: "Este es un borrador de contenido generado por IA para la lección sobre: " + lessonTitle + ". Por favor, revísalo y edítalo según sea necesario para que sea preciso y completo." };
+
+      // SIMULACIÓN: Aquí iría la llamada real a tu API de IA
+      // Por ahora, simulamos una respuesta
+      const result = { 
+        generatedContent: `Este es un borrador de contenido generado por IA para la lección "${lessonTitle}" del curso "${courseTitle}".\n\n${courseDescription ? `Descripción del curso: ${courseDescription}\n\n` : ''}Por favor, revisa y edita este texto para que sea preciso y completo, añadiendo detalles específicos y ejemplos si es necesario.` 
+      };
 
       if (result.generatedContent && !result.generatedContent.startsWith('Error:')) {
         const currentContent = form.getValues(`lessons.${lessonIndex}.content`);
@@ -257,6 +269,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
     }
 
     const lessonsWithDetails = data.lessons.map(lesson => {
+        // Asegurarse de que quizOptions sea un array antes de filtrar
         const filteredQuizOptions = lesson.contentType === 'quiz' 
             ? (lesson.quizOptions || []).filter(opt => opt && opt.trim() !== '') 
             : undefined;
@@ -267,7 +280,8 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
             videoUrl: lesson.contentType === 'video' ? lesson.videoUrl || undefined : undefined,
             quizPlaceholder: lesson.contentType === 'quiz' ? lesson.quizPlaceholder || '' : undefined,
             quizOptions: filteredQuizOptions && filteredQuizOptions.length > 0 ? filteredQuizOptions : undefined,
-            correctQuizOptionIndex: lesson.contentType === 'quiz' && filteredQuizOptions && filteredQuizOptions.length > 0 ? lesson.correctQuizOptionIndex : undefined,
+            // Asegurarse de que correctQuizOptionIndex sea undefined si no es quiz o si no hay opciones válidas
+            correctQuizOptionIndex: lesson.contentType === 'quiz' && filteredQuizOptions && filteredQuizOptions.length > 0 && lesson.correctQuizOptionIndex !== null ? lesson.correctQuizOptionIndex : undefined,
             contentType: lesson.contentType || 'text'
         };
     });
@@ -356,10 +370,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                     ...currentLessonValues,
                                     contentType: value as 'text' | 'video' | 'quiz',
                                     content: value === 'text' ? currentLessonValues.content || '' : '',
-                                    videoUrl: value === 'video' ? currentLessonValues.videoUrl || '' : '',
+                                    videoUrl: value === 'video' ? currentLessonValues.videoUrl || null : null, // Usar null
                                     quizPlaceholder: value === 'quiz' ? currentLessonValues.quizPlaceholder || 'Pregunta de ejemplo' : '',
-                                    quizOptions: value === 'quiz' ? (currentLessonValues.quizOptions || ['', '', '']) : ['', '', ''],
-                                    correctQuizOptionIndex: value === 'quiz' ? currentLessonValues.correctQuizOptionIndex : undefined,
+                                    // Asegurar que quizOptions siempre sea un array de 3 strings
+                                    quizOptions: value === 'quiz' ? (currentLessonValues.quizOptions && currentLessonValues.quizOptions.length > 0 ? (currentLessonValues.quizOptions.concat(['','','']).slice(0,3) as [string,string,string]) : ['', '', '']) : ['', '', ''],
+                                    correctQuizOptionIndex: value === 'quiz' ? (currentLessonValues.correctQuizOptionIndex ?? null) : null, // Usar null
                                   });
                                 }} 
                                 defaultValue={field.value} 
@@ -451,9 +466,11 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                     <RadioGroup
                                       onValueChange={(value) => {
                                         const numValue = parseInt(value, 10);
-                                        correctIndexField.onChange(isNaN(numValue) ? undefined : numValue);
+                                        // Si el valor no es un número (ej. cuando deselecciona), asignar null
+                                        correctIndexField.onChange(isNaN(numValue) ? null : numValue);
                                       }}
-                                      value={correctIndexField.value !== undefined ? correctIndexField.value.toString() : ""}
+                                      // Asegurar que el valor para RadioGroup es un string o "" si es null/undefined
+                                      value={correctIndexField.value !== undefined && correctIndexField.value !== null ? correctIndexField.value.toString() : ""}
                                       className="space-y-1.5 mt-1"
                                       disabled={formDisabled}
                                     >
@@ -478,7 +495,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                                   />
                                                 </FormControl>
                                                 <Label 
-                                                  htmlFor={optionInputField.name}
+                                                  htmlFor={optionInputField.name} // Usar el name del input como htmlFor
                                                   className={`w-16 text-sm shrink-0 font-normal ${(!canSelectRadio && correctIndexField.value === optionIndex) ? 'text-muted-foreground opacity-70' : ''}`}
                                                 >
                                                   Opción {String.fromCharCode(65 + optionIndex)}:
@@ -489,11 +506,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                                                     placeholder="Texto de la opción..."
                                                     className="flex-grow h-9"
                                                     {...optionInputField}
-                                                    value={optionInputField.value ?? ''}
+                                                    value={optionInputField.value ?? ''} // Asegurar que el valor nunca sea undefined
                                                     onChange={(e) => {
                                                        optionInputField.onChange(e);
+                                                       // Si el texto de la opción se vacía y era la opción correcta, deseleccionar
                                                        if (e.target.value.trim() === '' && correctIndexField.value === optionIndex) {
-                                                          correctIndexField.onChange(undefined);
+                                                          correctIndexField.onChange(null); // Establecer a null
                                                        }
                                                        form.trigger(`lessons.${index}.correctQuizOptionIndex`);
                                                      }}
@@ -523,7 +541,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                   </div>
                   );
                 })}
-                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: '', quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''], correctQuizOptionIndex: undefined })} className="w-full mt-4" disabled={formDisabled}>
+                <Button type="button" variant="outline" onClick={() => append({ title: '', contentType: 'text', content: '', videoUrl: null, quizPlaceholder: 'Pregunta de ejemplo', quizOptions: ['', '', ''], correctQuizOptionIndex: null })} className="w-full mt-4" disabled={formDisabled}>
                   <PlusCircle className="mr-2 h-5 w-5" /> Añadir Lección
                 </Button>
                   {form.formState.errors.lessons?.root?.message && (
@@ -555,7 +573,7 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                 <FormField
                   control={form.control}
                   name="thumbnailFile"
-                  render={() => ( // Aquí no se utiliza directamente el 'field' del render prop porque se maneja con ref y setValue
+                  render={() => ( 
                     <FormItem>
                       <FormLabel className="sr-only">Archivo de Miniatura</FormLabel>
                       <FormControl>
@@ -568,14 +586,12 @@ export default function CourseForm({ initialData, onSubmitCourse, isSubmitting }
                     </FormItem>
                   )}
                 />
-                 {/* This button below was causing an error because it was standalone outside a FormField or a proper JSX structure */}
-                {/* <Button> </Button> */} 
                 <FormField
                   control={form.control}
                   name="interactiveContent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Contenido Interactivo (Opcional)</FormLabel> {/* Added a proper label here */}
+                      <FormLabel>Contenido Interactivo (Opcional)</FormLabel> 
                       <FormControl><Textarea placeholder="Pega aquí código embed (ej: iframes de videos, quizzes interactivos) o describe el contenido." {...field} rows={4} disabled={formDisabled} /></FormControl>
                       <FormMessage />
                     </FormItem>
